@@ -5,13 +5,13 @@ import React from 'react';
 import { ClipboardList, UserPlus, MapPin, Wrench } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-// Placeholder Dialog Components (to be created)
-// import EmployeeDialog from '@/components/cadastros/EmployeeDialog';
-// import LocationDialog from '@/components/cadastros/LocationDialog';
-// import EquipmentDialog from '@/components/cadastros/EquipmentDialog';
+// Import Dialog Components
+import EmployeeDialog from '@/components/cadastros/EmployeeDialog';
+import LocationDialog from '@/components/cadastros/LocationDialog';
+import EquipmentDialog from '@/components/cadastros/EquipmentDialog';
 
 export default function CadastrosPage() {
-  // Placeholder state and functions for dialogs (replace with actual implementation)
+  // State and functions for dialogs
   const [isEmployeeDialogOpen, setEmployeeDialogOpen] = React.useState(false);
   const [isLocationDialogOpen, setLocationDialogOpen] = React.useState(false);
   const [isEquipmentDialogOpen, setEquipmentDialogOpen] = React.useState(false);
@@ -41,7 +41,7 @@ export default function CadastrosPage() {
               Gerenciar Funcionários
             </Button>
              {/* TODO: Add list preview or count */}
-             <p className="text-xs text-muted-foreground mt-2 text-center">Ex: Listar ou contar funcionários.</p>
+             <p className="text-xs text-muted-foreground mt-2 text-center">Adicionar, editar ou listar funcionários.</p>
           </CardContent>
         </Card>
 
@@ -59,7 +59,7 @@ export default function CadastrosPage() {
               Gerenciar Locais
             </Button>
              {/* TODO: Add list preview or count */}
-             <p className="text-xs text-muted-foreground mt-2 text-center">Ex: Listar ou contar locais.</p>
+             <p className="text-xs text-muted-foreground mt-2 text-center">Adicionar, editar ou listar locais.</p>
           </CardContent>
         </Card>
 
@@ -77,18 +77,16 @@ export default function CadastrosPage() {
               Gerenciar Equipamentos
             </Button>
              {/* TODO: Add list preview or count */}
-             <p className="text-xs text-muted-foreground mt-2 text-center">Ex: Listar ou contar equipamentos.</p>
+             <p className="text-xs text-muted-foreground mt-2 text-center">Adicionar, editar ou listar equipamentos.</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Placeholder for Dialogs */}
-      {/* <EmployeeDialog open={isEmployeeDialogOpen} onOpenChange={setEmployeeDialogOpen} /> */}
-      {/* <LocationDialog open={isLocationDialogOpen} onOpenChange={setLocationDialogOpen} /> */}
-      {/* <EquipmentDialog open={isEquipmentDialogOpen} onOpenChange={setEquipmentDialogOpen} /> */}
-       <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-         <p className="text-muted-foreground">Dialogs para gerenciamento (Funcionários, Locais, Equipamentos) serão implementados aqui.</p>
-       </div>
+      {/* Dialogs */}
+      <EmployeeDialog open={isEmployeeDialogOpen} onOpenChange={setEmployeeDialogOpen} />
+      <LocationDialog open={isLocationDialogOpen} onOpenChange={setLocationDialogOpen} />
+      <EquipmentDialog open={isEquipmentDialogOpen} onOpenChange={setEquipmentDialogOpen} />
+
     </div>
   );
 }

@@ -9,29 +9,29 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // To switch between Courses and Records
 
-// Placeholder Dialog Components (to be created)
-// import TrainingCourseDialog from '@/components/treinamentos/TrainingCourseDialog';
-// import TrainingRecordDialog from '@/components/treinamentos/TrainingRecordDialog';
+// Import Dialog Components
+import TrainingCourseDialog from '@/components/treinamentos/TrainingCourseDialog';
+import TrainingRecordDialog from '@/components/treinamentos/TrainingRecordDialog';
 
 export default function TreinamentosPage() {
-  // Placeholder state and functions for dialogs
+  // State and functions for dialogs
   const [isCourseDialogOpen, setCourseDialogOpen] = React.useState(false);
   const [isRecordDialogOpen, setRecordDialogOpen] = React.useState(false);
 
-  // Placeholder data
+  // Placeholder data (Fetch from DB later)
   const courses = [
-    { id: 1, name: "NR-35 Trabalho em Altura", frequency: 24, provider: "Empresa Segura Ltda." },
-    { id: 2, name: "NR-33 Espaços Confinados (Trabalhador/Vigia)", frequency: 12, provider: "Consultoria XYZ" },
-    { id: 3, name: "Primeiros Socorros", frequency: 12, provider: "Cruz Vermelha (Exemplo)" },
-    { id: 4, name: "Uso de EPIs", frequency: 0, provider: "Interno" }, // Frequência 0 = treinamento único/reciclagem sob demanda
+    { id: 1, course_name: "NR-35 Trabalho em Altura", frequency_months: 24, provider: "Empresa Segura Ltda." },
+    { id: 2, course_name: "NR-33 Espaços Confinados (Trabalhador/Vigia)", frequency_months: 12, provider: "Consultoria XYZ" },
+    { id: 3, course_name: "Primeiros Socorros", frequency_months: 12, provider: "Cruz Vermelha (Exemplo)" },
+    { id: 4, course_name: "Uso de EPIs", frequency_months: 0, provider: "Interno" }, // Frequência 0 = treinamento único/reciclagem sob demanda
   ];
 
   const records = [
-    { id: 101, employee: "Alice Silva", course: "NR-35 Trabalho em Altura", completion_date: "2023-10-15", expiry_date: "2025-10-15" },
-    { id: 102, employee: "Bruno Costa", course: "NR-33 Espaços Confinados (Trabalhador/Vigia)", completion_date: "2024-02-20", expiry_date: "2025-02-20" },
-    { id: 103, employee: "Alice Silva", course: "Primeiros Socorros", completion_date: "2024-05-01", expiry_date: "2025-05-01" },
-    { id: 104, employee: "Carlos Dias", course: "Uso de EPIs", completion_date: "2024-01-10", expiry_date: null },
-    { id: 105, employee: "Bruno Costa", course: "NR-35 Trabalho em Altura", completion_date: "2022-11-01", expiry_date: "2024-11-01" }, // Exemplo Vencido
+    { id: 101, employee_name: "Alice Silva", training_name: "NR-35 Trabalho em Altura", completion_date: "2023-10-15", expiry_date: "2025-10-15" },
+    { id: 102, employee_name: "Bruno Costa", training_name: "NR-33 Espaços Confinados (Trabalhador/Vigia)", completion_date: "2024-02-20", expiry_date: "2025-02-20" },
+    { id: 103, employee_name: "Alice Silva", training_name: "Primeiros Socorros", completion_date: "2024-05-01", expiry_date: "2025-05-01" },
+    { id: 104, employee_name: "Carlos Dias", training_name: "Uso de EPIs", completion_date: "2024-01-10", expiry_date: null },
+    { id: 105, employee_name: "Bruno Costa", training_name: "NR-35 Trabalho em Altura", completion_date: "2022-11-01", expiry_date: "2024-11-01" }, // Exemplo Vencido
   ];
 
   return (
@@ -83,8 +83,8 @@ export default function TreinamentosPage() {
                   {records.length > 0 ? (
                     records.map((record) => (
                       <TableRow key={record.id} className={record.expiry_date && new Date(record.expiry_date) < new Date() ? 'bg-destructive/10' : ''}>
-                        <TableCell className="font-medium">{record.employee}</TableCell>
-                        <TableCell>{record.course}</TableCell>
+                        <TableCell className="font-medium">{record.employee_name}</TableCell>
+                        <TableCell>{record.training_name}</TableCell>
                         <TableCell>{record.completion_date}</TableCell>
                         <TableCell>{record.expiry_date || "N/A"}</TableCell>
                         <TableCell className="text-right">
@@ -128,8 +128,8 @@ export default function TreinamentosPage() {
                   {courses.length > 0 ? (
                     courses.map((course) => (
                       <TableRow key={course.id}>
-                        <TableCell className="font-medium">{course.name}</TableCell>
-                        <TableCell>{course.frequency > 0 ? course.frequency : "N/A"}</TableCell>
+                        <TableCell className="font-medium">{course.course_name}</TableCell>
+                        <TableCell>{course.frequency_months && course.frequency_months > 0 ? course.frequency_months : "N/A"}</TableCell>
                         <TableCell>{course.provider}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm">Editar</Button>
@@ -152,12 +152,10 @@ export default function TreinamentosPage() {
       </Tabs>
 
 
-      {/* Placeholder for Dialogs */}
-      {/* <TrainingCourseDialog open={isCourseDialogOpen} onOpenChange={setCourseDialogOpen} /> */}
-      {/* <TrainingRecordDialog open={isRecordDialogOpen} onOpenChange={setRecordDialogOpen} /> */}
-       <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-         <p className="text-muted-foreground">Dialogs para gerenciar cursos e registros serão implementados aqui.</p>
-       </div>
+      {/* Dialogs */}
+      <TrainingCourseDialog open={isCourseDialogOpen} onOpenChange={setCourseDialogOpen} />
+      <TrainingRecordDialog open={isRecordDialogOpen} onOpenChange={setRecordDialogOpen} />
+
     </div>
   );
 }

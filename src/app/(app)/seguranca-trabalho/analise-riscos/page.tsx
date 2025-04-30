@@ -9,30 +9,32 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge'; // For status and risk level
 
-// Placeholder Dialog Component (to be created)
-// import RiskDialog from '@/components/riscos/RiskDialog';
+// Import Dialog Component
+import RiskDialog from '@/components/riscos/RiskDialog';
 
 export default function AnaliseRiscosPage() {
-  // Placeholder state and functions for dialogs
+  // State and functions for dialogs
   const [isRiskDialogOpen, setRiskDialogOpen] = React.useState(false);
 
-  // Placeholder data for risk list
+  // Placeholder data for risk list (Fetch from DB later)
   const risks = [
-    { id: 1, description: "Queda de altura durante manutenção de telhado", location: "Fábrica - Telhado", probability: 3, severity: 5, risk_level: 15, status: "Controlado" },
-    { id: 2, description: "Exposição a ruído acima do limite", location: "Produção A - Máquina X", probability: 4, severity: 3, risk_level: 12, status: "Em Andamento" },
-    { id: 3, description: "Contato com produto químico corrosivo", location: "Laboratório", probability: 2, severity: 4, risk_level: 8, status: "Controlado" },
-    { id: 4, description: "Lesão ergonômica por movimento repetitivo", location: "Escritório", probability: 3, severity: 2, risk_level: 6, status: "Aberto" },
-    { id: 5, description: "Atropelamento por empilhadeira", location: "Armazém", probability: 2, severity: 5, risk_level: 10, status: "Em Andamento" },
+    { id: 1, description: "Queda de altura durante manutenção de telhado", location_name: "Fábrica - Telhado", probability: 3, severity: 5, risk_level: 15, status: "Controlado" },
+    { id: 2, description: "Exposição a ruído acima do limite", location_name: "Produção A - Máquina X", probability: 4, severity: 3, risk_level: 12, status: "Em Andamento" },
+    { id: 3, description: "Contato com produto químico corrosivo", location_name: "Laboratório", probability: 2, severity: 4, risk_level: 8, status: "Controlado" },
+    { id: 4, description: "Lesão ergonômica por movimento repetitivo", location_name: "Escritório", probability: 3, severity: 2, risk_level: 6, status: "Aberto" },
+    { id: 5, description: "Atropelamento por empilhadeira", location_name: "Armazém", probability: 2, severity: 5, risk_level: 10, status: "Em Andamento" },
   ];
 
-   const getRiskLevelBadge = (level: number) => {
+   const getRiskLevelBadge = (level: number | null | undefined) => {
+       if (level === null || level === undefined) return <Badge variant="outline">N/A</Badge>;
         if (level >= 15) return <Badge variant="destructive">Alto ({level})</Badge>;
         if (level >= 9) return <Badge variant="secondary" className="bg-yellow-500 text-black hover:bg-yellow-600">Médio ({level})</Badge>;
         if (level >= 5) return <Badge className="bg-blue-500 hover:bg-blue-600">Baixo ({level})</Badge>;
         return <Badge variant="outline">Trivial ({level})</Badge>;
    }
 
-   const getStatusBadgeVariant = (status: string) => {
+   const getStatusBadgeVariant = (status: string | null | undefined) => {
+       if (!status) return 'outline';
        if (status === 'Aberto') return 'destructive';
        if (status === 'Em Andamento') return 'secondary'; // Yellowish or similar
        if (status === 'Controlado' || status === 'Mitigado') return 'default'; // Greenish
@@ -87,12 +89,12 @@ export default function AnaliseRiscosPage() {
                 risks.map((risk) => (
                   <TableRow key={risk.id}>
                     <TableCell className="font-medium max-w-xs truncate">{risk.description}</TableCell>
-                    <TableCell>{risk.location}</TableCell>
+                    <TableCell>{risk.location_name}</TableCell>
                     {/* <TableCell>{risk.probability}</TableCell>
                     <TableCell>{risk.severity}</TableCell> */}
                     <TableCell>{getRiskLevelBadge(risk.risk_level)}</TableCell>
                     <TableCell>
-                       <Badge variant={getStatusBadgeVariant(risk.status)}>{risk.status}</Badge>
+                       <Badge variant={getStatusBadgeVariant(risk.status)}>{risk.status || 'N/A'}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="ghost" size="sm">Detalhes</Button>
@@ -116,11 +118,9 @@ export default function AnaliseRiscosPage() {
       </Card>
 
 
-      {/* Placeholder for Dialog */}
-      {/* <RiskDialog open={isRiskDialogOpen} onOpenChange={setRiskDialogOpen} /> */}
-      <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-         <p className="text-muted-foreground">Dialog para adicionar/editar riscos e visualizar matriz será implementado aqui.</p>
-      </div>
+      {/* Dialog for adding/editing risks */}
+       <RiskDialog open={isRiskDialogOpen} onOpenChange={setRiskDialogOpen} />
+
     </div>
   );
 }

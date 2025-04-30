@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge"; // To show roles/status
 
-// Placeholder Dialog Component (to be created)
-// import UserDialog from '@/components/usuarios/UserDialog';
+// Import Dialog Component
+import UserDialog from '@/components/usuarios/UserDialog';
 
 export default function UsuariosPage() {
-  // Placeholder state and functions for dialogs
+  // State and functions for dialogs
   const [isUserDialogOpen, setUserDialogOpen] = React.useState(false);
 
-  // Placeholder data for user list
+  // Placeholder data for user list (Fetch from DB later)
   const users = [
     { id: 1, name: "Admin EHS", email: "admin@ehscontrol.com", role: "admin", is_active: true },
     { id: 2, name: "Gerente Seg", email: "gerente.seg@company.com", role: "manager", is_active: true },
@@ -103,11 +103,9 @@ export default function UsuariosPage() {
         </CardContent>
       </Card>
 
-      {/* Placeholder for Dialog */}
-      {/* <UserDialog open={isUserDialogOpen} onOpenChange={setUserDialogOpen} /> */}
-      <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-         <p className="text-muted-foreground">Dialog para adicionar/editar usuários será implementado aqui.</p>
-      </div>
+      {/* Dialog for adding/editing users */}
+       <UserDialog open={isUserDialogOpen} onOpenChange={setUserDialogOpen} />
+
     </div>
   );
 }

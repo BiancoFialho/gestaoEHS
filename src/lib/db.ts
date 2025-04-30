@@ -23,6 +23,10 @@ export async function getDbConnection(): Promise<Database> {
 
   console.log('Conexão com SQLite estabelecida.');
 
+  // Habilitar chaves estrangeiras (importante para integridade relacional)
+  await db.run('PRAGMA foreign_keys = ON');
+
+
   // Criar tabelas se não existirem
   await db.exec(`
     -- Tabela Geral: Funcionários
@@ -54,7 +58,7 @@ export async function getDbConnection(): Promise<Database> {
       maintenance_schedule TEXT,
       last_maintenance_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL -- Optionally set null if location is deleted
     );
 
     -- Tabela Geral: Treinamentos (Cursos)
@@ -78,8 +82,8 @@ export async function getDbConnection(): Promise<Database> {
       score REAL,
       certificate_path TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id),
-      FOREIGN KEY (training_id) REFERENCES trainings(id)
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE, -- Delete records if employee is deleted
+      FOREIGN KEY (training_id) REFERENCES trainings(id) ON DELETE CASCADE -- Delete records if training is deleted
     );
 
     -- Tabela Geral: Documentos
@@ -114,7 +118,7 @@ export async function getDbConnection(): Promise<Database> {
       action TEXT NOT NULL, -- e.g., 'CREATE_RISK', 'UPDATE_INCIDENT'
       details TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
 
@@ -143,11 +147,12 @@ export async function getDbConnection(): Promise<Database> {
       severity INTEGER, -- e.g., 1 a 5
       risk_level INTEGER, -- Calculado: probability * severity
       control_measures TEXT,
-      responsible_person TEXT,
+      responsible_person_id INTEGER, -- Changed to ID
       status TEXT DEFAULT 'Aberto', -- e.g., 'Aberto', 'Em Andamento', 'Controlado', 'Mitigado'
       review_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
+      FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL -- Or employees(id)
     );
 
     -- Tabela Segurança: Incidentes (já existente, mas garantindo)
@@ -158,7 +163,7 @@ export async function getDbConnection(): Promise<Database> {
       type TEXT NOT NULL, -- 'Acidente com Afastamento', 'Acidente sem Afastamento', 'Quase Acidente', 'Incidente Ambiental'
       severity TEXT, -- 'Leve', 'Moderado', 'Grave', 'Fatalidade', 'Insignificante' (para ambiental)
       location_id INTEGER,
-      involved_persons TEXT, -- Pode ser JSON ou IDs de funcionários
+      involved_persons_ids TEXT, -- Storing IDs as comma-separated string or JSON
       root_cause TEXT,
       corrective_actions TEXT,
       lost_days INTEGER DEFAULT 0,
@@ -166,8 +171,8 @@ export async function getDbConnection(): Promise<Database> {
       reported_by_id INTEGER,
       status TEXT DEFAULT 'Aberto', -- e.g., 'Aberto', 'Em Investigação', 'Aguardando Ação', 'Fechado'
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id),
-      FOREIGN KEY (reported_by_id) REFERENCES users(id) -- Ou employees(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
+      FOREIGN KEY (reported_by_id) REFERENCES users(id) ON DELETE SET NULL -- Ou employees(id)
     );
 
     -- Tabela Segurança: Auditorias
@@ -176,7 +181,7 @@ export async function getDbConnection(): Promise<Database> {
       type TEXT NOT NULL, -- e.g., 'Interna', 'Externa', 'Comportamental'
       scope TEXT NOT NULL, -- Área ou processo auditado
       audit_date DATE NOT NULL,
-      auditor TEXT NOT NULL,
+      auditor TEXT NOT NULL, -- Could link to users/employees if needed
       findings TEXT, -- Resumo dos achados
       non_conformities_count INTEGER DEFAULT 0,
       observations_count INTEGER DEFAULT 0,
@@ -196,8 +201,8 @@ export async function getDbConnection(): Promise<Database> {
       action_plan_id INTEGER, -- Link para plano de ação
       status TEXT DEFAULT 'Aberta', -- e.g., 'Aberta', 'Em Análise', 'Ação Definida', 'Concluída', 'Verificada'
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (audit_id) REFERENCES audits(id),
-      FOREIGN KEY (action_plan_id) REFERENCES action_plans(id)
+      FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE, -- Delete items if audit is deleted
+      FOREIGN KEY (action_plan_id) REFERENCES action_plans(id) ON DELETE SET NULL -- Keep action plan even if audit item is deleted? Or CASCADE?
     );
 
     -- Tabela Segurança: Permissões de Trabalho
@@ -213,9 +218,9 @@ export async function getDbConnection(): Promise<Database> {
       precautions TEXT,
       status TEXT DEFAULT 'Solicitada', -- e.g., 'Solicitada', 'Aprovada', 'Rejeitada', 'Em Andamento', 'Concluída', 'Expirada'
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id),
-      FOREIGN KEY (requester_id) REFERENCES users(id), -- Ou employees(id)
-      FOREIGN KEY (approver_id) REFERENCES users(id) -- Ou employees(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT, -- Prevent deleting location if permits exist? Or SET NULL?
+      FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE RESTRICT, -- Or employees(id)
+      FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE RESTRICT -- Or employees(id)
     );
 
     -- Tabela Segurança: EPIs (Tipos)
@@ -237,9 +242,10 @@ export async function getDbConnection(): Promise<Database> {
       ca_number TEXT, -- Certificado de Aprovação (CA)
       receipt_signed BOOLEAN DEFAULT FALSE, -- Confirmação de recebimento
       return_date DATE,
+      due_date DATE, -- Calculated or set manually based on lifespan
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id),
-      FOREIGN KEY (ppe_type_id) REFERENCES ppe_types(id)
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+      FOREIGN KEY (ppe_type_id) REFERENCES ppe_types(id) ON DELETE RESTRICT -- Prevent deleting type if records exist? Or CASCADE?
     );
 
     -- Tabela Segurança: Plano de Ação
@@ -254,7 +260,7 @@ export async function getDbConnection(): Promise<Database> {
       completion_date DATE,
       evidence TEXT, -- Descrição ou link para evidência
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (responsible_id) REFERENCES users(id) -- Ou employees(id)
+      FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE RESTRICT -- Ou employees(id)
     );
 
     -- Tabela Segurança: Ações Trabalhistas
@@ -287,7 +293,7 @@ export async function getDbConnection(): Promise<Database> {
       clinic_name TEXT,
       next_exam_due_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id)
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
 
     -- Tabela Saúde: Doenças Ocupacionais
@@ -302,7 +308,7 @@ export async function getDbConnection(): Promise<Database> {
       status TEXT DEFAULT 'Suspeita', -- e.g., 'Suspeita', 'Confirmada', 'Afastado', 'Retornado'
       details TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id)
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
 
      -- Tabela Saúde: Absenteísmo (Registros específicos se necessário, ou calcular a partir de outras tabelas)
@@ -315,7 +321,7 @@ export async function getDbConnection(): Promise<Database> {
       medical_certificate_code TEXT, -- CID ou código do atestado
       lost_hours REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id)
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
 
 
@@ -331,9 +337,10 @@ export async function getDbConnection(): Promise<Database> {
       legal_limit REAL, -- Limite de tolerância
       action_level REAL, -- Nível de ação
       instrument TEXT, -- Equipamento usado
-      responsible_technician TEXT,
+      responsible_technician_id INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
+      FOREIGN KEY (responsible_technician_id) REFERENCES users(id) ON DELETE SET NULL
       -- FOREIGN KEY (ghe_id) REFERENCES ghes(id) -- Se tiver tabela de GHEs
     );
 
@@ -361,7 +368,7 @@ export async function getDbConnection(): Promise<Database> {
       provider TEXT, -- Onde foi aplicada
       next_due_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (employee_id) REFERENCES employees(id)
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
 
 
@@ -378,7 +385,7 @@ export async function getDbConnection(): Promise<Database> {
       mrf_number TEXT, -- Número do Manifesto de Transporte de Resíduos (se aplicável)
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
 
      -- Tabela Meio Ambiente: Consumo de Água
@@ -391,7 +398,7 @@ export async function getDbConnection(): Promise<Database> {
       source TEXT DEFAULT 'Rede Pública', -- e.g., 'Rede Pública', 'Poço Artesiano'
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
 
     -- Tabela Meio Ambiente: Consumo de Energia
@@ -404,7 +411,7 @@ export async function getDbConnection(): Promise<Database> {
       source TEXT DEFAULT 'Rede Elétrica', -- e.g., 'Rede Elétrica', 'Solar Fotovoltaica', 'Gerador Diesel'
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
 
     -- Tabela Meio Ambiente: Emissões de GEE (Gases de Efeito Estufa) - Pode ser calculada ou registrada
@@ -420,7 +427,7 @@ export async function getDbConnection(): Promise<Database> {
       unit TEXT DEFAULT 'tCO₂e',
       scope INTEGER, -- 1, 2 ou 3
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
 
     -- Tabela Meio Ambiente: Derrames e Vazamentos (ligada a Incidentes ou separada)
@@ -439,8 +446,8 @@ export async function getDbConnection(): Promise<Database> {
       cleanup_status TEXT DEFAULT 'Em Andamento',
       reporting_status TEXT, -- e.g., 'Reportado ao Órgão Ambiental'
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (incident_id) REFERENCES incidents(id),
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE SET NULL,
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
 
 
@@ -472,7 +479,7 @@ export async function getDbConnection(): Promise<Database> {
       sds_path TEXT, -- Path to Safety Data Sheet (FDS)
       last_updated DATE DEFAULT CURRENT_DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
+      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT -- Prevent deleting location if chemicals are linked?
     );
 
   `);
@@ -502,7 +509,8 @@ export async function insertKpi(name: string, value: number, category?: string, 
     'INSERT INTO kpis (name, value, category, unit, target, period, data_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(name) DO UPDATE SET value=excluded.value, category=excluded.category, unit=excluded.unit, target=excluded.target, period=excluded.period, data_date=excluded.data_date, updated_at=CURRENT_TIMESTAMP',
     name, value, category ?? null, unit ?? null, target ?? null, period ?? null, data_date ?? null
   );
-  return result.lastID ?? (await db.get('SELECT id FROM kpis WHERE name = ?', name))?.id;
+    // Return the last inserted ID
+    return result.lastID;
 }
 
 // Exemplo: Buscar todos os KPIs
@@ -540,12 +548,12 @@ export async function getAllIncidents() {
 // Exemplo: insertRisk, getAllRisks, insertAudit, getAllAudits...
 
 // Exemplo: Inserir Risco
-export async function insertRisk(description: string, probability: number, severity: number, locationId?: number, activity?: string, hazardType?: string, controlMeasures?: string, responsiblePerson?: string, reviewDate?: string) {
+export async function insertRisk(description: string, probability: number, severity: number, locationId?: number, activity?: string, hazardType?: string, controlMeasures?: string, responsiblePersonId?: number, reviewDate?: string) {
   const db = await getDbConnection();
   const riskLevel = probability * severity;
   const result = await db.run(
-    'INSERT INTO risks (description, probability, severity, risk_level, location_id, activity, hazard_type, control_measures, responsible_person, review_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    description, probability, severity, riskLevel, locationId ?? null, activity ?? null, hazardType ?? null, controlMeasures ?? null, responsiblePerson ?? null, reviewDate ?? null
+    'INSERT INTO risks (description, probability, severity, risk_level, location_id, activity, hazard_type, control_measures, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    description, probability, severity, riskLevel, locationId ?? null, activity ?? null, hazardType ?? null, controlMeasures ?? null, responsiblePersonId ?? null, reviewDate ?? null
   );
   return result.lastID;
 }
@@ -554,12 +562,235 @@ export async function insertRisk(description: string, probability: number, sever
 export async function getAllRisks() {
   const db = await getDbConnection();
   const risks = await db.all(`
-    SELECT r.*, l.name as location_name
+    SELECT r.*, l.name as location_name, u.name as responsible_person_name
     FROM risks r
     LEFT JOIN locations l ON r.location_id = l.id
+    LEFT JOIN users u ON r.responsible_person_id = u.id
     ORDER BY r.risk_level DESC, r.created_at DESC
   `);
   return risks;
 }
 
-// ... (Implementar funções CRUD para as demais tabelas: audits, work_permits, ppe_types, ppe_records, action_plans, legal_actions, asos, etc.)
+// --- CRUD for Employees ---
+export async function insertEmployee(name: string, role?: string | null, department?: string | null, hireDate?: string | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO employees (name, role, department, hire_date) VALUES (?, ?, ?, ?)',
+    name,
+    role || null, // Ensure null is passed if undefined
+    department || null,
+    hireDate || null
+  );
+  return result.lastID;
+}
+
+
+export async function getAllEmployees() {
+  const db = await getDbConnection();
+  const employees = await db.all('SELECT * FROM employees ORDER BY name');
+  return employees;
+}
+
+// --- CRUD for Locations ---
+export async function insertLocation(name: string, description?: string | null, type?: string | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO locations (name, description, type) VALUES (?, ?, ?)',
+    name,
+    description || null,
+    type || null
+  );
+  return result.lastID;
+}
+
+export async function getAllLocations() {
+  const db = await getDbConnection();
+  const locations = await db.all('SELECT * FROM locations ORDER BY name');
+  return locations;
+}
+
+// --- CRUD for Equipment ---
+export async function insertEquipment(name: string, type?: string | null, locationId?: number | null, serialNumber?: string | null, maintenanceSchedule?: string | null, lastMaintenanceDate?: string | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO equipment (name, type, location_id, serial_number, maintenance_schedule, last_maintenance_date) VALUES (?, ?, ?, ?, ?, ?)',
+    name,
+    type || null,
+    locationId || null,
+    serialNumber || null,
+    maintenanceSchedule || null,
+    lastMaintenanceDate || null
+  );
+  return result.lastID;
+}
+
+export async function getAllEquipment() {
+    const db = await getDbConnection();
+    const equipment = await db.all(`
+        SELECT eq.*, l.name as location_name
+        FROM equipment eq
+        LEFT JOIN locations l ON eq.location_id = l.id
+        ORDER BY eq.name
+    `);
+    return equipment;
+}
+
+
+// --- CRUD for Trainings (Courses) ---
+export async function insertTraining(courseName: string, description?: string | null, provider?: string | null, durationHours?: number | null, frequencyMonths?: number | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO trainings (course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?)',
+    courseName,
+    description || null,
+    provider || null,
+    durationHours || null,
+    frequencyMonths || null
+  );
+  return result.lastID;
+}
+
+export async function getAllTrainings() {
+  const db = await getDbConnection();
+  const trainings = await db.all('SELECT * FROM trainings ORDER BY course_name');
+  return trainings;
+}
+
+// --- CRUD for Training Records ---
+export async function insertTrainingRecord(employeeId: number, trainingId: number, completionDate: string, expiryDate?: string | null, score?: number | null, certificatePath?: string | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO training_records (employee_id, training_id, completion_date, expiry_date, score, certificate_path) VALUES (?, ?, ?, ?, ?, ?)',
+    employeeId,
+    trainingId,
+    completionDate,
+    expiryDate || null,
+    score || null,
+    certificatePath || null
+  );
+  return result.lastID;
+}
+
+export async function getAllTrainingRecords() {
+  const db = await getDbConnection();
+  const records = await db.all(`
+    SELECT tr.*, e.name as employee_name, t.course_name as training_name
+    FROM training_records tr
+    JOIN employees e ON tr.employee_id = e.id
+    JOIN trainings t ON tr.training_id = t.id
+    ORDER BY tr.completion_date DESC
+  `);
+  return records;
+}
+
+
+// --- CRUD for Documents ---
+export async function insertDocument(title: string, description?: string | null, category?: string | null, filePath?: string | null, version?: string | null, reviewDate?: string | null, status?: string | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)',
+    title,
+    description || null,
+    category || null,
+    filePath || null,
+    version || null,
+    reviewDate || null,
+    status || 'Ativo'
+  );
+  return result.lastID;
+}
+
+export async function getAllDocuments() {
+  const db = await getDbConnection();
+  const documents = await db.all('SELECT * FROM documents ORDER BY upload_date DESC, title');
+  return documents;
+}
+
+
+// --- CRUD for Users ---
+// Note: Password hashing should happen *before* calling insertUser
+export async function insertUser(name: string, email: string, passwordHash: string, role?: string | null, isActive?: boolean | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?)',
+    name,
+    email,
+    passwordHash,
+    role || 'user',
+    isActive === null || isActive === undefined ? true : isActive
+  );
+  return result.lastID;
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDbConnection();
+  const user = await db.get('SELECT * FROM users WHERE email = ?', email);
+  return user;
+}
+
+export async function getAllUsers() {
+  const db = await getDbConnection();
+  // Exclude password hash from general listing
+  const users = await db.all('SELECT id, name, email, role, is_active, created_at FROM users ORDER BY name');
+  return users;
+}
+
+
+// --- CRUD for Activity Logs ---
+export async function insertActivityLog(action: string, details?: string | null, userId?: number | null): Promise<number | undefined> {
+  const db = await getDbConnection();
+  const result = await db.run(
+    'INSERT INTO activity_logs (action, details, user_id) VALUES (?, ?, ?)',
+    action,
+    details || null,
+    userId || null
+  );
+  return result.lastID;
+}
+
+export async function getAllActivityLogs(limit: number = 50) {
+    const db = await getDbConnection();
+    const logs = await db.all(`
+        SELECT al.*, u.name as user_name
+        FROM activity_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        ORDER BY al.timestamp DESC
+        LIMIT ?
+    `, limit);
+    return logs;
+}
+
+
+// ... Implement CRUD for other tables similarly ...
+// (audits, audit_items, work_permits, ppe_types, ppe_records, action_plans, legal_actions, asos, occupational_diseases, etc.)
+
+
+// --- CRUD for Locations ---
+// export async function insertLocation(name: string, description?: string, type?: string) { ... }
+// export async function getAllLocations() { ... }
+
+// --- CRUD for Equipment ---
+// export async function insertEquipment(name: string, type?: string, locationId?: number, serialNumber?: string, ...) { ... }
+// export async function getAllEquipment() { ... }
+
+// --- CRUD for PPE Types ---
+// export async function insertPpeType(name: string, specification?: string, lifespanMonths?: number) { ... }
+// export async function getAllPpeTypes() { ... }
+
+// --- CRUD for PPE Records ---
+// export async function insertPpeRecord(employeeId: number, ppeTypeId: number, deliveryDate: string, ...) { ... }
+// export async function getAllPpeRecords() { ... }
+
+// --- CRUD for Action Plans ---
+// export async function insertActionPlan(description: string, origin: string, responsibleId: number, dueDate: string, ...) { ... }
+// export async function getAllActionPlans() { ... }
+
+
+// --- CRUD for ASOs ---
+// export async function insertAso(employeeId: number, type: string, examDate: string, result: string, ...) { ... }
+// export async function getAllAsos() { ... }
+
+
+// --- CRUD for Chemical Inventory ---
+// export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
+// export async function getAllChemicals() { ... }

@@ -9,24 +9,25 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge'; // For severity and status
 
-// Placeholder Dialog Component (to be created)
-// import IncidentDialog from '@/components/incidentes/IncidentDialog';
+// Import Dialog Component
+import IncidentDialog from '@/components/incidentes/IncidentDialog';
 
 export default function IncidentesPage() {
-  // Placeholder state and functions for dialogs
+  // State and functions for dialogs
   const [isIncidentDialogOpen, setIncidentDialogOpen] = React.useState(false);
 
-  // Placeholder data for incident list
+  // Placeholder data for incident list (Fetch from DB later)
   const incidents = [
-    { id: 1, date: "2024-08-17", type: "Acidente sem Afastamento", severity: "Leve", location: "Produção A", status: "Fechado", description: "Corte superficial no dedo." },
-    { id: 2, date: "2024-08-18", type: "Acidente com Afastamento", severity: "Moderado", location: "Manutenção", status: "Em Investigação", description: "Entorse no tornozelo ao descer escada." },
-    { id: 3, date: "2024-08-18", type: "Quase Acidente", severity: "N/A", location: "Armazém", status: "Fechado", description: "Caixa caiu de prateleira próxima ao funcionário." },
-    { id: 4, date: "2024-08-19", type: "Quase Acidente", severity: "N/A", location: "Produção B", status: "Aguardando Ação", description: "Piso escorregadio devido a vazamento." },
-    { id: 5, date: "2024-08-22", type: "Incidente Ambiental", severity: "Insignificante", location: "Pátio Externo", status: "Aberto", description: "Pequeno vazamento de óleo contido." },
-     { id: 6, date: "2024-08-23", type: "Acidente sem Afastamento", severity: "Leve", location: "Escritório", status: "Aberto", description: "Colisão com mobília." },
+    { id: 1, date: "2024-08-17", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Produção A", status: "Fechado", description: "Corte superficial no dedo." },
+    { id: 2, date: "2024-08-18", type: "Acidente com Afastamento", severity: "Moderado", location_name: "Manutenção", status: "Em Investigação", description: "Entorse no tornozelo ao descer escada." },
+    { id: 3, date: "2024-08-18", type: "Quase Acidente", severity: "N/A", location_name: "Armazém", status: "Fechado", description: "Caixa caiu de prateleira próxima ao funcionário." },
+    { id: 4, date: "2024-08-19", type: "Quase Acidente", severity: "N/A", location_name: "Produção B", status: "Aguardando Ação", description: "Piso escorregadio devido a vazamento." },
+    { id: 5, date: "2024-08-22", type: "Incidente Ambiental", severity: "Insignificante", location_name: "Pátio Externo", status: "Aberto", description: "Pequeno vazamento de óleo contido." },
+     { id: 6, date: "2024-08-23", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Escritório", status: "Aberto", description: "Colisão com mobília." },
   ];
 
-    const getSeverityBadgeVariant = (severity: string) => {
+    const getSeverityBadgeVariant = (severity: string | null | undefined) => {
+        if (!severity) return 'outline';
         switch (severity) {
             case 'Fatalidade':
             case 'Grave': return 'destructive';
@@ -38,7 +39,8 @@ export default function IncidentesPage() {
         }
     };
 
-     const getStatusIcon = (status: string) => {
+     const getStatusIcon = (status: string | null | undefined) => {
+         if (!status) return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
         switch (status) {
             case 'Aberto': return <AlertCircle className="h-4 w-4 text-destructive" />;
             case 'Em Investigação': return <Clock className="h-4 w-4 text-yellow-500" />;
@@ -48,12 +50,13 @@ export default function IncidentesPage() {
         }
     };
 
-     const getStatusBadgeVariant = (status: string) => {
+     const getStatusBadgeVariant = (status: string | null | undefined) => {
+        if (!status) return 'outline';
         switch (status) {
             case 'Aberto': return 'destructive';
             case 'Em Investigação': return 'secondary'; // Yellow
             case 'Aguardando Ação': return 'default'; // Blue
-            case 'Fechado': return 'outline'; // Gray/Greenish
+            case 'Fechado': return 'outline'; // Gray/Greenish done
             default: return 'outline';
         }
      }
@@ -107,15 +110,15 @@ export default function IncidentesPage() {
                     <TableCell>{incident.type}</TableCell>
                     <TableCell>
                        <Badge variant={getSeverityBadgeVariant(incident.severity)}>
-                           {incident.severity}
+                           {incident.severity || 'N/A'}
                        </Badge>
                     </TableCell>
-                    <TableCell>{incident.location}</TableCell>
+                    <TableCell>{incident.location_name}</TableCell>
                     <TableCell className="max-w-xs truncate">{incident.description}</TableCell>
                      <TableCell>
                         <Badge variant={getStatusBadgeVariant(incident.status)} className="flex items-center gap-1 w-fit">
                          {getStatusIcon(incident.status)}
-                         {incident.status}
+                         {incident.status || 'N/A'}
                         </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -138,11 +141,9 @@ export default function IncidentesPage() {
         </CardContent>
       </Card>
 
-      {/* Placeholder for Dialog */}
-      {/* <IncidentDialog open={isIncidentDialogOpen} onOpenChange={setIncidentDialogOpen} /> */}
-      <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-         <p className="text-muted-foreground">Dialog para reportar/editar incidentes será implementado aqui.</p>
-      </div>
+      {/* Dialog for reporting/editing incidents */}
+       <IncidentDialog open={isIncidentDialogOpen} onOpenChange={setIncidentDialogOpen} />
+
     </div>
   );
 }

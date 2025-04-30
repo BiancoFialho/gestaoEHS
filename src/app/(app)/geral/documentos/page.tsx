@@ -8,14 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"; // For potential search
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; // For listing documents
 
-// Placeholder Dialog Component (to be created)
-// import DocumentDialog from '@/components/documentos/DocumentDialog';
+// Import Dialog Component
+import DocumentDialog from '@/components/documentos/DocumentDialog';
 
 export default function DocumentosPage() {
-  // Placeholder state and functions for dialogs (replace with actual implementation)
+  // State and functions for dialogs
   const [isDocumentDialogOpen, setDocumentDialogOpen] = React.useState(false);
 
-  // Placeholder data for document list
+  // Placeholder data for document list (fetch from DB later)
   const documents = [
     { id: 1, title: "Política de Segurança", category: "Política", version: "1.2", upload_date: "2024-07-15", status: "Ativo" },
     { id: 2, title: "FDS - Produto X", category: "FDS", version: "3.0", upload_date: "2024-06-01", status: "Ativo" }, // Changed FISPQ to FDS
@@ -90,12 +90,9 @@ export default function DocumentosPage() {
         </CardContent>
       </Card>
 
-      {/* Placeholder for Dialog */}
-      {/* <DocumentDialog open={isDocumentDialogOpen} onOpenChange={setDocumentDialogOpen} /> */}
-       <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-         <p className="text-muted-foreground">Dialog para adicionar/editar documentos será implementado aqui.</p>
-       </div>
+      {/* Dialog for adding/editing documents */}
+      <DocumentDialog open={isDocumentDialogOpen} onOpenChange={setDocumentDialogOpen} />
+
     </div>
   );
 }
-
