@@ -1,7 +1,4 @@
-"use client"
 
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
 
@@ -9,6 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Slot } from "@radix-ui/react-slot"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,6 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import React from "react" // Added React import
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -72,21 +71,21 @@ const SidebarProvider = React.forwardRef<
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
-    const [_open, _setOpen] = React.useState(defaultOpen)
-    const open = openProp ?? _open
+    const [internalOpen, setInternalOpen] = React.useState<boolean>(defaultOpen)
+    const open = openProp ?? internalOpen
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
         const openState = typeof value === "function" ? value(open) : value
         if (setOpenProp) {
           setOpenProp(openState)
-        } else {
-          _setOpen(openState)
+        } else if (typeof internalOpen !== "undefined") {
+          setInternalOpen(openState)
         }
 
         // This sets the cookie to keep the sidebar state.
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
       },
-      [setOpenProp, open]
+      [setOpenProp, open, internalOpen] // Added internalOpen dependency
     )
 
     // Helper to toggle the sidebar.
@@ -275,6 +274,7 @@ const SidebarTrigger = React.forwardRef<
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
+
       }}
       {...props}
     >
@@ -283,6 +283,7 @@ const SidebarTrigger = React.forwardRef<
     </Button>
   )
 })
+
 SidebarTrigger.displayName = "SidebarTrigger"
 
 const SidebarRail = React.forwardRef<
@@ -472,17 +473,53 @@ const SidebarGroupAction = React.forwardRef<
 })
 SidebarGroupAction.displayName = "SidebarGroupAction"
 
+interface MenuItem {
+  label: string;
+  href: string;
+}
+
+interface MenuItemsProps {
+  items: MenuItem[];
+}
+
+const SidebarMenuItems: React.FC<MenuItemsProps> = ({ items }) => {
+ return (
+ <SidebarMenu>
+ {items.map((item, index) => (
+ <SidebarMenuItem key={index}>
+ <SidebarMenuButton href={item.href}>
+ <span>{item.label}</span>
+ </SidebarMenuButton>
+ </SidebarMenuItem>
+ ))}
+ </SidebarMenu>
+ )
+};
+
 const SidebarGroupContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    data-sidebar="group-content"
-    className={cn("w-full text-sm", className)}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+
+  const menuItems: MenuItem[] = [
+    { label: "Cadastros", href: "#" },
+    { label: "Treinamentos", href: "#" },
+    { label: "EPIs", href: "#" },
+    { label: "ASOs", href: "#" },
+    { label: "Inventário Químico", href: "#" },
+    { label: "Documentos", href: "#" },
+    { label: "Análise de Riscos", href: "#" },
+    { label: "Plano de Ação", href: "#" },
+    { label: "Doenças Ocupacionais", href: "#" },
+  ];
+
+  // Added return statement here
+  return (
+    <div ref={ref} data-sidebar="group-content" className={cn("w-full text-sm", className)} {...props}>
+        <SidebarMenuItems items={menuItems} />
+    </div>
+  );
+});
 SidebarGroupContent.displayName = "SidebarGroupContent"
 
 const SidebarMenu = React.forwardRef<
@@ -492,10 +529,11 @@ const SidebarMenu = React.forwardRef<
   <ul
     ref={ref}
     data-sidebar="menu"
+    role="menu"
     className={cn("flex w-full min-w-0 flex-col gap-1", className)}
     {...props}
-  />
-))
+  />)
+);
 SidebarMenu.displayName = "SidebarMenu"
 
 const SidebarMenuItem = React.forwardRef<
@@ -505,9 +543,10 @@ const SidebarMenuItem = React.forwardRef<
   <li
     ref={ref}
     data-sidebar="menu-item"
-    className={cn("group/menu-item relative", className)}
+ role="menuitem"
+ className={cn("group/menu-item relative", className)}
     {...props}
-  />
+  ></li>
 ))
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
@@ -539,6 +578,7 @@ const SidebarMenuButton = React.forwardRef<
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    href?: string; // Add href prop
   } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
@@ -549,11 +589,12 @@ const SidebarMenuButton = React.forwardRef<
       size = "default",
       tooltip,
       className,
+      href, // Destructure href
       ...props
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : "button"
+    const Comp = asChild ? Slot : href ? 'a' : "button"; // Use 'a' if href is present
     const { isMobile, state } = useSidebar()
 
     const button = (
@@ -563,6 +604,7 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+        href={href} // Pass href to the component
         {...props}
       />
     )
@@ -751,6 +793,7 @@ export {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuItems, // Export SidebarMenuItems
   SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
