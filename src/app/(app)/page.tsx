@@ -10,54 +10,64 @@ import {
   ClipboardCheck, // Auditorias (used in KPI)
   GraduationCap, // Treinamentos (used in KPI)
   ChevronRight,
-  LineChart, // Chart titles
   Database, // Exemplo de ícone para dados
 } from 'lucide-react';
-// Importações de Chart removidas temporariamente para Server Component
-// import { ResponsiveContainer, LineChart as ReLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend as ReLegend } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-// Importações de Chart removidas temporariamente
-// import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-// import type { ChartConfig } from "@/components/ui/chart";
 import { getDbConnection, getAllKpis } from '@/lib/db'; // Importar funções do banco de dados
+import DashboardCharts from '@/components/dashboard/charts'; // Importar o componente cliente para gráficos
+
+// --- Tipos ---
+interface Kpi {
+  id: number;
+  name: string;
+  value: number;
+  category: string | null;
+  updated_at: string;
+}
 
 // --- Dados do Banco de Dados ---
-async function fetchKpiData() {
+async function fetchKpiData(): Promise<Kpi[]> {
   try {
-    const db = await getDbConnection();
-    // Exemplo: Buscar alguns KPIs específicos ou todos
-    const kpis = await getAllKpis(); // Busca todos os KPIs para exemplo
+    // A conexão já é gerenciada globalmente em db.ts
+    // Não precisamos abrir/fechar aqui
+    const kpis = await getAllKpis();
     console.log("KPIs buscados do banco de dados:", kpis);
-    // Aqui você processaria os dados para os KPIs específicos que quer mostrar
-    // Por enquanto, vamos retornar os dados brutos para demonstração
-    return kpis;
+    // Garantir que o retorno seja do tipo Kpi[]
+    return kpis as Kpi[];
   } catch (error) {
     console.error("Erro ao buscar KPIs do banco de dados:", error);
     return []; // Retorna array vazio em caso de erro
   }
 }
 
+// Função auxiliar para encontrar valor de KPI
+function findKpiValue(kpis: Kpi[], name: string, defaultValue: number): number {
+  const kpi = kpis.find(k => k.name === name);
+  // Se kpi for encontrado e value for um número, retorna value, senão defaultValue
+  return kpi && typeof kpi.value === 'number' ? kpi.value : defaultValue;
+}
+
 
 export default async function EhsDashboardPage() { // Marcar como async para usar await
   const kpiDataFromDb = await fetchKpiData();
 
-  // Valores Fictícios para KPIs (Substituir com dados do DB quando disponíveis)
+  // Mapear dados do DB para os valores de KPI usando a função auxiliar
   const kpiValues = {
-    riscosIdentificados: kpiDataFromDb.find(k => k.name === 'Riscos Identificados')?.value ?? 15,
-    riscosCriticos: kpiDataFromDb.find(k => k.name === 'Riscos Críticos')?.value ?? 2,
-    incidentesAbertos: kpiDataFromDb.find(k => k.name === 'Incidentes Abertos')?.value ?? 3,
-    incidentesComAfastamento: kpiDataFromDb.find(k => k.name === 'Incidentes com Afastamento')?.value ?? 1,
-    auditoriasPendentes: kpiDataFromDb.find(k => k.name === 'Auditorias Pendentes')?.value ?? 2,
-    auditoriasInternas: kpiDataFromDb.find(k => k.name === 'Auditorias Internas Pendentes')?.value ?? 1,
-    auditoriasExternas: kpiDataFromDb.find(k => k.name === 'Auditorias Externas Pendentes')?.value ?? 1,
-    treinamentosVencidos: kpiDataFromDb.find(k => k.name === 'Treinamentos Vencidos')?.value ?? 5,
-    treinamentosProximaSemana: kpiDataFromDb.find(k => k.name === 'Treinamentos Vencendo Próx. Semana')?.value ?? 2,
+    riscosIdentificados: findKpiValue(kpiDataFromDb, 'Riscos Identificados', 15),
+    riscosCriticos: findKpiValue(kpiDataFromDb, 'Riscos Críticos', 2),
+    incidentesAbertos: findKpiValue(kpiDataFromDb, 'Incidentes Abertos', 3),
+    incidentesComAfastamento: findKpiValue(kpiDataFromDb, 'Incidentes com Afastamento', 1),
+    auditoriasPendentes: findKpiValue(kpiDataFromDb, 'Auditorias Pendentes', 2),
+    auditoriasInternas: findKpiValue(kpiDataFromDb, 'Auditorias Internas Pendentes', 1),
+    auditoriasExternas: findKpiValue(kpiDataFromDb, 'Auditorias Externas Pendentes', 1),
+    treinamentosVencidos: findKpiValue(kpiDataFromDb, 'Treinamentos Vencidos', 5),
+    treinamentosProximaSemana: findKpiValue(kpiDataFromDb, 'Treinamentos Vencendo Próx. Semana', 2),
   };
 
-
-  // --- Sample Data (Mantido por enquanto, idealmente viria do DB) ---
-  const incidentesQuaseAcidentesData = [
+  // Dados de exemplo para passar para o componente cliente de gráficos
+  // Idealmente, isso também viria do banco de dados
+   const incidentesQuaseAcidentesData = [
     { date: '14/08', Incidentes: 0, QuaseAcidentes: 0 },
     { date: '15/08', Incidentes: 0, QuaseAcidentes: 0 },
     { date: '16/08', Incidentes: 0, QuaseAcidentes: 0 },
@@ -83,10 +93,6 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
     { date: '23/08', AtividadesSeguranca: 140 },
     { date: '24/08', AtividadesSeguranca: 50 },
   ];
-
-  // --- Chart Configs (Removido temporariamente) ---
-  // const incidentesQuaseAcidentesConfig = { ... };
-  // const atividadesSegurancaConfig = { ... };
 
 
   return (
@@ -175,12 +181,12 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Database className="h-5 w-5 text-muted-foreground" /> Dados do Banco (Exemplo)
+            <Database className="h-5 w-5 text-muted-foreground" /> Dados de KPI do Banco (Exemplo)
           </CardTitle>
         </CardHeader>
         <CardContent>
           {kpiDataFromDb.length > 0 ? (
-            <ul className="list-disc pl-5 text-sm text-muted-foreground">
+            <ul className="list-disc pl-5 text-sm text-muted-foreground max-h-40 overflow-y-auto">
               {kpiDataFromDb.map((kpi) => (
                 <li key={kpi.id}>
                   {kpi.name}: {kpi.value} ({kpi.category || 'Sem categoria'}) - Atualizado em: {new Date(kpi.updated_at).toLocaleString()}
@@ -192,37 +198,17 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
           )}
            {/* Botão para adicionar KPI de exemplo (requer Server Action ou API route) */}
            {/* <form action={addSampleKpiAction}> <Button type="submit" size="sm" className="mt-4">Adicionar KPI de Exemplo</Button> </form> */}
-           <p className="text-xs text-muted-foreground mt-2">Nota: A adição de dados requer Server Actions ou uma API route.</p>
+           <p className="text-xs text-muted-foreground mt-2">Nota: A adição/atualização de dados requer Server Actions ou uma API route.</p>
         </CardContent>
       </Card>
 
 
-      {/* Charts Row - Temporariamente desabilitado em Server Component */}
-       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           {/* Placeholder para Gráfico 1 */}
-          <Card>
-              <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                     <LineChart className="h-5 w-5 text-muted-foreground"/> Incidentes e Quase Acidentes (Gráfico Desabilitado)
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
-                 (Gráfico será implementado em Client Component)
-              </CardContent>
-          </Card>
+      {/* Renderizar o componente cliente para gráficos */}
+      <DashboardCharts
+        incidentesData={incidentesQuaseAcidentesData}
+        atividadesData={atividadesSegurancaData}
+      />
 
-           {/* Placeholder para Gráfico 2 */}
-          <Card>
-              <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                     <LineChart className="h-5 w-5 text-muted-foreground"/> Atividades de Segurança (Gráfico Desabilitado)
-                  </CardTitle>
-              </CardHeader>
-               <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
-                 (Gráfico será implementado em Client Component)
-               </CardContent>
-          </Card>
-      </div>
     </>
   );
 }
