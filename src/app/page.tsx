@@ -5,7 +5,7 @@ import React from 'react';
 import {
   ShieldCheck, // Updated icon for logo (EHS related)
   BarChart3, // Icon for Page Title
-  AlertTriangle, // Icon for Riscos
+  AlertTriangle, // Icon for Análise de Riscos
   FileWarning, // Icon for Incidentes
   ClipboardCheck, // Icon for Auditorias
   FileCheck2, // Icon for Permissões de Trabalho
@@ -14,9 +14,17 @@ import {
   FileText as FileTextIcon, // Renamed to avoid conflict
   ChevronRight,
   LineChart, // Keep for chart titles
-  Settings, // Keep if needed later
   LogOut, // Keep for logout
   User, // Icon for user info
+  ClipboardList, // Icon for Cadastros
+  HardHat, // Icon for EPIs
+  HeartPulse, // Icon for ASOs
+  FlaskConical, // Icon for Inventário Químico
+  Folder, // Icon for Documentos
+  ListChecks, // Icon for Plano de Ação
+  Stethoscope, // Icon for Doenças Ocup.
+  BarChartBig, // Icon for Estatísticas
+  Gavel, // Icon for Ações Trab.
 } from 'lucide-react';
 import { ResponsiveContainer, LineChart as ReLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend as ReLegend } from 'recharts';
 import Link from 'next/link'; // Import Link
@@ -76,18 +84,18 @@ const atividadesSegurancaData = [
 const incidentesQuaseAcidentesConfig = {
   Incidentes: {
     label: "Incidentes",
-    color: "hsl(var(--chart-1))", // Blueish
+    color: "hsl(var(--chart-1))", // Red
   },
   QuaseAcidentes: {
     label: "Quase Acidentes",
-    color: "hsl(var(--chart-2))", // Greenish
+    color: "hsl(var(--chart-2))", // Orange
   },
 } satisfies ChartConfig;
 
 const atividadesSegurancaConfig = {
   AtividadesSeguranca: {
     label: "Atividades de Segurança",
-    color: "hsl(var(--chart-3))", // Orangish/Yellowish
+    color: "hsl(var(--chart-3))", // Blue
   },
 } satisfies ChartConfig;
 
@@ -143,9 +151,15 @@ export default function EhsDashboardPage() {
                     <SidebarGroup className="p-0">
                          <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Gerenciamento</SidebarGroupLabel>
                          <SidebarMenuItem>
-                            <SidebarMenuButton href="#" tooltip="Riscos">
+                            <SidebarMenuButton href="#" tooltip="Cadastros">
+                                <ClipboardList />
+                                <span>Cadastros</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Análise de Riscos">
                                 <AlertTriangle />
-                                <span>Riscos</span>
+                                <span>Análise de Riscos</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                          <SidebarMenuItem>
@@ -158,6 +172,18 @@ export default function EhsDashboardPage() {
                             <SidebarMenuButton href="#" tooltip="Auditorias">
                                 <ClipboardCheck />
                                 <span>Auditorias</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Inventário Químico">
+                                <FlaskConical />
+                                <span>Inventário Químico</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Plano de Ação">
+                                <ListChecks />
+                                <span>Plano de Ação</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarGroup>
@@ -177,11 +203,35 @@ export default function EhsDashboardPage() {
                                 <span>Treinamentos</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="EPIs">
+                                <HardHat />
+                                <span>EPIs</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="ASOs">
+                                <HeartPulse />
+                                <span>ASOs</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Doenças Ocupacionais">
+                                <Stethoscope />
+                                <span>Doenças Ocup.</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                     </SidebarGroup>
 
                      {/* Administração Group */}
                      <SidebarGroup className="p-0 mt-4">
                          <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Administração</SidebarGroupLabel>
+                          <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Documentos">
+                                <Folder />
+                                <span>Documentos</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                          <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Usuários">
                                 <Users />
@@ -189,9 +239,26 @@ export default function EhsDashboardPage() {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                          <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Ações Trabalhistas">
+                                <Gavel />
+                                <span>Ações Trab.</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Logs de Atividades">
                                 <FileTextIcon />
                                 <span>Logs de Atividades</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarGroup>
+
+                     {/* Relatórios Group */}
+                    <SidebarGroup className="p-0 mt-4">
+                         <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Relatórios</SidebarGroupLabel>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton href="#" tooltip="Estatísticas">
+                                <BarChartBig />
+                                <span>Estatísticas</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarGroup>
@@ -372,4 +439,4 @@ export default function EhsDashboardPage() {
   );
 }
 
-// Removed duplicate ChartConfig type definition
+    

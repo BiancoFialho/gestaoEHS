@@ -83,7 +83,10 @@ const SidebarProvider = React.forwardRef<
         }
 
         // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        // Check if window is defined before accessing document.cookie
+        if (typeof window !== 'undefined') {
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        }
       },
       [setOpenProp, open, internalOpen] // Added internalOpen dependency
     )
@@ -501,22 +504,24 @@ const SidebarGroupContent = React.forwardRef<
   React.ComponentProps<"div">
 >(({ className, ...props }, ref) => {
 
-  const menuItems: MenuItem[] = [
-    { label: "Cadastros", href: "#" },
-    { label: "Treinamentos", href: "#" },
-    { label: "EPIs", href: "#" },
-    { label: "ASOs", href: "#" },
-    { label: "Inventário Químico", href: "#" },
-    { label: "Documentos", href: "#" },
-    { label: "Análise de Riscos", href: "#" },
-    { label: "Plano de Ação", href: "#" },
-    { label: "Doenças Ocupacionais", href: "#" },
-  ];
+  // Removed hardcoded menu items, as they are now passed from the page component.
+  // const menuItems: MenuItem[] = [
+  //   { label: "Cadastros", href: "#" },
+  //   { label: "Treinamentos", href: "#" },
+  //   { label: "EPIs", href: "#" },
+  //   { label: "ASOs", href: "#" },
+  //   { label: "Inventário Químico", href: "#" },
+  //   { label: "Documentos", href: "#" },
+  //   { label: "Análise de Riscos", href: "#" },
+  //   { label: "Plano de Ação", href: "#" },
+  //   { label: "Doenças Ocupacionais", href: "#" },
+  // ];
 
   // Added return statement here
   return (
     <div ref={ref} data-sidebar="group-content" className={cn("w-full text-sm", className)} {...props}>
-        <SidebarMenuItems items={menuItems} />
+        {/* Removed direct rendering of SidebarMenuItems */}
+        {/* <SidebarMenuItems items={menuItems} /> */}
     </div>
   );
 });
@@ -804,3 +809,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
