@@ -147,9 +147,9 @@ export default function EhsDashboardPage() {
             </SidebarHeader>
             <SidebarContent className="p-2 flex-1 overflow-y-auto">
                 <SidebarMenu>
-                    {/* Gerenciamento Group */}
+                    {/* Menu Items Group */}
                     <SidebarGroup className="p-0">
-                         <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Gerenciamento</SidebarGroupLabel>
+                         {/* Removed <SidebarGroupLabel> */}
                          <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Cadastros">
                                 <ClipboardList />
@@ -186,11 +186,6 @@ export default function EhsDashboardPage() {
                                 <span>Plano de Ação</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarGroup>
-
-                     {/* Operacional Group */}
-                    <SidebarGroup className="p-0 mt-4">
-                         <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Operacional</SidebarGroupLabel>
                          <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Permissões de Trabalho">
                                 <FileCheck2 />
@@ -221,12 +216,7 @@ export default function EhsDashboardPage() {
                                 <span>Doenças Ocup.</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarGroup>
-
-                     {/* Administração Group */}
-                     <SidebarGroup className="p-0 mt-4">
-                         <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Administração</SidebarGroupLabel>
-                          <SidebarMenuItem>
+                         <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Documentos">
                                 <Folder />
                                 <span>Documentos</span>
@@ -250,11 +240,6 @@ export default function EhsDashboardPage() {
                                 <span>Logs de Atividades</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarGroup>
-
-                     {/* Relatórios Group */}
-                    <SidebarGroup className="p-0 mt-4">
-                         <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground font-semibold group-data-[collapsible=icon]:hidden">Relatórios</SidebarGroupLabel>
                          <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Estatísticas">
                                 <BarChartBig />
@@ -438,5 +423,3 @@ export default function EhsDashboardPage() {
     </SidebarProvider>
   );
 }
-
-    
