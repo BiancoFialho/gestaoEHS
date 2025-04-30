@@ -555,6 +555,7 @@ export async function getDbConnection(): Promise<Database> {
   await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Incidentes com Afastamento', 1, 'Segurança - Incidentes', 'número', 'Mês Atual');
   await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Auditorias Pendentes', 2, 'Segurança - Auditorias', 'número', 'Atual');
   await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Treinamentos Vencidos', 5, 'Geral - Treinamentos', 'número', 'Atual');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Treinamentos Vencendo Próx. Semana', 2, 'Geral - Treinamentos', 'número', 'Atual');
 
   // Sample JSAs
   await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Manutenção de Telhado', 1, 'Revisado', 2, '2024-05-10');
@@ -572,6 +573,14 @@ export async function getDbConnection(): Promise<Database> {
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, '2024-08-18 14:00:00', 'Acidente com Afastamento', 'Moderado', 1, 'Em Investigação', 'Entorse no tornozelo ao descer escada da máquina.', 3, 5);
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, '2024-08-19 09:15:00', 'Quase Acidente', 'N/A', 2, 'Fechado', 'Caixa caiu de prateleira próxima ao funcionário Carlos.', 1);
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, '2024-08-22 11:00:00', 'Incidente Ambiental', 'Insignificante', 5, 'Aberto', 'Pequeno vazamento de óleo contido na área de descarte.', 2);
+
+
+   // Sample Action Plans
+  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Instalar guarda-corpo na plataforma X', 'Risco ID 1', 2, '2024-09-15', 'Alta', 'Aberta');
+  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 'Revisar procedimento de bloqueio e etiquetagem', 'Auditoria ID 3 (NC Maior)', 3, '2024-08-30', 'Alta', 'Em Andamento');
+  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 3, 'Realizar treinamento de primeiros socorros', 'Obrigação Legal', 1, '2024-10-31', 'Média', 'Aberta');
+  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status, completion_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Sinalizar área de tráfego de empilhadeiras', 'Incidente ID 3 (Quase Acidente)', 3, '2024-07-31', 'Média', 'Concluída', '2024-07-28');
+  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 5, 'Adquirir novos protetores auriculares', 'Monitoramento Agentes', 1, '2024-08-20', 'Baixa', 'Atrasada'); // Intentionally overdue
 
 
   console.log('Dados de exemplo SQLite verificados/inseridos com sucesso.');
@@ -913,8 +922,35 @@ export async function getAllActivityLogs(limit: number = 50) {
 }
 
 
+// --- Action Plans ---
+// Add this new function to fetch dashboard items
+export async function getDashboardActionItems(limit: number = 5): Promise<any[]> {
+  const db = await getDbConnection();
+  const items = await db.all(`
+    SELECT ap.*, u.name as responsible_name
+    FROM action_plans ap
+    LEFT JOIN users u ON ap.responsible_id = u.id
+    WHERE ap.status = 'Aberta' OR (ap.status = 'Em Andamento') OR (ap.status = 'Atrasada') -- Include 'Atrasada'
+    ORDER BY
+      CASE ap.priority
+        WHEN 'Alta' THEN 1
+        WHEN 'Média' THEN 2
+        WHEN 'Baixa' THEN 3
+        ELSE 4
+      END,
+      ap.due_date ASC -- Order by due date after priority
+    LIMIT ?
+  `, limit);
+  return items;
+}
+
 // ... Implement CRUD for other tables similarly ...
 // (audits, audit_items, work_permits, ppe_types, ppe_records, action_plans, legal_actions, asos, occupational_diseases, etc.)
+
+// export async function insertActionPlan(description: string, origin: string, responsibleId: number, dueDate: string, ...) { ... }
+// export async function getAllActionPlans() { ... }
+
+// ... (rest of the existing CRUD functions)
 
 
 // --- CRUD for Locations ---
@@ -933,10 +969,6 @@ export async function getAllActivityLogs(limit: number = 50) {
 // export async function insertPpeRecord(employeeId: number, ppeTypeId: number, deliveryDate: string, ...) { ... }
 // export async function getAllPpeRecords() { ... }
 
-// --- CRUD for Action Plans ---
-// export async function insertActionPlan(description: string, origin: string, responsibleId: number, dueDate: string, ...) { ... }
-// export async function getAllActionPlans() { ... }
-
 
 // --- CRUD for ASOs ---
 // export async function insertAso(employeeId: number, type: string, examDate: string, result: string, ...) { ... }
@@ -946,5 +978,4 @@ export async function getAllActivityLogs(limit: number = 50) {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
-
 
