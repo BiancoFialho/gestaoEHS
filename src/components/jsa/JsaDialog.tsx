@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -104,6 +103,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
+        console.log("Fetching locations and users..."); // Debug log
         try {
            const [locationsResult, usersResult] = await Promise.all([
             fetchLocations(),
@@ -112,30 +112,33 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
 
            if (isMounted) {
               if (locationsResult.success && locationsResult.data) {
-                setLocations(locationsResult.data);
+                 console.log("Locations fetched:", locationsResult.data); // Debug log
+                 setLocations(locationsResult.data);
               } else {
                 console.error("Error fetching locations:", locationsResult.error);
-                toast({ title: "Erro", description: locationsResult.error || "Não foi possível carregar os locais.", variant: "destructive" });
+                toast({ title: "Erro ao Carregar", description: locationsResult.error || "Não foi possível carregar os locais.", variant: "destructive" });
                 setLocations([]);
               }
 
               if (usersResult.success && usersResult.data) {
-                setUsers(usersResult.data);
+                 console.log("Users fetched:", usersResult.data); // Debug log
+                 setUsers(usersResult.data);
               } else {
                  console.error("Error fetching users:", usersResult.error);
-                 toast({ title: "Erro", description: usersResult.error || "Não foi possível carregar os usuários.", variant: "destructive" });
+                 toast({ title: "Erro ao Carregar", description: usersResult.error || "Não foi possível carregar os usuários.", variant: "destructive" });
                  setUsers([]);
               }
            }
         } catch (error) {
           if (isMounted) {
              console.error("Error fetching data:", error);
-             toast({ title: "Erro", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
+             toast({ title: "Erro ao Carregar", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
              setLocations([]);
              setUsers([]);
           }
         } finally {
           if (isMounted) {
+             console.log("Finished fetching data."); // Debug log
              setIsLoading(false);
           }
         }
@@ -161,9 +164,10 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
      // Prepare data for the server action
      const dataToSend = {
         task: values.task,
-        locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
+        // Convert string ID from Select back to number, handle 'none' or empty string as undefined
+        locationId: values.locationId && values.locationId !== 'none' ? parseInt(values.locationId, 10) : undefined,
         department: values.department || null,
-        responsiblePersonId: values.responsiblePersonId ? parseInt(values.responsiblePersonId, 10) : undefined,
+        responsiblePersonId: values.responsiblePersonId && values.responsiblePersonId !== 'none' ? parseInt(values.responsiblePersonId, 10) : undefined,
         teamMembers: values.teamMembers || null,
         requiredPpe: values.requiredPpe || null,
         status: values.status || 'Rascunho',
@@ -234,7 +238,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Local</FormLabel>
-                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   {/* Ensure Select value matches the string representation of the ID */}
+                   <Select
+                      onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                      value={field.value || 'none'} // Use 'none' for placeholder/empty state
+                      disabled={isLoading}
+                    >
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
@@ -243,12 +252,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         <SelectContent>
                         {/* Add an explicit "None" option */}
                         <SelectItem value="none">Nenhum</SelectItem>
-                        {locations && locations.length > 0 && locations.map((loc) => (
+                        {locations.map((loc) => ( // Ensure locations are mapped
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
                             </SelectItem>
                         ))}
-                        {!isLoading && (!locations || locations.length === 0) && <SelectItem value="no-loc" disabled>Nenhum local cadastrado</SelectItem>}
+                        {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage />
@@ -274,7 +283,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
-                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   {/* Ensure Select value matches the string representation of the ID */}
+                   <Select
+                       onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                       value={field.value || 'none'} // Use 'none' for placeholder/empty state
+                       disabled={isLoading}
+                    >
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o responsável (opcional)"} />
@@ -283,12 +297,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         <SelectContent>
                          {/* Add an explicit "None" option */}
                         <SelectItem value="none">Nenhum</SelectItem>
-                        {users && users.length > 0 && users.map((user) => (
+                        {users.map((user) => ( // Ensure users are mapped
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
                             </SelectItem>
                         ))}
-                         {!isLoading && (!users || users.length === 0) && <SelectItem value="no-user" disabled>Nenhum usuário cadastrado</SelectItem>}
+                         {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage />
@@ -375,7 +389,8 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                             selected={field.value}
                              onSelect={(date) => {
                                 field.onChange(date || null); // Set to null if cleared
-                                // Não fecha o calendário ao selecionar: setIsCalendarOpen(false);
+                                // Optional: Close calendar on selection
+                                // setIsCalendarOpen(false);
                             }}
                             initialFocus
                             locale={ptBR} // Use ptBR locale for calendar display
