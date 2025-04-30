@@ -18,7 +18,7 @@ export default function DocumentosPage() {
   // Placeholder data for document list
   const documents = [
     { id: 1, title: "Política de Segurança", category: "Política", version: "1.2", upload_date: "2024-07-15", status: "Ativo" },
-    { id: 2, title: "FISPQ - Produto X", category: "FISPQ", version: "3.0", upload_date: "2024-06-01", status: "Ativo" },
+    { id: 2, title: "FDS - Produto X", category: "FDS", version: "3.0", upload_date: "2024-06-01", status: "Ativo" }, // Changed FISPQ to FDS
     { id: 3, title: "Plano de Emergência", category: "Procedimento", version: "2.1", upload_date: "2023-11-20", status: "Ativo" },
     { id: 4, title: "Manual Operacional Y", category: "Manual", version: "1.0", upload_date: "2024-01-10", status: "Em Revisão" },
   ];
@@ -98,3 +98,4 @@ export default function DocumentosPage() {
     </div>
   );
 }
+

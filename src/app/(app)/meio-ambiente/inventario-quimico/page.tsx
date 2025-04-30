@@ -62,7 +62,7 @@ export default function InventarioQuimicoPage() {
                 <TableHead>Local</TableHead>
                 <TableHead>Quantidade</TableHead>
                 <TableHead>Perigo (GHS)</TableHead>
-                <TableHead>FISPQ</TableHead>
+                <TableHead>FDS</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -114,3 +114,4 @@ export default function InventarioQuimicoPage() {
     </div>
   );
 }
+

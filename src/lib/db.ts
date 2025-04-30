@@ -1,3 +1,4 @@
+
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
@@ -468,7 +469,7 @@ export async function getDbConnection(): Promise<Database> {
       quantity REAL NOT NULL,
       unit TEXT NOT NULL, -- 'L', 'kg', 'gal'
       hazard_class TEXT, -- GHS classification
-      sds_path TEXT, -- Path to Safety Data Sheet (FISPQ)
+      sds_path TEXT, -- Path to Safety Data Sheet (FDS)
       last_updated DATE DEFAULT CURRENT_DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id)
