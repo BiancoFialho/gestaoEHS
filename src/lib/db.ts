@@ -1,3 +1,4 @@
+
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
@@ -115,7 +116,7 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS activity_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
-      action TEXT NOT NULL, -- e.g., 'CREATE_RISK', 'UPDATE_INCIDENT'
+      action TEXT NOT NULL, -- e.g., 'CREATE_JSA', 'UPDATE_INCIDENT'
       details TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
@@ -135,24 +136,33 @@ export async function getDbConnection(): Promise<Database> {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-
-    -- Tabela Segurança: Análise de Riscos
-    CREATE TABLE IF NOT EXISTS risks (
+    -- Tabela Segurança: JSA (Job Safety Analysis)
+    CREATE TABLE IF NOT EXISTS jsa (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      description TEXT NOT NULL,
+      task TEXT NOT NULL, -- Tarefa analisada
       location_id INTEGER,
-      activity TEXT,
-      hazard_type TEXT, -- e.g., 'Físico', 'Químico', 'Biológico', 'Ergonômico', 'Acidente'
-      probability INTEGER, -- e.g., 1 a 5
-      severity INTEGER, -- e.g., 1 a 5
-      risk_level INTEGER, -- Calculado: probability * severity
-      control_measures TEXT,
-      responsible_person_id INTEGER, -- Changed to ID
-      status TEXT DEFAULT 'Aberto', -- e.g., 'Aberto', 'Em Andamento', 'Controlado', 'Mitigado'
-      review_date DATE,
+      department TEXT,
+      responsible_person_id INTEGER, -- ID do elaborador/revisor
+      team_members TEXT, -- Nomes dos participantes (texto)
+      required_ppe TEXT, -- EPIs necessários (texto)
+      status TEXT DEFAULT 'Rascunho', -- e.g., 'Rascunho', 'Ativo', 'Revisado', 'Obsoleto'
+      creation_date DATE DEFAULT CURRENT_DATE,
+      review_date DATE, -- Data da última revisão
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
-      FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL -- Or employees(id)
+      FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    -- Tabela Segurança: Passos da JSA
+    CREATE TABLE IF NOT EXISTS jsa_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        jsa_id INTEGER NOT NULL,
+        step_order INTEGER NOT NULL, -- Ordem do passo
+        description TEXT NOT NULL, -- Descrição do passo da tarefa
+        hazards TEXT NOT NULL, -- Perigos identificados para o passo
+        controls TEXT NOT NULL, -- Medidas de controle para os perigos
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (jsa_id) REFERENCES jsa(id) ON DELETE CASCADE -- Exclui os passos se a JSA for excluída
     );
 
     -- Tabela Segurança: Incidentes (já existente, mas garantindo)
@@ -252,7 +262,7 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS action_plans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       description TEXT NOT NULL,
-      origin TEXT, -- e.g., 'Incidente ID 123', 'Auditoria ID 45', 'Risco ID 67'
+      origin TEXT, -- e.g., 'Incidente ID 123', 'Auditoria ID 45', 'JSA ID 67'
       responsible_id INTEGER NOT NULL,
       due_date DATE NOT NULL,
       priority TEXT DEFAULT 'Média', -- e.g., 'Alta', 'Média', 'Baixa'
@@ -546,11 +556,16 @@ export async function getDbConnection(): Promise<Database> {
   await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Auditorias Pendentes', 2, 'Segurança - Auditorias', 'número', 'Atual');
   await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Treinamentos Vencidos', 5, 'Geral - Treinamentos', 'número', 'Atual');
 
-  // Sample Risks
-  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Queda de altura durante manutenção de telhado', 1, 3, 5, 15, 'Controlado', 2);
-  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Exposição a ruído acima do limite na Prensa P-10', 1, 4, 3, 12, 'Em Andamento', 3);
-  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Contato com ácido sulfúrico no laboratório', 4, 2, 4, 8, 'Controlado', 3);
-  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Lesão ergonômica por digitação', 3, 3, 2, 6, 'Aberto', 1);
+  // Sample JSAs
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Manutenção de Telhado', 1, 'Revisado', 2, '2024-05-10');
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Operação da Prensa P-10', 1, 'Ativo', 3, '2024-06-20');
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Manuseio de Ácido Sulfúrico', 4, 'Ativo', 3, '2024-07-01');
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id) VALUES (?, ?, ?, ?, ?)', 4, 'Trabalho em Escritório (Digitação)', 3, 'Rascunho', 1);
+
+  // Sample JSA Steps (for JSA ID 1)
+  await db.run('INSERT OR IGNORE INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)', 1, 1, 'Acessar telhado', 'Queda de mesmo nível, queda de altura', 'Uso de escada apropriada, linha de vida');
+  await db.run('INSERT OR IGNORE INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)', 1, 2, 'Remover telha danificada', 'Corte, queda de altura, queda de material', 'Uso de luvas, cinto de segurança, isolamento da área abaixo');
+  await db.run('INSERT OR IGNORE INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)', 1, 3, 'Instalar nova telha', 'Queda de altura, esforço físico', 'Cinto de segurança, postura correta');
 
   // Sample Incidents
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0);
@@ -576,27 +591,25 @@ export async function closeDbConnection(): Promise<void> {
   }
 }
 
-// --- Funções CRUD de Exemplo (Adapte e crie mais conforme necessário) ---
+// --- Funções CRUD ---
 
-// Exemplo: Inserir um novo KPI
+// --- KPIs ---
 export async function insertKpi(name: string, value: number, category?: string, unit?: string, target?: number, period?: string, data_date?: string) {
   const db = await getDbConnection();
   const result = await db.run(
     'INSERT INTO kpis (name, value, category, unit, target, period, data_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(name) DO UPDATE SET value=excluded.value, category=excluded.category, unit=excluded.unit, target=excluded.target, period=excluded.period, data_date=excluded.data_date, updated_at=CURRENT_TIMESTAMP',
     name, value, category ?? null, unit ?? null, target ?? null, period ?? null, data_date ?? null
   );
-    // Return the last inserted ID
-    return result.lastID;
+  return result.lastID;
 }
 
-// Exemplo: Buscar todos os KPIs
 export async function getAllKpis() {
   const db = await getDbConnection();
   const kpis = await db.all('SELECT * FROM kpis ORDER BY category, name');
   return kpis;
 }
 
-// Exemplo: Inserir um Incidente
+// --- Incidents ---
 export async function insertIncident(description: string, date: string, type: string, severity?: string, locationId?: number, reportedById?: number) {
     const db = await getDbConnection();
     const result = await db.run(
@@ -606,10 +619,8 @@ export async function insertIncident(description: string, date: string, type: st
     return result.lastID;
 }
 
-// Exemplo: Buscar todos Incidentes
 export async function getAllIncidents() {
     const db = await getDbConnection();
-    // Exemplo de JOIN para buscar nome do local e do reportador (se aplicável)
     const incidents = await db.all(`
         SELECT i.*, l.name as location_name, u.name as reporter_name
         FROM incidents i
@@ -620,40 +631,105 @@ export async function getAllIncidents() {
     return incidents;
 }
 
-// Adicione mais funções CRUD para as outras tabelas (Risks, Audits, PPE, etc.)
-// Exemplo: insertRisk, getAllRisks, insertAudit, getAllAudits...
-
-// Exemplo: Inserir Risco
-export async function insertRisk(description: string, probability: number, severity: number, locationId?: number, activity?: string, hazardType?: string, controlMeasures?: string, responsiblePersonId?: number, reviewDate?: string) {
-  const db = await getDbConnection();
-  const riskLevel = probability * severity;
-  const result = await db.run(
-    'INSERT INTO risks (description, probability, severity, risk_level, location_id, activity, hazard_type, control_measures, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    description, probability, severity, riskLevel, locationId ?? null, activity ?? null, hazardType ?? null, controlMeasures ?? null, responsiblePersonId ?? null, reviewDate ?? null
-  );
-  return result.lastID;
+// --- JSA (Job Safety Analysis) ---
+interface JsaInput {
+    task: string;
+    locationId?: number;
+    department?: string | null;
+    responsiblePersonId?: number;
+    teamMembers?: string | null;
+    requiredPpe?: string | null;
+    status?: string;
+    reviewDate?: string;
 }
 
-// Exemplo: Buscar todos Riscos
-export async function getAllRisks() {
+interface JsaStepInput {
+    step_order: number;
+    description: string;
+    hazards: string;
+    controls: string;
+}
+
+export async function insertJsa(jsaData: JsaInput, stepsData: JsaStepInput[]): Promise<number | undefined> {
+    const db = await getDbConnection();
+    let jsaId: number | undefined;
+
+    try {
+        // Iniciar transação
+        await db.run('BEGIN TRANSACTION');
+
+        // Inserir dados principais da JSA
+        const resultJsa = await db.run(
+            `INSERT INTO jsa (task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            jsaData.task,
+            jsaData.locationId ?? null,
+            jsaData.department ?? null,
+            jsaData.responsiblePersonId ?? null,
+            jsaData.teamMembers ?? null,
+            jsaData.requiredPpe ?? null,
+            jsaData.status ?? 'Rascunho',
+            jsaData.reviewDate ?? null
+        );
+        jsaId = resultJsa.lastID;
+
+        if (!jsaId) {
+            throw new Error("Falha ao obter ID da JSA inserida.");
+        }
+
+        // Inserir os passos da JSA
+        const stmtStep = await db.prepare(
+            `INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls)
+             VALUES (?, ?, ?, ?, ?)`
+        );
+        for (const step of stepsData) {
+            await stmtStep.run(jsaId, step.step_order, step.description, step.hazards, step.controls);
+        }
+        await stmtStep.finalize();
+
+        // Commit da transação
+        await db.run('COMMIT');
+
+        return jsaId;
+
+    } catch (error) {
+        console.error("Erro ao inserir JSA (rollback):", error);
+        // Rollback em caso de erro
+        await db.run('ROLLBACK');
+        throw error; // Re-throw error para tratamento superior
+    }
+}
+
+
+export async function getAllJsas() {
   const db = await getDbConnection();
-  const risks = await db.all(`
-    SELECT r.*, l.name as location_name, u.name as responsible_person_name
-    FROM risks r
-    LEFT JOIN locations l ON r.location_id = l.id
-    LEFT JOIN users u ON r.responsible_person_id = u.id
-    ORDER BY r.risk_level DESC, r.created_at DESC
+  const jsas = await db.all(`
+    SELECT j.*, l.name as location_name, u.name as responsible_person_name
+    FROM jsa j
+    LEFT JOIN locations l ON j.location_id = l.id
+    LEFT JOIN users u ON j.responsible_person_id = u.id
+    ORDER BY j.creation_date DESC, j.task
   `);
-  return risks;
+  return jsas;
 }
 
-// --- CRUD for Employees ---
+export async function getJsaSteps(jsaId: number) {
+    const db = await getDbConnection();
+    const steps = await db.all(
+        'SELECT * FROM jsa_steps WHERE jsa_id = ? ORDER BY step_order',
+        jsaId
+    );
+    return steps;
+}
+
+
+// --- Employees ---
 export async function insertEmployee(name: string, role?: string | null, department?: string | null, hireDate?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
     'INSERT INTO employees (name, role, department, hire_date) VALUES (?, ?, ?, ?)',
     name,
-    role || null, // Ensure null is passed if undefined
+    role || null,
     department || null,
     hireDate || null
   );
@@ -663,11 +739,11 @@ export async function insertEmployee(name: string, role?: string | null, departm
 
 export async function getAllEmployees() {
   const db = await getDbConnection();
-  const employees = await db.all('SELECT * FROM employees ORDER BY name');
+  const employees = await db.all('SELECT id, name FROM employees ORDER BY name'); // Only return id and name for selections
   return employees;
 }
 
-// --- CRUD for Locations ---
+// --- Locations ---
 export async function insertLocation(name: string, description?: string | null, type?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
@@ -681,11 +757,11 @@ export async function insertLocation(name: string, description?: string | null, 
 
 export async function getAllLocations() {
   const db = await getDbConnection();
-  const locations = await db.all('SELECT * FROM locations ORDER BY name');
+  const locations = await db.all('SELECT id, name FROM locations ORDER BY name'); // Only return id and name for selections
   return locations;
 }
 
-// --- CRUD for Equipment ---
+// --- Equipment ---
 export async function insertEquipment(name: string, type?: string | null, locationId?: number | null, serialNumber?: string | null, maintenanceSchedule?: string | null, lastMaintenanceDate?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
@@ -712,7 +788,7 @@ export async function getAllEquipment() {
 }
 
 
-// --- CRUD for Trainings (Courses) ---
+// --- Trainings (Courses) ---
 export async function insertTraining(courseName: string, description?: string | null, provider?: string | null, durationHours?: number | null, frequencyMonths?: number | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
@@ -728,11 +804,11 @@ export async function insertTraining(courseName: string, description?: string | 
 
 export async function getAllTrainings() {
   const db = await getDbConnection();
-  const trainings = await db.all('SELECT * FROM trainings ORDER BY course_name');
+  const trainings = await db.all('SELECT id, course_name FROM trainings ORDER BY course_name'); // Only id and name for selection
   return trainings;
 }
 
-// --- CRUD for Training Records ---
+// --- Training Records ---
 export async function insertTrainingRecord(employeeId: number, trainingId: number, completionDate: string, expiryDate?: string | null, score?: number | null, certificatePath?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
@@ -760,7 +836,7 @@ export async function getAllTrainingRecords() {
 }
 
 
-// --- CRUD for Documents ---
+// --- Documents ---
 export async function insertDocument(title: string, description?: string | null, category?: string | null, filePath?: string | null, version?: string | null, reviewDate?: string | null, status?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
@@ -783,7 +859,7 @@ export async function getAllDocuments() {
 }
 
 
-// --- CRUD for Users ---
+// --- Users ---
 // Note: Password hashing should happen *before* calling insertUser
 export async function insertUser(name: string, email: string, passwordHash: string, role?: string | null, isActive?: boolean | null): Promise<number | undefined> {
   const db = await getDbConnection();
@@ -812,7 +888,7 @@ export async function getAllUsers() {
 }
 
 
-// --- CRUD for Activity Logs ---
+// --- Activity Logs ---
 export async function insertActivityLog(action: string, details?: string | null, userId?: number | null): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
@@ -870,4 +946,5 @@ export async function getAllActivityLogs(limit: number = 50) {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+
 

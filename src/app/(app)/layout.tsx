@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -5,16 +6,16 @@ import Link from 'next/link';
 import {
   ShieldCheck, // Logo
   BarChart3, // Page Title (used in old header, keep for consistency if needed elsewhere)
-  AlertTriangle, // Análise de Riscos
+  // AlertTriangle, // Análise de Riscos - REMOVED
   FileWarning, // Incidentes
-  ClipboardCheck, // Auditorias
+  ClipboardCheck, // Auditorias / JSA
   FileCheck2, // Permissões de Trabalho
   GraduationCap, // Treinamentos
   Users, // Usuários
-  FileText as FileTextIcon, // Logs
+  FileText as FileTextIcon, // Logs / Documentos / ASOs
   LogOut, // Logout
   User, // User info
-  ClipboardList, // Cadastros
+  ClipboardList, // Cadastros / JSA
   HardHat, // EPIs
   HeartPulse, // Saúde Ocupacional / ASOs
   FlaskConical, // Inventário Químico
@@ -78,7 +79,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       subItems: [
         { title: "Indicadores Desempenho", icon: BarChartBig, href: "/seguranca-trabalho/indicadores-desempenho" },
         { title: "Indicadores Prevenção", icon: Activity, href: "/seguranca-trabalho/indicadores-prevencao" },
-        { title: "Análise de Riscos", icon: AlertTriangle, href: "/seguranca-trabalho/analise-riscos" },
+        { title: "Inventário JSA", icon: ClipboardList, href: "/seguranca-trabalho/inventario-jsa" }, // Updated Text and Icon
         { title: "Incidentes", icon: FileWarning, href: "/seguranca-trabalho/incidentes" },
         { title: "Auditorias", icon: ClipboardCheck, href: "/seguranca-trabalho/auditorias" },
         { title: "Permissões", icon: FileCheck2, href: "/seguranca-trabalho/permissoes" },

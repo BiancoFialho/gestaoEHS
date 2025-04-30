@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react'; // Import useState, useEffect
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -42,61 +42,72 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Label } from "@/components/ui/label"; // Import Label
 import { useToast } from "@/hooks/use-toast";
-import { addRisk } from '@/actions/riskActions'; // Import server action
-// Import server actions for fetching data
+// Assume new server action 'addJsa' exists or will be created
+// import { addJsa } from '@/actions/jsaActions';
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
 
-interface RiskDialogProps {
+interface JsaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   // TODO: Add 'initialData' prop for editing
 }
 
-// Zod schema for validation
+// Zod schema for validation - Adapted for JSA
 const formSchema = z.object({
-  description: z.string().min(5, { message: "Descrição deve ter pelo menos 5 caracteres." }),
+  task: z.string().min(5, { message: "Tarefa deve ter pelo menos 5 caracteres." }),
   locationId: z.string().optional(),
-  activity: z.string().optional(),
-  hazardType: z.string().optional(),
-  probability: z.coerce.number().int().min(1).max(5).optional().nullable(),
-  severity: z.coerce.number().int().min(1).max(5).optional().nullable(),
-  controlMeasures: z.string().optional(),
+  department: z.string().optional(), // Could be useful
   responsiblePersonId: z.string().optional(),
-  status: z.string().optional().default('Aberto'),
+  teamMembers: z.string().optional(), // Text area for members
+  steps: z.array(z.object({ // Array for JSA steps
+      description: z.string().min(3, "Descreva o passo."),
+      hazards: z.string().min(3, "Liste os perigos."),
+      controls: z.string().min(3, "Liste as medidas de controle."),
+  })).optional().default([]),
+  requiredPpe: z.string().optional(),
+  status: z.string().optional().default('Rascunho'),
   reviewDate: z.date().optional().nullable(),
 });
 
-type RiskFormValues = z.infer<typeof formSchema>;
+type JsaFormValues = z.infer<typeof formSchema>;
 
 interface Location { id: number; name: string; }
 interface User { id: number; name: string; }
 
-const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
+// Function to simulate adding JSA (replace with actual action call)
+async function addJsa(data: any): Promise<{ success: boolean; error?: string; id?: number }> {
+  console.log("Simulating JSA Add:", data);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  // Simulate success
+  return { success: true, id: Math.floor(Math.random() * 1000) };
+  // Simulate error
+  // return { success: false, error: "Erro simulado ao adicionar JSA." };
+}
+
+const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<RiskFormValues>({
+  const form = useForm<JsaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      description: "",
+      task: "",
       locationId: "",
-      activity: "",
-      hazardType: "",
-      probability: null,
-      severity: null,
-      controlMeasures: "",
+      department: "",
       responsiblePersonId: "",
-      status: "Aberto",
+      teamMembers: "",
+      steps: [], // Initialize steps array
+      requiredPpe: "",
+      status: "Rascunho",
       reviewDate: null,
     },
   });
 
-   // Fetch locations and users using Server Actions within useEffect
+   // Fetch locations and users
   useEffect(() => {
     if (open) {
       const fetchData = async () => {
@@ -137,48 +148,41 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
   }, [open, form, toast]);
 
 
-  const onSubmit = async (values: RiskFormValues) => {
-    if (!values.probability || !values.severity) {
-        toast({
-            title: "Erro de Validação",
-            description: "Probabilidade e Severidade são obrigatórias para calcular o nível de risco.",
-            variant: "destructive",
-        });
-        return;
-    }
+  const onSubmit = async (values: JsaFormValues) => {
      setIsSubmitting(true);
-    const dataToSend = {
+     // Prepare data for the server action
+     const dataToSend = {
         ...values,
         locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
         responsiblePersonId: values.responsiblePersonId ? parseInt(values.responsiblePersonId, 10) : undefined,
-        probability: values.probability, // Already coerced to number
-        severity: values.severity,      // Already coerced to number
         reviewDate: values.reviewDate ? format(values.reviewDate, 'yyyy-MM-dd') : undefined,
-        activity: values.activity || null,
-        hazardType: values.hazardType || null,
-        controlMeasures: values.controlMeasures || null,
-        status: values.status || 'Aberto',
-    }
-    console.log("Submitting Risk Data:", dataToSend);
+        // Ensure other optional text fields are null if empty
+        department: values.department || null,
+        teamMembers: values.teamMembers || null,
+        requiredPpe: values.requiredPpe || null,
+        status: values.status || 'Rascunho',
+     }
+     console.log("Submitting JSA Data:", dataToSend);
 
     try {
-      const result = await addRisk(dataToSend);
+      // Replace with actual call to addJsa action when created
+      const result = await addJsa(dataToSend);
        if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "Risco adicionado com sucesso.",
+          description: "JSA adicionada com sucesso.",
         });
         form.reset();
         onOpenChange(false);
       } else {
         toast({
           title: "Erro",
-          description: result.error || "Falha ao adicionar risco.",
+          description: result.error || "Falha ao adicionar JSA.",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error adding risk:", error);
+      console.error("Error adding JSA:", error);
       toast({
         title: "Erro",
         description: "Ocorreu um erro inesperado.",
@@ -189,30 +193,29 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
     }
   };
 
-  // Watch probability and severity to calculate risk level
-  const probability = form.watch('probability');
-  const severity = form.watch('severity');
-  const calculatedRiskLevel = (probability && severity) ? (probability * severity) : null;
+  // TODO: Add functions to manage steps (add, remove) if needed in the dialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      {/* Increased max-width */}
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Risco</DialogTitle>
+          <DialogTitle>Adicionar Nova JSA</DialogTitle>
           <DialogDescription>
-            Descreva o risco, avalie-o e defina controles.
+            Descreva a tarefa, identifique os passos, perigos e controles.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4"> {/* Scrollable form */}
+           {/* Scrollable form area */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
              <FormField
               control={form.control}
-              name="description"
+              name="task"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
-                  <FormLabel className="text-right pt-2">Descrição *</FormLabel>
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">Tarefa *</FormLabel>
                   <FormControl className="col-span-3">
-                    <Textarea placeholder="Descreva o risco potencial..." {...field} />
+                    <Input placeholder="Nome da Tarefa Analisada" {...field} />
                   </FormControl>
                   <FormMessage className="col-span-4 text-right" />
                 </FormItem>
@@ -231,7 +234,7 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         <SelectItem value="">Nenhum</SelectItem> {/* Option for no location */}
+                         <SelectItem value="">Nenhum</SelectItem>
                         {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
@@ -246,82 +249,14 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
             />
              <FormField
               control={form.control}
-              name="activity"
+              name="department"
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Atividade</FormLabel>
+                  <FormLabel className="text-right">Departamento</FormLabel>
                   <FormControl className="col-span-3">
-                    <Input placeholder="Atividade relacionada (opcional)" {...field} value={field.value ?? ''}/>
+                    <Input placeholder="Departamento envolvido (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
                    <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="hazardType"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Tipo Perigo</FormLabel>
-                  <FormControl className="col-span-3">
-                     <Input placeholder="Físico, Químico, Ergonômico..." {...field} value={field.value ?? ''}/>
-                     {/* Could be a Select if types are predefined */}
-                  </FormControl>
-                   <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                    control={form.control}
-                    name="probability"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-2 items-center gap-4">
-                        <FormLabel className="text-right">Probab.* (1-5)</FormLabel>
-                        <FormControl>
-                           <Input type="number" min="1" max="5" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/>
-                        </FormControl>
-                        <FormMessage className="col-span-2 text-right" />
-                        </FormItem>
-                    )}
-                    />
-                 <FormField
-                    control={form.control}
-                    name="severity"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-2 items-center gap-4">
-                        <FormLabel className="text-right">Severid.* (1-5)</FormLabel>
-                         <FormControl>
-                           <Input type="number" min="1" max="5" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/>
-                         </FormControl>
-                         <FormMessage className="col-span-2 text-right" />
-                        </FormItem>
-                    )}
-                    />
-            </div>
-
-            {/* Display calculated risk level */}
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-semibold">Nível Risco</Label>
-                <div className="col-span-3 text-sm font-medium">
-                    {calculatedRiskLevel !== null
-                        ? calculatedRiskLevel
-                        : <span className="text-muted-foreground">N/A</span>
-                    }
-                </div>
-            </div>
-
-             <FormField
-              control={form.control}
-              name="controlMeasures"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
-                  <FormLabel className="text-right pt-2">Controles</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Textarea placeholder="Medidas de controle existentes ou propostas..." {...field} value={field.value ?? ''}/>
-                  </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
                 </FormItem>
               )}
             />
@@ -351,6 +286,55 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="teamMembers"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
+                  <FormLabel className="text-right pt-2">Equipe</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Textarea placeholder="Membros da equipe envolvidos (opcional)" {...field} value={field.value ?? ''}/>
+                  </FormControl>
+                  <FormMessage className="col-span-4 text-right" />
+                </FormItem>
+              )}
+            />
+
+             {/* JSA Steps Section - Placeholder - Needs more complex UI */}
+             <div className="col-span-4 border-t pt-4 mt-4">
+                <h4 className="text-md font-semibold mb-2">Passos da Tarefa</h4>
+                {/* Placeholder: Add UI to add/edit steps (Array Field) */}
+                 <div className="text-center text-muted-foreground p-4 border rounded bg-muted/50">
+                    [Interface para adicionar/editar passos, perigos e controles será implementada aqui]
+                 </div>
+                 {/*
+                 Example structure for steps rendering (using react-hook-form useFieldArray):
+                 {fields.map((step, index) => (
+                    <div key={step.id} className="grid grid-cols-3 gap-2 mb-2 border p-2 rounded">
+                        <FormField control={form.control} name={`steps.${index}.description`} render={...} />
+                        <FormField control={form.control} name={`steps.${index}.hazards`} render={...} />
+                        <FormField control={form.control} name={`steps.${index}.controls`} render={...} />
+                        <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}>Remover</Button>
+                    </div>
+                 ))}
+                 <Button type="button" onClick={() => append({ description: "", hazards: "", controls: "" })}>Adicionar Passo</Button>
+                 */}
+             </div>
+
+             <FormField
+              control={form.control}
+              name="requiredPpe"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
+                  <FormLabel className="text-right pt-2">EPIs Necessários</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Textarea placeholder="Liste os EPIs requeridos para a tarefa..." {...field} value={field.value ?? ''}/>
+                  </FormControl>
+                  <FormMessage className="col-span-4 text-right" />
+                </FormItem>
+              )}
+            />
+
              <FormField
               control={form.control}
               name="status"
@@ -364,11 +348,10 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Aberto">Aberto</SelectItem>
-                      <SelectItem value="Em Andamento">Em Andamento</SelectItem>
-                      <SelectItem value="Controlado">Controlado</SelectItem>
-                       <SelectItem value="Mitigado">Mitigado</SelectItem>
-                       <SelectItem value="Cancelado">Cancelado</SelectItem>
+                      <SelectItem value="Rascunho">Rascunho</SelectItem>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Revisado">Revisado</SelectItem>
+                       <SelectItem value="Obsoleto">Obsoleto</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage className="col-span-4 text-right" />
@@ -410,7 +393,8 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
               )}
             />
 
-            <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t"> {/* Sticky footer */}
+            {/* Sticky footer */}
+            <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
@@ -425,4 +409,5 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
   );
 };
 
-export default RiskDialog;
+export default JsaDialog;
+
