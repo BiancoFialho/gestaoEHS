@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -22,7 +21,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Import FormDescription
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -123,17 +122,18 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+          {/* Use space-y for vertical layout */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Nome *</FormLabel>
-                  <FormControl className="col-span-3">
+                <FormItem> {/* Remove grid layout */}
+                  <FormLabel>Nome *</FormLabel>
+                  <FormControl>
                     <Input placeholder="Nome Completo" {...field} />
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -141,12 +141,12 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">E-mail *</FormLabel>
-                  <FormControl className="col-span-3">
+                <FormItem> {/* Remove grid layout */}
+                  <FormLabel>E-mail *</FormLabel>
+                  <FormControl>
                     <Input type="email" placeholder="email@dominio.com" {...field} />
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -154,12 +154,12 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Senha *</FormLabel>
-                  <FormControl className="col-span-3">
+                <FormItem> {/* Remove grid layout */}
+                  <FormLabel>Senha *</FormLabel>
+                  <FormControl>
                     <Input type="password" placeholder="Mínimo 6 caracteres" {...field} />
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -168,10 +168,10 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="role"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Role</FormLabel>
+                <FormItem> {/* Remove grid layout */}
+                  <FormLabel>Role</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl className="col-span-3">
+                    <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a permissão" />
                       </SelectTrigger>
@@ -182,7 +182,7 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
                       <SelectItem value="admin">Administrador (admin)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -190,7 +190,8 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="isActive"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm col-span-4">
+                 // Keep flex layout for Switch, remove col-span
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                   <div className="space-y-0.5">
                     <FormLabel>Status</FormLabel>
                     <FormDescription>
@@ -203,12 +204,14 @@ const UserDialog: React.FC<UserDialogProps> = ({ open, onOpenChange }) => {
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
+                   <FormMessage /> {/* Add FormMessage here if needed */}
                 </FormItem>
               )}
             />
 
 
-            <DialogFooter>
+            {/* Sticky footer */}
+            <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
