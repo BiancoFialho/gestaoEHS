@@ -1,22 +1,187 @@
 
 import React from 'react';
-import { BarChartBig } from 'lucide-react';
+import { BarChartBig, TrendingDown, AlertTriangle, Thermometer, CalendarX, DollarSign } from 'lucide-react'; // Using relevant icons
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+// Placeholder for Chart Components
+// import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+// import { Line, LineChart, CartesianGrid, XAxis } from "recharts"
 
-export default function IndicadoresDesempenhoPage() {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-6">
-        <BarChartBig className="h-6 w-6 text-foreground" />
+// Placeholder function to fetch performance indicators
+async function fetchPerformanceIndicators() {
+    // Simulate fetching data
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+        accidentsWithLostTime: 2, // Example for the period
+        accidentsWithoutLostTime: 5, // Example
+        frequencyRate: 4.5, // Example TF
+        severityRate: 80.2, // Example TG
+        lostDays: 35, // Example
+        fatalities: 0, // Example
+        incidenceRate: 1.5, // Example TI %
+        accidentCost: 25000.00, // Example R$
+    };
+}
+
+
+export default async function IndicadoresDesempenhoPage() {
+    const indicators = await fetchPerformanceIndicators();
+
+    return (
         <div>
-          <h1 className="text-2xl font-semibold ">Indicadores de Desempenho</h1>
-          <p className="text-sm text-muted-foreground">Segurança do Trabalho</p>
+            <div className="flex items-center gap-2 mb-6">
+                <BarChartBig className="h-6 w-6 text-foreground" />
+                <div>
+                    <h1 className="text-2xl font-semibold ">Indicadores de Desempenho (Reativos)</h1>
+                    <p className="text-sm text-muted-foreground">Segurança do Trabalho</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Card 1: Nº Acidentes c/ Afastamento */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-destructive" /> Acidentes c/ Afastamento
+                        </CardTitle>
+                        <CardDescription>Número de acidentes que resultaram em afastamento.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{indicators.accidentsWithLostTime}</div>
+                        <p className="text-xs text-muted-foreground mt-2">No último trimestre</p> {/* Example period */}
+                        <Button variant="link" size="sm" className="mt-2 px-0">Ver Incidentes</Button>
+                    </CardContent>
+                </Card>
+
+                 {/* Card 2: Nº Acidentes s/ Afastamento */}
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-yellow-500" /> Acidentes s/ Afastamento
+                        </CardTitle>
+                        <CardDescription>Número de acidentes sem afastamento do trabalho.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="text-3xl font-bold">{indicators.accidentsWithoutLostTime}</div>
+                         <p className="text-xs text-muted-foreground mt-2">No último trimestre</p>
+                         <Button variant="link" size="sm" className="mt-2 px-0">Ver Incidentes</Button>
+                    </CardContent>
+                </Card>
+
+                {/* Card 3: Taxa de Frequência (TF) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <TrendingDown className="h-5 w-5" /> Taxa de Frequência (TF)
+                        </CardTitle>
+                        <CardDescription>Nº acid. c/ afast. por milhão de horas trabalhadas.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{indicators.frequencyRate.toFixed(2)}</div>
+                         <p className="text-xs text-muted-foreground mt-2">Acumulado Anual</p>
+                         <Button variant="link" size="sm" className="mt-2 px-0">Ver Cálculo</Button>
+                    </CardContent>
+                </Card>
+
+                {/* Card 4: Taxa de Gravidade (TG) */}
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Thermometer className="h-5 w-5" /> Taxa de Gravidade (TG)
+                        </CardTitle>
+                        <CardDescription>Nº dias perdidos por milhão de horas trabalhadas.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{indicators.severityRate.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground mt-2">Acumulado Anual</p>
+                        <Button variant="link" size="sm" className="mt-2 px-0">Ver Cálculo</Button>
+                    </CardContent>
+                </Card>
+
+                 {/* Card 5: Dias Perdidos */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <CalendarX className="h-5 w-5" /> Dias Perdidos
+                        </CardTitle>
+                        <CardDescription>Total de dias de trabalho perdidos por acidentes.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{indicators.lostDays}</div>
+                        <p className="text-xs text-muted-foreground mt-2">Acumulado Anual</p>
+                        <Button variant="link" size="sm" className="mt-2 px-0">Ver Incidentes</Button>
+                    </CardContent>
+                </Card>
+
+                 {/* Card 6: Fatalidades */}
+                <Card className={indicators.fatalities > 0 ? "border-destructive bg-destructive/10" : ""}>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-destructive" /> Fatalidades
+                        </CardTitle>
+                        <CardDescription>Número de acidentes fatais.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className={`text-3xl font-bold ${indicators.fatalities > 0 ? 'text-destructive' : ''}`}>{indicators.fatalities}</div>
+                        <p className="text-xs text-muted-foreground mt-2">Acumulado Anual</p>
+                         {indicators.fatalities > 0 && <Button variant="link" size="sm" className="mt-2 px-0 text-destructive">Ver Incidentes</Button>}
+                    </CardContent>
+                </Card>
+
+                {/* Card 7: Taxa de Incidência (TI) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <BarChartBig className="h-5 w-5" /> Taxa de Incidência (TI)
+                        </CardTitle>
+                        <CardDescription>Nº acidentes por 100 empregados.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{indicators.incidenceRate.toFixed(1)}%</div>
+                        <p className="text-xs text-muted-foreground mt-2">Acumulado Anual</p>
+                        <Button variant="link" size="sm" className="mt-2 px-0">Ver Cálculo</Button>
+                    </CardContent>
+                </Card>
+
+                {/* Card 8: Custo dos Acidentes */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5" /> Custo Acidentes
+                        </CardTitle>
+                        <CardDescription>Custo total estimado dos acidentes.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{indicators.accidentCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                        <p className="text-xs text-muted-foreground mt-2">Acumulado Anual</p>
+                        <Button variant="link" size="sm" className="mt-2 px-0">Ver Detalhes</Button>
+                    </CardContent>
+                </Card>
+
+
+            </div>
+
+             {/* Placeholder for Charts */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Evolução Taxa de Frequência (TF)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
+                         Gráfico TF aqui...
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Evolução Taxa de Gravidade (TG)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
+                         Gráfico TG aqui...
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* TODO: Add filters for period, location, department */}
         </div>
-      </div>
-      {/* Placeholder Content */}
-      <div className="p-6 border rounded-lg bg-card text-card-foreground">
-        <p>Conteúdo da página Indicadores de Desempenho aqui...</p>
-        {/* TODO: Add specific charts, tables, and data visualizations */}
-      </div>
-    </div>
-  );
+    );
 }
