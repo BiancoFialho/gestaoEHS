@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import React from "react" // Added React import
+import React from "react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -476,52 +476,15 @@ const SidebarGroupAction = React.forwardRef<
 })
 SidebarGroupAction.displayName = "SidebarGroupAction"
 
-interface MenuItem {
-  label: string;
-  href: string;
-}
-
-interface MenuItemsProps {
-  items: MenuItem[];
-}
-
-const SidebarMenuItems: React.FC<MenuItemsProps> = ({ items }) => {
- return (
- <SidebarMenu>
- {items.map((item, index) => (
- <SidebarMenuItem key={index}>
- <SidebarMenuButton href={item.href}>
- <span>{item.label}</span>
- </SidebarMenuButton>
- </SidebarMenuItem>
- ))}
- </SidebarMenu>
- )
-};
+// Removed SidebarMenuItems definition as it's not used
 
 const SidebarGroupContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
-
-  // Removed hardcoded menu items, as they are now passed from the page component.
-  // const menuItems: MenuItem[] = [
-  //   { label: "Cadastros", href: "#" },
-  //   { label: "Treinamentos", href: "#" },
-  //   { label: "EPIs", href: "#" },
-  //   { label: "ASOs", href: "#" },
-  //   { label: "Inventário Químico", href: "#" },
-  //   { label: "Documentos", href: "#" },
-  //   { label: "Análise de Riscos", href: "#" },
-  //   { label: "Plano de Ação", href: "#" },
-  //   { label: "Doenças Ocupacionais", href: "#" },
-  // ];
-
-  // Added return statement here
+>(({ className, children, ...props }, ref) => { // Accept children prop
   return (
     <div ref={ref} data-sidebar="group-content" className={cn("w-full text-sm", className)} {...props}>
-        {/* Removed direct rendering of SidebarMenuItems */}
-        {/* <SidebarMenuItems items={menuItems} /> */}
+        {children} {/* Render children directly */}
     </div>
   );
 });
@@ -798,7 +761,7 @@ export {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuItems, // Export SidebarMenuItems
+  // SidebarMenuItems, // Removed unused export
   SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
@@ -809,5 +772,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
-    
