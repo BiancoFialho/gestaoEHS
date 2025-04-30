@@ -41,8 +41,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const lowerIdentifier = identifier.toLowerCase();
-    // Hardcoded credentials - Check against both username 'admin' and email 'admin@stepwise.app'
-    if ((lowerIdentifier === 'admin' || lowerIdentifier === 'admin@stepwise.app') && pass === '1234') {
+    // Hardcoded credentials - Check against email 'biancofialho@gmail.com'
+    if (lowerIdentifier === 'biancofialho@gmail.com' && pass === '1234') {
       try {
         localStorage.setItem(AUTH_KEY, 'true');
       } catch (error) {

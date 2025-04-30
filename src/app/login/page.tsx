@@ -26,7 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
 const formSchema = z.object({
-  email: z.string().min(1, { message: "O e-mail ou nome de usuário é obrigatório." }), // Allow email or username
+  email: z.string().email({ message: "Por favor, insira um e-mail válido." }).min(1, { message: "O e-mail é obrigatório." }), // Now strictly email
   password: z.string().min(1, { message: "A senha é obrigatória." }),
   manterLogado: z.boolean().default(false).optional(),
 });
@@ -47,7 +47,7 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "", // Keep field name as 'email' for simplicity, but label will reflect username/email
+      email: "",
       password: "",
       manterLogado: false,
     },
@@ -65,7 +65,7 @@ export default function LoginPage() {
     } else {
       toast({
         title: "Falha no Login",
-        description: "Usuário ou senha inválidos.", // Updated message
+        description: "E-mail ou senha inválidos.", // Updated message
         variant: "destructive",
       });
       form.resetField("password"); // Clear password field on failure
@@ -121,9 +121,9 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usuário ou E-mail</FormLabel> {/* Updated Label */}
+                    <FormLabel>E-mail</FormLabel> {/* Updated Label */}
                     <FormControl>
-                      <Input placeholder="Digite seu usuário ou e-mail" {...field} /> {/* Updated placeholder */}
+                      <Input placeholder="Digite seu e-mail" {...field} /> {/* Updated placeholder */}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -134,9 +134,9 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha</FormLabel> {/* Updated Label */}
+                    <FormLabel>Senha</FormLabel> {/* Kept Label */}
                     <FormControl>
-                      <Input type="password" placeholder="Digite sua senha" {...field} /> {/* Updated placeholder */}
+                      <Input type="password" placeholder="Digite sua senha" {...field} /> {/* Kept placeholder */}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -181,5 +181,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
