@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
@@ -80,21 +81,32 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
 
   // Fetch locations using Server Action within useEffect
   useEffect(() => {
+    let isMounted = true; // Track if component is mounted
+
     if (open) {
       const loadLocations = async () => {
         setIsLoadingLocations(true);
         try {
            const result = await fetchLocations();
-           if (result.success && result.data) {
-               setLocations(result.data);
-           } else {
-               throw new Error(result.error || "Failed to fetch locations");
+           if (isMounted) { // Check if component is still mounted
+               if (result.success && result.data) {
+                   setLocations(result.data);
+               } else {
+                   console.error("Error fetching locations:", result.error);
+                   toast({ title: "Erro", description: result.error || "Não foi possível carregar os locais.", variant: "destructive" });
+                   setLocations([]); // Clear locations on error
+               }
            }
         } catch (error) {
-          console.error("Error fetching locations:", error);
-          toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
+           if (isMounted) { // Check if component is still mounted
+              console.error("Error fetching locations:", error);
+              toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
+              setLocations([]); // Clear locations on error
+           }
         } finally {
-          setIsLoadingLocations(false);
+          if (isMounted) { // Check if component is still mounted
+             setIsLoadingLocations(false);
+          }
         }
       };
       loadLocations();
@@ -102,8 +114,15 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
        // Reset form and locations when dialog closes
       form.reset();
       setLocations([]);
-       setIsSubmitting(false);
+      setIsSubmitting(false);
+      setIsLoadingLocations(false); // Ensure loading state is reset
     }
+
+    // Cleanup function to set isMounted to false when the component unmounts or 'open' changes
+    return () => {
+      isMounted = false;
+    };
+
   }, [open, form, toast]);
 
   const onSubmit = async (values: EquipmentFormValues) => {
@@ -203,9 +222,9 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                   <FormLabel className="text-right">Local</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    // Ensure value is a string or undefined
+                    value={field.value || undefined}
                     disabled={isLoadingLocations}
-                    value={field.value}
                   >
                     <FormControl className="col-span-3">
                       <SelectTrigger>
@@ -213,13 +232,15 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
-                      {locations.map((loc) => (
+                       {/* Add an explicit "None" option */}
+                       <SelectItem value="none">Nenhum</SelectItem>
+                       {locations && locations.length > 0 && locations.map((loc) => (
                         <SelectItem key={loc.id} value={loc.id.toString()}>
                           {loc.name}
                         </SelectItem>
                       ))}
-                       {!isLoadingLocations && locations.length === 0 && (
+                       {/* Only show "No locations" if not loading and array is empty */}
+                       {!isLoadingLocations && (!locations || locations.length === 0) && (
                            <SelectItem value="no-locations" disabled>Nenhum local cadastrado</SelectItem>
                        )}
                     </SelectContent>

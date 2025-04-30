@@ -64,3 +64,4 @@ export async function addUser(data: UserInput): Promise<{ success: boolean; erro
     return { success: false, error: `Erro ao adicionar usuário: ${errorMessage}` };
   }
 }
+

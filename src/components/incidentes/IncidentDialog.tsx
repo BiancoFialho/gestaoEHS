@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -96,6 +97,8 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
 
    // Fetch locations and users using Server Actions within useEffect
    useEffect(() => {
+    let isMounted = true; // Track if component is mounted
+
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
@@ -105,25 +108,35 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
             fetchUsers(),
           ]);
 
-          if (locationsResult.success && locationsResult.data) {
-            setLocations(locationsResult.data);
-          } else {
-            console.error("Error fetching locations:", locationsResult.error);
-            toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
-          }
+           if (isMounted) {
+              if (locationsResult.success && locationsResult.data) {
+                setLocations(locationsResult.data);
+              } else {
+                console.error("Error fetching locations:", locationsResult.error);
+                toast({ title: "Erro", description: locationsResult.error || "Não foi possível carregar os locais.", variant: "destructive" });
+                setLocations([]);
+              }
 
-          if (usersResult.success && usersResult.data) {
-            setUsers(usersResult.data);
-          } else {
-             console.error("Error fetching users:", usersResult.error);
-             toast({ title: "Erro", description: "Não foi possível carregar os usuários.", variant: "destructive" });
-          }
+              if (usersResult.success && usersResult.data) {
+                setUsers(usersResult.data);
+              } else {
+                 console.error("Error fetching users:", usersResult.error);
+                 toast({ title: "Erro", description: usersResult.error || "Não foi possível carregar os usuários.", variant: "destructive" });
+                 setUsers([]);
+              }
+           }
 
         } catch (error) {
-          console.error("Error fetching data:", error);
-          toast({ title: "Erro", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
+           if (isMounted) {
+              console.error("Error fetching data:", error);
+              toast({ title: "Erro", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
+              setLocations([]);
+              setUsers([]);
+           }
         } finally {
-          setIsLoading(false);
+          if (isMounted) {
+             setIsLoading(false);
+          }
         }
       };
       fetchData();
@@ -140,7 +153,12 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
        setLocations([]);
        setUsers([]);
        setIsSubmitting(false);
+       setIsLoading(false);
     }
+
+     return () => {
+      isMounted = false;
+    };
    }, [open, form, toast]);
 
   const onSubmit = async (values: IncidentFormValues) => {
@@ -289,7 +307,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Tipo *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
                     <FormControl className="col-span-3">
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de incidente" />
@@ -311,14 +329,15 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Gravidade</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
                     <FormControl className="col-span-3">
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a gravidade (opcional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       {/* <SelectItem value="">Nenhuma</SelectItem> - Removed: Causes hydration error */}
+                       {/* Add an explicit "None" option */}
+                       <SelectItem value="none">Nenhuma</SelectItem>
                       {severities.map((sev) => (
                         <SelectItem key={sev} value={sev}>{sev}</SelectItem>
                       ))}
@@ -334,20 +353,21 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Local</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
-                        {locations.map((loc) => (
+                         {/* Add an explicit "None" option */}
+                         <SelectItem value="none">Nenhum</SelectItem>
+                        {locations && locations.length > 0 && locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
                             </SelectItem>
                         ))}
-                        {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local</SelectItem>}
+                        {!isLoading && (!locations || locations.length === 0) && <SelectItem value="no-loc" disabled>Nenhum local cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage className="col-span-4 text-right" />
@@ -373,20 +393,21 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Reportado Por</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione quem reportou (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         {/* <SelectItem value="">Anônimo/Não especificado</SelectItem> - Removed: Causes hydration error */}
-                        {users.map((user) => (
+                         {/* Add an explicit "None" option */}
+                         <SelectItem value="none">Anônimo/Não especificado</SelectItem>
+                        {users && users.length > 0 && users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
                             </SelectItem>
                         ))}
-                         {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}
+                         {!isLoading && (!users || users.length === 0) && <SelectItem value="no-user" disabled>Nenhum usuário cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage className="col-span-4 text-right" />

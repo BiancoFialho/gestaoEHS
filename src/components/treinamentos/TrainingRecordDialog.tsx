@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -94,6 +95,8 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
 
   // Fetch employees and trainings using Server Actions within useEffect
   useEffect(() => {
+    let isMounted = true; // Track if component is mounted
+
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
@@ -103,25 +106,35 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
             fetchTrainings(),
           ]);
 
-          if (employeesResult.success && employeesResult.data) {
-            setEmployees(employeesResult.data);
-          } else {
-             console.error("Error fetching employees:", employeesResult.error);
-             toast({ title: "Erro", description: "Não foi possível carregar funcionários.", variant: "destructive" });
-          }
+           if (isMounted) {
+              if (employeesResult.success && employeesResult.data) {
+                setEmployees(employeesResult.data);
+              } else {
+                 console.error("Error fetching employees:", employeesResult.error);
+                 toast({ title: "Erro", description: employeesResult.error || "Não foi possível carregar funcionários.", variant: "destructive" });
+                 setEmployees([]);
+              }
 
-          if (trainingsResult.success && trainingsResult.data) {
-            setTrainings(trainingsResult.data);
-          } else {
-             console.error("Error fetching trainings:", trainingsResult.error);
-             toast({ title: "Erro", description: "Não foi possível carregar cursos.", variant: "destructive" });
-          }
+              if (trainingsResult.success && trainingsResult.data) {
+                setTrainings(trainingsResult.data);
+              } else {
+                 console.error("Error fetching trainings:", trainingsResult.error);
+                 toast({ title: "Erro", description: trainingsResult.error || "Não foi possível carregar cursos.", variant: "destructive" });
+                 setTrainings([]);
+              }
+           }
 
         } catch (error) {
-          console.error("Error fetching data:", error);
-          toast({ title: "Erro", description: "Não foi possível carregar funcionários ou cursos.", variant: "destructive" });
+          if (isMounted) {
+             console.error("Error fetching data:", error);
+             toast({ title: "Erro", description: "Não foi possível carregar funcionários ou cursos.", variant: "destructive" });
+             setEmployees([]);
+             setTrainings([]);
+          }
         } finally {
-          setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+          }
         }
       };
       fetchData();
@@ -137,7 +150,12 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
       setEmployees([]);
       setTrainings([]);
       setIsSubmitting(false);
+      setIsLoading(false);
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [open, form, toast]);
 
   const onSubmit = async (values: RecordFormValues) => {
@@ -206,19 +224,19 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Funcionário *</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione..."} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {employees.map((emp) => (
+                        {employees && employees.length > 0 && employees.map((emp) => (
                             <SelectItem key={emp.id} value={emp.id.toString()}>
                             {emp.name}
                             </SelectItem>
                         ))}
-                        {!isLoading && employees.length === 0 && <SelectItem value="no-emp" disabled>Nenhum funcionário</SelectItem>}
+                        {!isLoading && (!employees || employees.length === 0) && <SelectItem value="no-emp" disabled>Nenhum funcionário cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage className="col-span-4 text-right" />
@@ -231,19 +249,19 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Curso *</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                              <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione..."} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {trainings.map((trn) => (
+                        {trainings && trainings.length > 0 && trainings.map((trn) => (
                             <SelectItem key={trn.id} value={trn.id.toString()}>
                             {trn.course_name}
                             </SelectItem>
                         ))}
-                         {!isLoading && trainings.length === 0 && <SelectItem value="no-trn" disabled>Nenhum curso</SelectItem>}
+                         {!isLoading && (!trainings || trainings.length === 0) && <SelectItem value="no-trn" disabled>Nenhum curso cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage className="col-span-4 text-right" />
