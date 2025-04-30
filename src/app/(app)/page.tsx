@@ -10,11 +10,11 @@ import {
   ClipboardCheck, // Auditorias (used in KPI)
   GraduationCap, // Treinamentos (used in KPI)
   ChevronRight,
-  Database, // Exemplo de ícone para dados
+  // Database, // Exemplo de ícone para dados - REMOVED
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { getDbConnection, getAllKpis } from '@/lib/db'; // Importar funções do banco de dados
+import { getAllKpis } from '@/lib/db'; // Importar funções do banco de dados
 import DashboardCharts from '@/components/dashboard/charts'; // Importar o componente cliente para gráficos
 
 // --- Tipos ---
@@ -59,8 +59,8 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
     incidentesAbertos: findKpiValue(kpiDataFromDb, 'Incidentes Abertos', 3),
     incidentesComAfastamento: findKpiValue(kpiDataFromDb, 'Incidentes com Afastamento', 1),
     auditoriasPendentes: findKpiValue(kpiDataFromDb, 'Auditorias Pendentes', 2),
-    auditoriasInternas: findKpiValue(kpiDataFromDb, 'Auditorias Internas Pendentes', 1),
-    auditoriasExternas: findKpiValue(kpiDataFromDb, 'Auditorias Externas Pendentes', 1),
+    auditoriasInternas: findKpiValue(kpiDataFromDb, 'Auditorias Internas Pendentes', 1), // Keep for the card
+    auditoriasExternas: findKpiValue(kpiDataFromDb, 'Auditorias Externas Pendentes', 1), // Keep for the card
     treinamentosVencidos: findKpiValue(kpiDataFromDb, 'Treinamentos Vencidos', 5),
     treinamentosProximaSemana: findKpiValue(kpiDataFromDb, 'Treinamentos Vencendo Próx. Semana', 2),
   };
@@ -119,8 +119,8 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
                   <p className="text-xs text-muted-foreground">Críticos: {kpiValues.riscosCriticos}</p>
                </CardContent>
               <CardFooter className="pt-2 pb-4 px-6">
-                 <Link href="/seguranca-trabalho/analise-riscos" className="flex items-center justify-between w-full text-sm text-primary hover:underline">
-                      Ver Mapa de Riscos <ChevronRight className="h-4 w-4" />
+                 <Link href="/seguranca-trabalho/inventario-jsa" className="flex items-center justify-between w-full text-sm text-primary hover:underline"> {/* Updated Link */}
+                      Ver Inventário JSA <ChevronRight className="h-4 w-4" />
                   </Link>
               </CardFooter>
           </Card>
@@ -177,30 +177,7 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
           </Card>
       </div>
 
-      {/* Seção de Demonstração do Banco de Dados */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Database className="h-5 w-5 text-muted-foreground" /> Dados de KPI do Banco (Exemplo)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {kpiDataFromDb.length > 0 ? (
-            <ul className="list-disc pl-5 text-sm text-muted-foreground max-h-40 overflow-y-auto">
-              {kpiDataFromDb.map((kpi) => (
-                <li key={kpi.id}>
-                  {kpi.name}: {kpi.value} ({kpi.category || 'Sem categoria'}) - Atualizado em: {new Date(kpi.updated_at).toLocaleString()}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhum KPI encontrado no banco de dados ou erro ao buscar.</p>
-          )}
-           {/* Botão para adicionar KPI de exemplo (requer Server Action ou API route) */}
-           {/* <form action={addSampleKpiAction}> <Button type="submit" size="sm" className="mt-4">Adicionar KPI de Exemplo</Button> </form> */}
-           <p className="text-xs text-muted-foreground mt-2">Nota: A adição/atualização de dados requer Server Actions ou uma API route.</p>
-        </CardContent>
-      </Card>
+      {/* Section for displaying raw KPI data removed */}
 
 
       {/* Renderizar o componente cliente para gráficos */}
