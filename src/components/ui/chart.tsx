@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -139,12 +140,9 @@ const ChartTooltipContent = React.forwardRef<
       }
 
       const [item] = payload
-      const key = `${labelKey || item.dataKey || item.name || "value"}`
+      const key = `${labelKey || item.payload.period || item.name || "value"}` // Use payload.period if available for label
       const itemConfig = getPayloadConfigFromPayload(config, item, key)
-      const value =
-        !labelKey && typeof label === "string"
-          ? config[label as keyof typeof config]?.label || label
-          : itemConfig?.label
+      let value = item.payload[key] ?? label; // Get the actual label value from payload
 
       if (labelFormatter) {
         return (
@@ -188,7 +186,7 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            const indicatorColor = color || item.color || item.payload.fill
 
             return (
               <div
@@ -306,7 +304,7 @@ const ChartLegendContent = React.forwardRef<
                   }}
                 />
               )}
-              {itemConfig?.label}
+              {itemConfig?.label || item.value} {/* Use label from config or value from payload */}
             </div>
           )
         })}
@@ -350,9 +348,12 @@ function getPayloadConfigFromPayload(
     ] as string
   }
 
+  // Ensure the key exists in the config before accessing it
   return configLabelKey in config
-    ? config[configLabelKey]
-    : config[key as keyof typeof config]
+      ? config[configLabelKey]
+      : key in config // Fallback to the original key if the payload key doesn't exist
+      ? config[key as keyof typeof config]
+      : undefined
 }
 
 export {

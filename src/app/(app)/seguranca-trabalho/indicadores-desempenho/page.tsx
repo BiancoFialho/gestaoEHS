@@ -3,9 +3,8 @@ import React from 'react';
 import { BarChartBig, TrendingDown, AlertTriangle, Thermometer, CalendarX, DollarSign } from 'lucide-react'; // Using relevant icons
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-// Placeholder for Chart Components
-// import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-// import { Line, LineChart, CartesianGrid, XAxis } from "recharts"
+import TfChart from '@/components/charts/TfChart'; // Import the new chart component
+import TgChart from '@/components/charts/TgChart'; // Import the TG chart component (assuming it exists or will be created)
 
 // Placeholder function to fetch performance indicators
 async function fetchPerformanceIndicators() {
@@ -20,6 +19,27 @@ async function fetchPerformanceIndicators() {
         fatalities: 0, // Example
         incidenceRate: 1.5, // Example TI %
         accidentCost: 25000.00, // Example R$
+        // Sample data for charts
+        tfTrendData: [
+            { period: "Jan/24", TF: 5.1 },
+            { period: "Fev/24", TF: 4.8 },
+            { period: "Mar/24", TF: 5.5 },
+            { period: "Abr/24", TF: 4.2 },
+            { period: "Mai/24", TF: 4.0 },
+            { period: "Jun/24", TF: 4.5 },
+            { period: "Jul/24", TF: 3.8 },
+            { period: "Ago/24", TF: 4.1 },
+        ],
+        tgTrendData: [ // Sample TG data
+            { period: "Jan/24", TG: 90.5 },
+            { period: "Fev/24", TG: 85.1 },
+            { period: "Mar/24", TG: 110.0 },
+            { period: "Abr/24", TG: 70.3 },
+            { period: "Mai/24", TG: 65.8 },
+            { period: "Jun/24", TG: 80.2 },
+            { period: "Jul/24", TG: 55.0 },
+            { period: "Ago/24", TG: 68.9 },
+        ]
     };
 }
 
@@ -161,22 +181,24 @@ export default async function IndicadoresDesempenhoPage() {
 
             </div>
 
-             {/* Placeholder for Charts */}
+             {/* Charts Section */}
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Evolução Taxa de Frequência (TF)</CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
-                         Gráfico TF aqui...
+                    <CardContent className="h-[250px]">
+                        {/* Render the TfChart component, passing the data */}
+                        <TfChart data={indicators.tfTrendData} />
                     </CardContent>
                 </Card>
                  <Card>
                     <CardHeader>
                         <CardTitle>Evolução Taxa de Gravidade (TG)</CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
-                         Gráfico TG aqui...
+                    <CardContent className="h-[250px]">
+                         {/* Render the TgChart component, passing the data */}
+                         <TgChart data={indicators.tgTrendData} />
                     </CardContent>
                 </Card>
             </div>
