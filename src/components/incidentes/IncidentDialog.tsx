@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -177,7 +176,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
       date: format(values.date, 'yyyy-MM-dd HH:mm:ss'), // Format date with time for DB
       locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
       reportedById: values.reportedById ? parseInt(values.reportedById, 10) : undefined,
-      severity: values.severity || undefined, // Ensure undefined if empty string
+      severity: values.severity === 'none' ? undefined : (values.severity || undefined), // Handle "None" and empty string
       status: values.status || 'Aberto', // Ensure default status if needed
     };
     console.log("Submitting Incident Data:", dataToSend);
@@ -329,7 +328,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Gravidade</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
+                  <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} value={field.value || undefined}>
                     <FormControl className="col-span-3">
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a gravidade (opcional)" />
@@ -353,7 +352,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Local</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
@@ -393,7 +392,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Reportado Por</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione quem reportou (opcional)"} />

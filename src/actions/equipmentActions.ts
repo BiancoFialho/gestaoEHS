@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -9,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 // Note: locationId is received as number | null after conversion in the component
 const equipmentSchema = z.object({
   name: z.string().min(2),
-  type: z.string().optional(),
+  type: z.string().optional().nullable(),
   locationId: z.number().nullable(), // Expect number or null
   serialNumber: z.string().optional().nullable(), // Allow null from DB perspective
   maintenanceSchedule: z.string().optional().nullable(),

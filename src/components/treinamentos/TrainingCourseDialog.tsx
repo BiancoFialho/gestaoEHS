@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -64,7 +63,15 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
     setIsSubmitting(true);
     console.log("Submitting Course Data:", values);
     try {
-      const result = await addTraining(values); // Use the server action
+      // Prepare data for server action, ensuring null for optional empty number fields
+       const dataToSend = {
+            ...values,
+            description: values.description || null,
+            provider: values.provider || null,
+            durationHours: values.durationHours || null,
+            frequencyMonths: values.frequencyMonths === 0 ? 0 : (values.frequencyMonths || null), // Keep 0 if entered, otherwise null
+        };
+      const result = await addTraining(dataToSend); // Use the server action
        if (result.success) {
         toast({
           title: "Sucesso!",
@@ -145,7 +152,7 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
                         <FormItem className="grid grid-cols-2 items-center gap-4">
                         <FormLabel className="text-right">Duração (h)</FormLabel>
                         <FormControl>
-                            <Input type="number" placeholder="Ex: 8" {...field} value={field.value ?? ''} />
+                            <Input type="number" placeholder="Ex: 8" {...field} value={field.value ?? ''} min="1" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
                         </FormControl>
                         <FormMessage className="col-span-2 text-right" />
                         </FormItem>
@@ -158,7 +165,7 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
                         <FormItem className="grid grid-cols-2 items-center gap-4">
                         <FormLabel className="text-right">Periodic. (m)</FormLabel>
                          <FormControl>
-                           <Input type="number" placeholder="Ex: 12 (0=N/A)" {...field} value={field.value ?? ''} min="0"/>
+                           <Input type="number" placeholder="Ex: 12 (0=N/A)" {...field} value={field.value ?? ''} min="0" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
                          </FormControl>
                          <FormMessage className="col-span-2 text-right" />
                         </FormItem>

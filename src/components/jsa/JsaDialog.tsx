@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -230,7 +229,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Local</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
@@ -270,7 +269,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o responsável (opcional)"} />

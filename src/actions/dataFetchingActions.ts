@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAllLocations, getAllUsers, getAllEmployees, getAllTrainings } from '@/lib/db';

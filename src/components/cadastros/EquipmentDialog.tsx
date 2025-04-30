@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
@@ -221,7 +220,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Local</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} // Handle "None" selection
                     // Ensure value is a string or undefined
                     value={field.value || undefined}
                     disabled={isLoadingLocations}
