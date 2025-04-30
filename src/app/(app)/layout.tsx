@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -22,12 +21,12 @@ import {
   Folder, // Documentos
   ListChecks, // Plano de Ação
   Stethoscope, // Doenças Ocup.
-  BarChartBig, // Estatísticas
+  BarChartBig, // Estatísticas / Indicadores Desempenho
   Gavel, // Ações Trab.
   Shield, // Segurança do Trabalho
   Leaf, // Meio Ambiente
   Target, // Indicadores Integrados
-  Activity, // Generic indicator icon
+  Activity, // Generic indicator icon / Indicadores Prevenção
   LayoutDashboard, // Dashboard Icon
 } from 'lucide-react';
 
@@ -58,7 +57,7 @@ import {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Hardcoded user info for now
   const userName = "admin";
-  const userIP = "192.168.56.1";
+  const userIP = "192.168.56.1"; // Example IP
 
   // Fake logout function for now
   const handleLogout = () => {
@@ -71,106 +70,57 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // router.push('/login');
   };
 
-  // EHS Menu Structure with updated hrefs
+  // EHS Menu Structure - Simplified
   const ehsMenu = [
     {
       title: "Segurança do Trabalho",
       icon: Shield,
       subItems: [
-        { title: "Indicadores de Desempenho", icon: BarChartBig, href: "/seguranca-trabalho/indicadores-desempenho", items: [
-          { title: "Nº Acidentes c/ Afastamento" },
-          { title: "Nº Acidentes s/ Afastamento" },
-          { title: "Taxa de Frequência (TF)" },
-          { title: "Taxa de Gravidade (TG)" },
-          { title: "Dias Perdidos" },
-          { title: "Nº Fatalidades" },
-          { title: "Índice Acidentes / Setor" },
-          { title: "Custo Acidentes" },
-          { title: "Taxa de Incidência (TI)" },
-        ]},
-        { title: "Indicadores de Prevenção", icon: ListChecks, href: "/seguranca-trabalho/indicadores-prevencao", items: [
-           { title: "Nº Inspeções" },
-           { title: "Nº Auditorias" },
-           { title: "Nº Treinamentos" },
-           { title: "Nº Não Conformidades" },
-           { title: "Nº Ações Implementadas" },
-           { title: "Adesão EPI" },
-           { title: "Participação DDS" },
-           { title: "Observações Comport." },
-           { title: "Perigos Controlados (%)" },
-        ]},
-         { title: "Análise de Riscos", icon: AlertTriangle, href: "/seguranca-trabalho/analise-riscos", items: []},
-         { title: "Incidentes", icon: FileWarning, href: "/seguranca-trabalho/incidentes", items: [] },
-         { title: "Auditorias", icon: ClipboardCheck, href: "/seguranca-trabalho/auditorias", items: [] },
-         { title: "Permissões", icon: FileCheck2, href: "/seguranca-trabalho/permissoes", items: [] },
-         { title: "EPIs", icon: HardHat, href: "/seguranca-trabalho/epis", items: [] },
-         { title: "Plano de Ação", icon: ListChecks, href: "/seguranca-trabalho/plano-acao", items: [] },
-         { title: "Ações Trab.", icon: Gavel, href: "/seguranca-trabalho/acoes-trabalhistas", items: [] },
+        { title: "Indicadores Desempenho", icon: BarChartBig, href: "/seguranca-trabalho/indicadores-desempenho" },
+        { title: "Indicadores Prevenção", icon: Activity, href: "/seguranca-trabalho/indicadores-prevencao" },
+        { title: "Análise de Riscos", icon: AlertTriangle, href: "/seguranca-trabalho/analise-riscos" },
+        { title: "Incidentes", icon: FileWarning, href: "/seguranca-trabalho/incidentes" },
+        { title: "Auditorias", icon: ClipboardCheck, href: "/seguranca-trabalho/auditorias" },
+        { title: "Permissões", icon: FileCheck2, href: "/seguranca-trabalho/permissoes" },
+        { title: "EPIs", icon: HardHat, href: "/seguranca-trabalho/epis" },
+        { title: "Plano de Ação", icon: ListChecks, href: "/seguranca-trabalho/plano-acao" },
+        { title: "Ações Trab.", icon: Gavel, href: "/seguranca-trabalho/acoes-trabalhistas" },
       ],
     },
     {
       title: "Saúde Ocupacional",
       icon: HeartPulse,
       subItems: [
-        { title: "Indicadores", icon: Activity, href: "/saude-ocupacional/indicadores", items: [
-          { title: "Absenteísmo / Doença" },
-          { title: "Nº Exames Médicos" },
-          { title: "Casos Doenças Trab." },
-          { title: "Aptidão vs. Inaptidão" },
-          { title: "Incidência LER/DORT" },
-          { title: "Monitoramento Agentes" },
-          { title: "Avaliações Psicossociais" },
-          { title: "Cobertura Vacinação" },
-          { title: "Tempo Afastamento" },
-          { title: "ASOs", href: "/saude-ocupacional/asos"}, // Specific link for ASOs if needed, else keep under indicators
-          { title: "Doenças Ocup.", href: "/saude-ocupacional/doencas-ocupacionais"}, // Specific link if needed
-        ]},
+        { title: "Indicadores", icon: Activity, href: "/saude-ocupacional/indicadores" },
+        { title: "ASOs", icon: FileTextIcon, href: "/saude-ocupacional/asos" }, // Changed icon for variety
+        { title: "Doenças Ocup.", icon: Stethoscope, href: "/saude-ocupacional/doencas-ocupacionais" },
       ],
     },
     {
       title: "Meio Ambiente",
       icon: Leaf,
       subItems: [
-        { title: "Indicadores", icon: Activity, href: "/meio-ambiente/indicadores", items: [
-           { title: "Geração Resíduos" },
-           { title: "Taxa Reciclagem" },
-           { title: "Resíduos Perigosos" },
-           { title: "Consumo Água" },
-           { title: "Consumo Energia" },
-           { title: "Emissões GEE" },
-           { title: "Derrames / Vazamentos" },
-           { title: "Autos Infração Amb." },
-           { title: "Atendimento Legislação (%)" },
-           { title: "Materiais Perigosos Arm." },
-           { title: "Inventário Químico", href: "/meio-ambiente/inventario-quimico"}, // Specific link if needed
-        ]},
+        { title: "Indicadores", icon: Activity, href: "/meio-ambiente/indicadores" },
+        { title: "Inventário Químico", icon: FlaskConical, href: "/meio-ambiente/inventario-quimico" },
       ],
     },
     {
       title: "Indicadores Integrados",
       icon: Target,
       subItems: [
-        { title: "Indicadores", icon: Activity, href: "/indicadores-integrados/indicadores", items: [
-           { title: "Maturidade EHS" },
-           { title: "Conformidade Legal" },
-           { title: "Score Auditoria Interna" },
-           { title: "Engajamento Colab." },
-           { title: "ROI Programas EHS" },
-           { title: "Horas Treinamento / Colab." },
-           { title: "Indicadores ESG (Foco EHS)" },
-           { title: "Estatísticas", href: "/indicadores-integrados/estatisticas"}, // Specific link if needed
-        ]},
+        { title: "Indicadores", icon: Activity, href: "/indicadores-integrados/indicadores" },
+        { title: "Estatísticas", icon: BarChartBig, href: "/indicadores-integrados/estatisticas" },
       ],
     },
      {
         title: "Geral",
-        icon: ClipboardList,
+        icon: ClipboardList, // Using Cadastros icon for the category
         subItems: [
-          { title: "Cadastros", icon: ClipboardList, href: "/geral/cadastros", items: [] },
-          { title: "Treinamentos", icon: GraduationCap, href: "/geral/treinamentos", items: [] },
-          { title: "Documentos", icon: Folder, href: "/geral/documentos", items: [] },
-          { title: "Usuários", icon: Users, href: "/geral/usuarios", items: [] },
-          { title: "Logs de Atividades", icon: FileTextIcon, href: "/geral/logs", items: [] },
+          { title: "Cadastros", icon: ClipboardList, href: "/geral/cadastros" },
+          { title: "Treinamentos", icon: GraduationCap, href: "/geral/treinamentos" },
+          { title: "Documentos", icon: Folder, href: "/geral/documentos" },
+          { title: "Usuários", icon: Users, href: "/geral/usuarios" },
+          { title: "Logs de Atividades", icon: FileTextIcon, href: "/geral/logs" },
         ],
     },
   ];
@@ -206,56 +156,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-1 pb-0 pl-5 pr-0 group-data-[collapsible=icon]:hidden">
-                  {category.subItems.map((subItem, subIndex) => (
-                    subItem.items && subItem.items.length > 0 ? (
-                      <Accordion type="multiple" key={`sub-${catIndex}-${subIndex}`} className="w-full">
-                        <AccordionItem value={`subitem-${catIndex}-${subIndex}`} className="border-none">
-                          <AccordionTrigger className="px-2 py-1.5 text-xs font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:no-underline rounded-md [&[data-state=open]>svg]:rotate-90">
-                            <Link href={subItem.href || '#'} className="flex items-center gap-2 w-full">
-                              {subItem.icon && <subItem.icon className="size-3.5 shrink-0" />}
-                              <span>{subItem.title}</span>
-                              {/* Remove the chevron from the trigger link itself */}
-                            </Link>
-                            {/* Keep chevron for accordion functionality */}
-                            {/* <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 no-rotate ml-auto"/> */}
-                          </AccordionTrigger>
-                          <AccordionContent className="pt-1 pb-0 pl-4 pr-0">
-                            <SidebarMenu className="gap-0.5">
-                              {subItem.items.map((item, itemIndex) => (
-                                <SidebarMenuItem key={`item-${catIndex}-${subIndex}-${itemIndex}`}>
-                                  <SidebarMenuButton
-                                    href={item.href || subItem.href + `#item-${itemIndex}` || '#'} // Basic fallback href
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 justify-start text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
-                                    tooltip={item.title}
-                                  >
-                                    <span className="truncate">{item.title}</span>
-                                  </SidebarMenuButton>
-                                </SidebarMenuItem>
-                              ))}
-                            </SidebarMenu>
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    ) : (
-                      // Render as a direct link if no sub-items
-                      <SidebarMenu key={`sub-direct-${catIndex}-${subIndex}`} className="pl-2">
-                        <SidebarMenuItem>
-                          <SidebarMenuButton
-                            href={subItem.href || '#'}
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 justify-start text-sidebar-foreground/80 hover:text-sidebar-accent-foreground"
-                            tooltip={subItem.title}
-                          >
-                            {subItem.icon && <subItem.icon className="size-3.5 shrink-0" />}
-                            <span className="truncate">{subItem.title}</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      </SidebarMenu>
-                    )
-                  ))}
+                  <SidebarMenu className="gap-0.5">
+                    {category.subItems.map((subItem, subIndex) => (
+                      <SidebarMenuItem key={`sub-direct-${catIndex}-${subIndex}`}>
+                        <SidebarMenuButton
+                          href={subItem.href || '#'}
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 justify-start text-sidebar-foreground/80 hover:text-sidebar-accent-foreground"
+                          tooltip={subItem.title}
+                        >
+                          {subItem.icon && <subItem.icon className="size-3.5 shrink-0" />}
+                          <span className="truncate">{subItem.title}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
                 </AccordionContent>
               </AccordionItem>
             ))}
