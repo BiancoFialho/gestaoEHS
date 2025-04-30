@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -5,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from "date-fns";
+import { ptBR } from 'date-fns/locale'; // Import locale pt-BR
 import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -77,6 +79,8 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // State for calendar popover
+
 
   const form = useForm<JsaFormValues>({
     resolver: zodResolver(formSchema),
@@ -143,6 +147,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
        setUsers([]);
        setIsSubmitting(false);
        setIsLoading(false);
+       setIsCalendarOpen(false); // Reset calendar state
     }
 
     return () => {
@@ -349,7 +354,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                     <FormLabel>Data Próxima Revisão</FormLabel>
-                    <Popover>
+                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                         <PopoverTrigger asChild>
                         <FormControl>
                             <Button
@@ -360,7 +365,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                             )}
                             >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>Selecione data (opcional)</span>}
+                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione data (opcional)</span>}
                             </Button>
                         </FormControl>
                         </PopoverTrigger>
@@ -368,9 +373,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                             onSelect={(date) => {
+                                field.onChange(date || null); // Set to null if cleared
+                                // Não fecha o calendário ao selecionar: setIsCalendarOpen(false);
+                            }}
                             initialFocus
+                            locale={ptBR} // Use ptBR locale for calendar display
                         />
+                         <div className="p-2 flex justify-end">
+                            <Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button>
+                         </div>
                         </PopoverContent>
                     </Popover>
                     <FormMessage />

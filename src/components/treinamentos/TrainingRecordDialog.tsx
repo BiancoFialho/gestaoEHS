@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -5,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from "date-fns"; // For date formatting
+import { ptBR } from 'date-fns/locale'; // Import locale pt-BR
 import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -79,6 +81,8 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompletionCalendarOpen, setIsCompletionCalendarOpen] = useState(false); // State for completion date calendar
+  const [isExpiryCalendarOpen, setIsExpiryCalendarOpen] = useState(false); // State for expiry date calendar
 
 
   const form = useForm<RecordFormValues>({
@@ -150,6 +154,8 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
       setTrainings([]);
       setIsSubmitting(false);
       setIsLoading(false);
+      setIsCompletionCalendarOpen(false);
+      setIsExpiryCalendarOpen(false);
     }
 
     return () => {
@@ -273,7 +279,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                     <FormLabel className="text-right">Data Conclusão *</FormLabel>
-                    <Popover>
+                    <Popover open={isCompletionCalendarOpen} onOpenChange={setIsCompletionCalendarOpen}>
                         <PopoverTrigger asChild>
                         <FormControl className="col-span-3">
                             <Button
@@ -284,7 +290,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                             )}
                             >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>Selecione data</span>}
+                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione data</span>}
                             </Button>
                         </FormControl>
                         </PopoverTrigger>
@@ -292,12 +298,19 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                         <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={(date) => field.onChange(date || new Date())} // Ensure date is always set
+                            onSelect={(date) => {
+                                field.onChange(date || new Date());
+                                // Não fecha o calendário ao selecionar: setIsCompletionCalendarOpen(false);
+                            }}
                             disabled={(date) =>
                             date > new Date() || date < new Date("1900-01-01")
                             }
                             initialFocus
+                            locale={ptBR} // Use ptBR locale for calendar display
                         />
+                        <div className="p-2 flex justify-end">
+                            <Button size="sm" onClick={() => setIsCompletionCalendarOpen(false)}>Fechar</Button>
+                         </div>
                         </PopoverContent>
                     </Popover>
                     <FormMessage className="col-span-4 text-right" />
@@ -310,7 +323,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                     <FormLabel className="text-right">Data Vencimento</FormLabel>
-                    <Popover>
+                     <Popover open={isExpiryCalendarOpen} onOpenChange={setIsExpiryCalendarOpen}>
                         <PopoverTrigger asChild>
                         <FormControl className="col-span-3">
                             <Button
@@ -321,7 +334,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                             )}
                             >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>Selecione data (opcional)</span>}
+                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione data (opcional)</span>}
                             </Button>
                         </FormControl>
                         </PopoverTrigger>
@@ -329,10 +342,17 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                         <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                             onSelect={(date) => {
+                                field.onChange(date || null); // Set to null if cleared
+                                // Não fecha o calendário ao selecionar: setIsExpiryCalendarOpen(false);
+                            }}
                              disabled={(date) => date < new Date("1900-01-01")} // Allow future dates
                             initialFocus
+                             locale={ptBR} // Use ptBR locale for calendar display
                         />
+                         <div className="p-2 flex justify-end">
+                            <Button size="sm" onClick={() => setIsExpiryCalendarOpen(false)}>Fechar</Button>
+                         </div>
                         </PopoverContent>
                     </Popover>
                     <FormMessage className="col-span-4 text-right" />

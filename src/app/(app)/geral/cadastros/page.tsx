@@ -2,19 +2,21 @@
 "use client"; // Add "use client" directive
 
 import React from 'react';
-import { ClipboardList, UserPlus, MapPin, Wrench } from 'lucide-react';
+import { ClipboardList, UserPlus, MapPin, Wrench, Users } from 'lucide-react'; // Adiciona Users icon
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 // Import Dialog Components
 import EmployeeDialog from '@/components/cadastros/EmployeeDialog';
 import LocationDialog from '@/components/cadastros/LocationDialog';
 import EquipmentDialog from '@/components/cadastros/EquipmentDialog';
+import UserDialog from '@/components/usuarios/UserDialog'; // Import UserDialog
 
 export default function CadastrosPage() {
   // State and functions for dialogs
   const [isEmployeeDialogOpen, setEmployeeDialogOpen] = React.useState(false);
   const [isLocationDialogOpen, setLocationDialogOpen] = React.useState(false);
   const [isEquipmentDialogOpen, setEquipmentDialogOpen] = React.useState(false);
+  const [isUserDialogOpen, setUserDialogOpen] = React.useState(false); // State for User Dialog
 
   return (
     <div>
@@ -26,7 +28,7 @@ export default function CadastrosPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> {/* Adjusted grid columns */}
         {/* Card para Funcionários */}
         <Card>
           <CardHeader>
@@ -80,12 +82,31 @@ export default function CadastrosPage() {
              <p className="text-xs text-muted-foreground mt-2 text-center">Adicionar, editar ou listar equipamentos.</p>
           </CardContent>
         </Card>
+
+        {/* Card para Usuários (Responsáveis) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Usuários (Responsáveis)
+            </CardTitle>
+            <CardDescription>Gerencie usuários e permissões.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setUserDialogOpen(true)} className="w-full">
+              Gerenciar Usuários
+            </Button>
+             <p className="text-xs text-muted-foreground mt-2 text-center">Adicionar, editar ou listar usuários.</p>
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* Dialogs */}
       <EmployeeDialog open={isEmployeeDialogOpen} onOpenChange={setEmployeeDialogOpen} />
       <LocationDialog open={isLocationDialogOpen} onOpenChange={setLocationDialogOpen} />
       <EquipmentDialog open={isEquipmentDialogOpen} onOpenChange={setEquipmentDialogOpen} />
+      <UserDialog open={isUserDialogOpen} onOpenChange={setUserDialogOpen} /> {/* Render User Dialog */}
 
     </div>
   );

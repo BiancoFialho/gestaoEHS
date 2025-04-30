@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -5,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from "date-fns";
+import { ptBR } from 'date-fns/locale'; // Import locale pt-BR
 import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -80,6 +82,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
   const [users, setUsers] = useState<User[]>([]); // For reporter dropdown
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // State to control calendar popover
 
   const form = useForm<IncidentFormValues>({
     resolver: zodResolver(formSchema),
@@ -153,6 +156,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
        setUsers([]);
        setIsSubmitting(false);
        setIsLoading(false);
+       setIsCalendarOpen(false); // Reset calendar state
     }
 
      return () => {
@@ -254,7 +258,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                     <FormLabel className="text-right">Data/Hora *</FormLabel>
-                    <Popover>
+                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                         <PopoverTrigger asChild>
                         <FormControl className="col-span-3">
                             <Button
@@ -266,7 +270,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
                             >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                              {/* Format date and potentially time */}
-                            {field.value ? format(field.value, "dd/MM/yyyy HH:mm") : <span>Selecione data/hora</span>}
+                            {field.value ? format(field.value, "dd/MM/yyyy HH:mm", { locale: ptBR }) : <span>Selecione data/hora</span>}
                             </Button>
                         </FormControl>
                         </PopoverTrigger>
@@ -274,9 +278,21 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
                         <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={(date) => field.onChange(date || new Date())} // Ensure a date is always set
+                            onSelect={(date) => {
+                                if (date) {
+                                    // Keep current time if date is selected, otherwise use current time
+                                    const currentTime = field.value || new Date();
+                                    date.setHours(currentTime.getHours());
+                                    date.setMinutes(currentTime.getMinutes());
+                                    field.onChange(date);
+                                } else {
+                                    field.onChange(new Date()); // Fallback to current date/time if selection is cleared
+                                }
+                                // Do not close calendar on select: setIsCalendarOpen(false);
+                            }}
                             disabled={(date) => date > new Date() } // Prevent future dates
                             initialFocus
+                            locale={ptBR} // Use ptBR locale for calendar display
                         />
                          {/* Basic Time Input (Consider a dedicated time picker component) */}
                         <div className="p-2 border-t border-border">
@@ -294,6 +310,9 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
                                 className="w-full"
                             />
                         </div>
+                         <div className="p-2 flex justify-end">
+                            <Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button>
+                         </div>
                         </PopoverContent>
                     </Popover>
                     <FormMessage className="col-span-4 text-right" />
