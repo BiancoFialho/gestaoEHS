@@ -30,9 +30,10 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label"; // Import Label
 import { useToast } from "@/hooks/use-toast";
 import { addDocument } from '@/actions/documentActions'; // Import server action
 
@@ -78,8 +79,16 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
     try {
        // TODO: Implement actual file upload logic here if needed
        // For now, we just pass the values including the placeholder filePath
+       // Prepare data for the server action, ensuring null for optional empty strings
+        const dataToSend = {
+            ...values,
+            category: values.category || null,
+            version: values.version || null,
+            description: values.description || null,
+            filePath: values.filePath || null,
+        };
 
-       const result = await addDocument(values);
+       const result = await addDocument(dataToSend);
        if (result.success) {
         toast({
           title: "Sucesso!",
