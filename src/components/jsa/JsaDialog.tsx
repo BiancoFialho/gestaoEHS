@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -42,8 +43,8 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-// Assume new server action 'addJsa' exists or will be created
-// import { addJsa } from '@/actions/jsaActions';
+// Import the actual server action
+import { addJsa } from '@/actions/jsaActions';
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
 
 interface JsaDialogProps {
@@ -52,18 +53,14 @@ interface JsaDialogProps {
   // TODO: Add 'initialData' prop for editing
 }
 
-// Zod schema for validation - Adapted for JSA
+// Zod schema for validation - Adapted for JSA, Steps removed from initial dialog
 const formSchema = z.object({
   task: z.string().min(5, { message: "Tarefa deve ter pelo menos 5 caracteres." }),
   locationId: z.string().optional(),
   department: z.string().optional(), // Could be useful
   responsiblePersonId: z.string().optional(),
   teamMembers: z.string().optional(), // Text area for members
-  steps: z.array(z.object({ // Array for JSA steps
-      description: z.string().min(3, "Descreva o passo."),
-      hazards: z.string().min(3, "Liste os perigos."),
-      controls: z.string().min(3, "Liste as medidas de controle."),
-  })).optional().default([]),
+  // steps removed for initial creation simplification
   requiredPpe: z.string().optional(),
   status: z.string().optional().default('Rascunho'),
   reviewDate: z.date().optional().nullable(),
@@ -74,15 +71,6 @@ type JsaFormValues = z.infer<typeof formSchema>;
 interface Location { id: number; name: string; }
 interface User { id: number; name: string; }
 
-// Function to simulate adding JSA (replace with actual action call)
-async function addJsa(data: any): Promise<{ success: boolean; error?: string; id?: number }> {
-  console.log("Simulating JSA Add:", data);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  // Simulate success
-  return { success: true, id: Math.floor(Math.random() * 1000) };
-  // Simulate error
-  // return { success: false, error: "Erro simulado ao adicionar JSA." };
-}
 
 const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
@@ -99,7 +87,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
       department: "",
       responsiblePersonId: "",
       teamMembers: "",
-      steps: [], // Initialize steps array
+      // steps: [], // No longer needed in defaultValues for this simplified dialog
       requiredPpe: "",
       status: "Rascunho",
       reviewDate: null,
@@ -151,25 +139,26 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
      setIsSubmitting(true);
      // Prepare data for the server action
      const dataToSend = {
-        ...values,
+        task: values.task,
         locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
-        responsiblePersonId: values.responsiblePersonId ? parseInt(values.responsiblePersonId, 10) : undefined,
-        reviewDate: values.reviewDate ? format(values.reviewDate, 'yyyy-MM-dd') : undefined,
-        // Ensure other optional text fields are null if empty
         department: values.department || null,
+        responsiblePersonId: values.responsiblePersonId ? parseInt(values.responsiblePersonId, 10) : undefined,
         teamMembers: values.teamMembers || null,
         requiredPpe: values.requiredPpe || null,
         status: values.status || 'Rascunho',
+        reviewDate: values.reviewDate ? format(values.reviewDate, 'yyyy-MM-dd') : undefined,
+        // Steps are not included in this simplified creation form
+        steps: [], // Send empty array for steps
      }
      console.log("Submitting JSA Data:", dataToSend);
 
     try {
-      // Replace with actual call to addJsa action when created
-      const result = await addJsa(dataToSend);
+      // Call the actual addJsa server action
+      const result = await addJsa(dataToSend, dataToSend.steps); // Pass empty steps array
        if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "JSA adicionada com sucesso.",
+          description: "JSA adicionada com sucesso. Adicione os passos na tela de edição.", // Updated message
         });
         form.reset();
         onOpenChange(false);
@@ -192,31 +181,29 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
     }
   };
 
-  // TODO: Add functions to manage steps (add, remove) if needed in the dialog
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Increased max-width */}
-      <DialogContent className="sm:max-w-2xl">
+      {/* Adjusted width */}
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar Nova JSA</DialogTitle>
           <DialogDescription>
-            Descreva a tarefa, identifique os passos, perigos e controles.
+            Insira as informações básicas da tarefa. Os passos serão adicionados na edição.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-           {/* Scrollable form area */}
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+           {/* Scrollable form area with vertical layout */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
              <FormField
               control={form.control}
               name="task"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Tarefa *</FormLabel>
-                  <FormControl className="col-span-3">
+                <FormItem>
+                  <FormLabel>Tarefa *</FormLabel>
+                  <FormControl>
                     <Input placeholder="Nome da Tarefa Analisada" {...field} />
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -224,16 +211,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="locationId"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Local</FormLabel>
+                <FormItem>
+                  <FormLabel>Local</FormLabel>
                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
-                        <FormControl className="col-span-3">
+                        <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
+                        {/* Removed item with empty value */}
                         {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
@@ -242,7 +229,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local</SelectItem>}
                         </SelectContent>
                     </Select>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -250,12 +237,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="department"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Departamento</FormLabel>
-                  <FormControl className="col-span-3">
+                <FormItem>
+                  <FormLabel>Departamento</FormLabel>
+                  <FormControl>
                     <Input placeholder="Departamento envolvido (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
-                   <FormMessage className="col-span-4 text-right" />
+                   <FormMessage />
                 </FormItem>
               )}
             />
@@ -263,16 +250,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="responsiblePersonId"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Responsável</FormLabel>
+                <FormItem>
+                  <FormLabel>Responsável</FormLabel>
                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
-                        <FormControl className="col-span-3">
+                        <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o responsável (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
+                        {/* Removed item with empty value */}
                         {users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
@@ -281,7 +268,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                          {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}
                         </SelectContent>
                     </Select>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -289,47 +276,28 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="teamMembers"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
-                  <FormLabel className="text-right pt-2">Equipe</FormLabel>
-                  <FormControl className="col-span-3">
+                <FormItem>
+                  <FormLabel>Equipe</FormLabel>
+                  <FormControl>
                     <Textarea placeholder="Membros da equipe envolvidos (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
-             {/* JSA Steps Section - Placeholder - Needs more complex UI */}
-             <div className="col-span-4 border-t pt-4 mt-4">
-                <h4 className="text-md font-semibold mb-2">Passos da Tarefa</h4>
-                {/* Placeholder: Add UI to add/edit steps (Array Field) */}
-                 <div className="text-center text-muted-foreground p-4 border rounded bg-muted/50">
-                    [Interface para adicionar/editar passos, perigos e controles será implementada aqui]
-                 </div>
-                 {/*
-                 Example structure for steps rendering (using react-hook-form useFieldArray):
-                 {fields.map((step, index) => (
-                    <div key={step.id} className="grid grid-cols-3 gap-2 mb-2 border p-2 rounded">
-                        <FormField control={form.control} name={`steps.${index}.description`} render={...} />
-                        <FormField control={form.control} name={`steps.${index}.hazards`} render={...} />
-                        <FormField control={form.control} name={`steps.${index}.controls`} render={...} />
-                        <Button type="button" variant="destructive" size="sm" onClick={() => remove(index)}>Remover</Button>
-                    </div>
-                 ))}
-                 <Button type="button" onClick={() => append({ description: "", hazards: "", controls: "" })}>Adicionar Passo</Button>
-                 */}
-             </div>
+             {/* Steps section removed for simplicity */}
 
              <FormField
               control={form.control}
               name="requiredPpe"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
-                  <FormLabel className="text-right pt-2">EPIs Necessários</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Textarea placeholder="Liste os EPIs requeridos para a tarefa..." {...field} value={field.value ?? ''}/>
+                <FormItem>
+                  <FormLabel>EPIs Necessários</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Liste os EPIs requeridos (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -338,10 +306,10 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="status"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Status</FormLabel>
+                <FormItem>
+                  <FormLabel>Status Inicial</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl className="col-span-3">
+                    <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o status" />
                       </SelectTrigger>
@@ -353,7 +321,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                        <SelectItem value="Obsoleto">Obsoleto</SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -361,11 +329,11 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               control={form.control}
               name="reviewDate"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">Data Revisão</FormLabel>
+                <FormItem>
+                    <FormLabel>Data Próxima Revisão</FormLabel>
                     <Popover>
                         <PopoverTrigger asChild>
-                        <FormControl className="col-span-3">
+                        <FormControl>
                             <Button
                             variant={"outline"}
                             className={cn(
@@ -387,7 +355,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         />
                         </PopoverContent>
                     </Popover>
-                    <FormMessage className="col-span-4 text-right" />
+                    <FormMessage />
                 </FormItem>
               )}
             />
