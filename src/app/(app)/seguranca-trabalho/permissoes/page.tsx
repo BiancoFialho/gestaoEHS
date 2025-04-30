@@ -1,4 +1,6 @@
 
+"use client"; // Add "use client" directive
+
 import React from 'react';
 import { FileCheck2, PlusCircle, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";

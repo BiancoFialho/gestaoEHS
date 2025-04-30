@@ -1,4 +1,6 @@
 
+"use client"; // Add "use client" directive
+
 import React from 'react';
 import { HeartPulse, PlusCircle, CalendarCheck, AlertCircle } from 'lucide-react'; // Using parent icon and others
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,8 @@
 
+"use client"; // Add "use client" directive
+
 import React from 'react';
-import { ListChecks, PlusCircle, Clock, CheckCircle, AlertTriangle } from 'lucide-react'; // Re-using ListChecks icon and adding others
+import { ListChecks, PlusCircle, Clock, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'; // Re-using ListChecks icon and adding others
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

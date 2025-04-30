@@ -1,4 +1,6 @@
 
+"use client"; // Add "use client" directive
+
 import React from 'react';
 import { AlertTriangle, PlusCircle, ListFilter } from 'lucide-react';
 import { Button } from "@/components/ui/button";
