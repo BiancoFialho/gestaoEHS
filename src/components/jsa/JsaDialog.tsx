@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -227,14 +226,14 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Local</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value ?? ""}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         <SelectItem value="">Nenhum</SelectItem>
+                         {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
                         {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
@@ -266,14 +265,14 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Responsável</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value ?? ""}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o responsável (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         <SelectItem value="">Nenhum</SelectItem>
+                         {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
                         {users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
@@ -410,4 +409,3 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
 };
 
 export default JsaDialog;
-

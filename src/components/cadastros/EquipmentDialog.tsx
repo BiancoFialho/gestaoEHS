@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
@@ -206,7 +205,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={isLoadingLocations}
-                    value={field.value ?? ""}
+                    value={field.value}
                   >
                     <FormControl className="col-span-3">
                       <SelectTrigger>
@@ -214,7 +213,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       <SelectItem value="">Nenhum</SelectItem>
+                       {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
                       {locations.map((loc) => (
                         <SelectItem key={loc.id} value={loc.id.toString()}>
                           {loc.name}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -207,7 +206,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Funcionário *</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value ?? ""}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione..."} />
@@ -232,7 +231,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Curso *</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value ?? ""}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                              <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione..."} />

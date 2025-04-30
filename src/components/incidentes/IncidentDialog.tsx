@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
@@ -290,7 +289,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Tipo *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value ?? ""}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl className="col-span-3">
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de incidente" />
@@ -312,14 +311,14 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Gravidade</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value ?? ""}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl className="col-span-3">
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a gravidade (opcional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       <SelectItem value="">Nenhuma</SelectItem>
+                       {/* <SelectItem value="">Nenhuma</SelectItem> - Removed: Causes hydration error */}
                       {severities.map((sev) => (
                         <SelectItem key={sev} value={sev}>{sev}</SelectItem>
                       ))}
@@ -335,14 +334,14 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Local</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value ?? ""}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         <SelectItem value="">Nenhum</SelectItem>
+                         {/* <SelectItem value="">Nenhum</SelectItem> - Removed: Causes hydration error */}
                         {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
@@ -374,14 +373,14 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               render={({ field }) => (
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Reportado Por</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value ?? ""}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value}>
                         <FormControl className="col-span-3">
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione quem reportou (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         <SelectItem value="">Anônimo/Não especificado</SelectItem>
+                         {/* <SelectItem value="">Anônimo/Não especificado</SelectItem> - Removed: Causes hydration error */}
                         {users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
