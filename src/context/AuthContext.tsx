@@ -7,14 +7,14 @@ import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (email: string, pass: string) => boolean; // Changed username to email
+  login: (identifier: string, pass: string) => Promise<boolean>; // Changed to identifier, made async
   logout: () => void;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_KEY = 'stepwise_auth';
+const AUTH_KEY = 'ehs_control_auth'; // Changed key slightly for clarity
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -36,22 +36,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = (email: string, pass: string): boolean => { // Changed username to email
-    // Hardcoded credentials - Use email for check
-    // NOTE: For a real application, replace 'admin@stepwise.app' with the actual Admin email
-    // or implement proper database authentication.
-    if ((email.toLowerCase() === 'admin' || email.toLowerCase() === 'admin@stepwise.app') && pass === '1234') {
+ const login = async (identifier: string, pass: string): Promise<boolean> => { // Changed username to identifier, made async
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const lowerIdentifier = identifier.toLowerCase();
+    // Hardcoded credentials - Check against both username 'admin' and email 'admin@stepwise.app'
+    if ((lowerIdentifier === 'admin' || lowerIdentifier === 'admin@stepwise.app') && pass === '1234') {
       try {
         localStorage.setItem(AUTH_KEY, 'true');
       } catch (error) {
         console.error('Error setting localStorage:', error);
         // Optionally notify the user or handle the error
+        // Consider returning false if storing auth state fails criticaly
       }
       setIsAuthenticated(true);
       return true;
     }
     return false;
   };
+
 
   const logout = () => {
     try {
@@ -78,3 +82,4 @@ export const useAuth = () => {
   return context;
 };
 
+    

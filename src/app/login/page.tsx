@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from 'next/navigation';
+import { LayoutDashboard } from 'lucide-react'; // Import an icon
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Por favor, insira um e-mail válido." }).min(1, { message: "O e-mail é obrigatório." }),
+  email: z.string().min(1, { message: "O e-mail ou nome de usuário é obrigatório." }), // Allow email or username
   password: z.string().min(1, { message: "A senha é obrigatória." }),
   manterLogado: z.boolean().default(false).optional(),
 });
@@ -46,30 +47,31 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      email: "", // Keep field name as 'email' for simplicity, but label will reflect username/email
       password: "",
       manterLogado: false,
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Use email for login check
-    if (login(values.email, values.password)) {
+ async function onSubmit(values: z.infer<typeof formSchema>) {
+    const loginSuccessful = await login(values.email, values.password); // Use await since login might be async
+    if (loginSuccessful) {
       toast({
         title: "Login bem-sucedido",
         description: "Bem-vindo de volta!",
         variant: "default",
       });
-      router.push('/'); // Redirect to home page on successful login
+      router.push('/'); // Redirect to home page (dashboard) on successful login
     } else {
       toast({
         title: "Falha no Login",
-        description: "E-mail ou senha inválidos.",
+        description: "Usuário ou senha inválidos.", // Updated message
         variant: "destructive",
       });
       form.resetField("password"); // Clear password field on failure
     }
   }
+
 
   const handleSignUpClick = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -85,7 +87,7 @@ export default function LoginPage() {
   // Avoid rendering the form server-side or before hydration check
   if (!isClient || isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         {/* Optional: Add a loading spinner */}
         <p>Carregando...</p>
       </div>
@@ -95,7 +97,7 @@ export default function LoginPage() {
   // If authenticated after loading, render null or a redirecting message
   if (isAuthenticated) {
     return (
-       <div className="flex min-h-screen items-center justify-center bg-background p-4">
+       <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
          <p>Redirecionando...</p>
        </div>
      );
@@ -103,11 +105,13 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-sm shadow-lg border border-primary/20">
-        <CardHeader className="text-center pb-4">
-          <CardTitle className="text-3xl font-bold text-primary">Login</CardTitle>
-          {/* Optional: Add a subtle line if desired */}
-          {/* <hr className="border-primary/30 mt-2" /> */}
+      <Card className="w-full max-w-sm shadow-lg border border-border">
+        <CardHeader className="text-center pb-4 space-y-2">
+           <div className="flex justify-center items-center gap-2">
+             <LayoutDashboard className="h-8 w-8 text-primary" /> {/* Added Icon */}
+             <CardTitle className="text-3xl font-bold text-primary">EHS Control</CardTitle>
+          </div>
+           <p className="text-sm text-muted-foreground">Faça login para continuar</p> {/* Added subtitle */}
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -117,9 +121,9 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Seu e-mail</FormLabel>
+                    <FormLabel>Usuário ou E-mail</FormLabel> {/* Updated Label */}
                     <FormControl>
-                      <Input placeholder="" {...field} />
+                      <Input placeholder="Digite seu usuário ou e-mail" {...field} /> {/* Updated placeholder */}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -130,9 +134,9 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Sua senha</FormLabel>
+                    <FormLabel>Senha</FormLabel> {/* Updated Label */}
                     <FormControl>
-                      <Input type="password" placeholder="" {...field} />
+                      <Input type="password" placeholder="Digite sua senha" {...field} /> {/* Updated placeholder */}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -158,19 +162,24 @@ export default function LoginPage() {
                 )}
               />
               <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Entrando...' : 'Logar'}
+                {form.formState.isSubmitting ? 'Entrando...' : 'Entrar'} {/* Changed button text */}
               </Button>
             </form>
           </Form>
         </CardContent>
-         <CardFooter className="flex justify-center items-center pt-4 pb-6 border-t border-border">
-             <span className="text-sm text-muted-foreground mr-2">Ainda não tem conta?</span>
-             <Link href="#" onClick={handleSignUpClick} className="text-sm text-primary hover:underline font-medium px-2 py-1 rounded-sm bg-accent/20 hover:bg-accent/30 transition-colors">
+         <CardFooter className="flex flex-col items-center justify-center pt-4 pb-6 border-t border-border space-y-2">
+             <span className="text-sm text-muted-foreground">Ainda não tem conta?</span>
+             <Link href="#" onClick={handleSignUpClick} className="text-sm text-primary hover:underline font-medium px-2 py-1 rounded-sm transition-colors">
                 Cadastre-se
              </Link>
+             {/* Optional: Forgot password link */}
+             {/* <Link href="#" className="text-xs text-muted-foreground hover:underline">
+                Esqueceu sua senha?
+             </Link> */}
           </CardFooter>
       </Card>
     </div>
   );
 }
 
+    
