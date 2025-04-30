@@ -18,12 +18,13 @@ export default function IncidentesPage() {
 
   // Placeholder data for incident list (Fetch from DB later)
   const incidents = [
-    { id: 1, date: "2024-08-17", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Produção A", status: "Fechado", description: "Corte superficial no dedo." },
-    { id: 2, date: "2024-08-18", type: "Acidente com Afastamento", severity: "Moderado", location_name: "Manutenção", status: "Em Investigação", description: "Entorse no tornozelo ao descer escada." },
-    { id: 3, date: "2024-08-18", type: "Quase Acidente", severity: "N/A", location_name: "Armazém", status: "Fechado", description: "Caixa caiu de prateleira próxima ao funcionário." },
-    { id: 4, date: "2024-08-19", type: "Quase Acidente", severity: "N/A", location_name: "Produção B", status: "Aguardando Ação", description: "Piso escorregadio devido a vazamento." },
-    { id: 5, date: "2024-08-22", type: "Incidente Ambiental", severity: "Insignificante", location_name: "Pátio Externo", status: "Aberto", description: "Pequeno vazamento de óleo contido." },
-     { id: 6, date: "2024-08-23", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Escritório", status: "Aberto", description: "Colisão com mobília." },
+    { id: 1, date: "2024-08-17 10:30:00", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Fábrica - Setor A", status: "Fechado", description: "Corte superficial no dedo ao manusear peça.", reporter_name: "Técnico SST" },
+    { id: 2, date: "2024-08-18 14:00:00", type: "Acidente com Afastamento", severity: "Moderado", location_name: "Fábrica - Setor A", status: "Em Investigação", description: "Entorse no tornozelo ao descer escada da máquina.", reporter_name: "Técnico SST" },
+    { id: 3, date: "2024-08-19 09:15:00", type: "Quase Acidente", severity: "N/A", location_name: "Almoxarifado Central", status: "Fechado", description: "Caixa caiu de prateleira próxima ao funcionário Carlos.", reporter_name: "Admin EHS" },
+    { id: 4, date: "2024-08-22 11:00:00", type: "Incidente Ambiental", severity: "Insignificante", location_name: "Pátio Externo", status: "Aberto", description: "Pequeno vazamento de óleo contido na área de descarte.", reporter_name: "Gerente Seg" },
+    { id: 5, date: "2024-08-23 16:45:00", type: "Quase Acidente", severity: "N/A", location_name: "Produção B", status: "Aguardando Ação", description: "Piso escorregadio devido a vazamento de óleo na máquina Y.", reporter_name: "Alice Silva" },
+    { id: 6, date: "2024-08-24 08:00:00", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Escritório - RH", status: "Aberto", description: "Colisão com mobília, resultando em hematoma.", reporter_name: "Diana Souza" },
+    { id: 7, date: "2024-07-10 15:20:00", type: "Acidente com Afastamento", severity: "Grave", location_name: "Manutenção", status: "Fechado", description: "Queda de escada durante reparo.", reporter_name: "Gerente Seg"},
   ];
 
     const getSeverityBadgeVariant = (severity: string | null | undefined) => {

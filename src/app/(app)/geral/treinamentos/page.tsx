@@ -20,18 +20,21 @@ export default function TreinamentosPage() {
 
   // Placeholder data (Fetch from DB later)
   const courses = [
-    { id: 1, course_name: "NR-35 Trabalho em Altura", frequency_months: 24, provider: "Empresa Segura Ltda." },
-    { id: 2, course_name: "NR-33 Espaços Confinados (Trabalhador/Vigia)", frequency_months: 12, provider: "Consultoria XYZ" },
-    { id: 3, course_name: "Primeiros Socorros", frequency_months: 12, provider: "Cruz Vermelha (Exemplo)" },
-    { id: 4, course_name: "Uso de EPIs", frequency_months: 0, provider: "Interno" }, // Frequência 0 = treinamento único/reciclagem sob demanda
+    { id: 1, course_name: "NR-35 Trabalho em Altura", frequency_months: 24, provider: "Consultoria Segura" },
+    { id: 2, course_name: "NR-33 Espaços Confinados (Vigia/Trabalhador)", frequency_months: 12, provider: "TreinaEHS" },
+    { id: 3, course_name: "Primeiros Socorros Básico", frequency_months: 12, provider: "Interno - Téc. Enfermagem" },
+    { id: 4, course_name: "Uso de EPIs Específicos", frequency_months: 0, provider: "Interno - Téc. Segurança" }, // Frequência 0 = treinamento único/reciclagem sob demanda
+    { id: 5, course_name: "Operação de Empilhadeira", frequency_months: 12, provider: "Centro Logístico Treinamentos" },
   ];
 
   const records = [
     { id: 101, employee_name: "Alice Silva", training_name: "NR-35 Trabalho em Altura", completion_date: "2023-10-15", expiry_date: "2025-10-15" },
-    { id: 102, employee_name: "Bruno Costa", training_name: "NR-33 Espaços Confinados (Trabalhador/Vigia)", completion_date: "2024-02-20", expiry_date: "2025-02-20" },
-    { id: 103, employee_name: "Alice Silva", training_name: "Primeiros Socorros", completion_date: "2024-05-01", expiry_date: "2025-05-01" },
-    { id: 104, employee_name: "Carlos Dias", training_name: "Uso de EPIs", completion_date: "2024-01-10", expiry_date: null },
-    { id: 105, employee_name: "Bruno Costa", training_name: "NR-35 Trabalho em Altura", completion_date: "2022-11-01", expiry_date: "2024-11-01" }, // Exemplo Vencido
+    { id: 102, employee_name: "Bruno Costa", training_name: "NR-33 Espaços Confinados (Vigia/Trabalhador)", completion_date: "2024-02-20", expiry_date: "2025-02-20" },
+    { id: 103, employee_name: "Alice Silva", training_name: "Primeiros Socorros Básico", completion_date: "2024-05-01", expiry_date: "2025-05-01" },
+    { id: 104, employee_name: "Carlos Dias", training_name: "Uso de EPIs Específicos", completion_date: "2024-01-10", expiry_date: null },
+    { id: 105, employee_name: "Bruno Costa", training_name: "NR-35 Trabalho em Altura", completion_date: "2022-11-01", expiry_date: "2024-11-01" }, // Exemplo Vencendo
+    { id: 106, employee_name: "Diana Souza", training_name: "Primeiros Socorros Básico", completion_date: "2023-04-10", expiry_date: "2024-04-10" }, // Exemplo Vencido
+    { id: 107, employee_name: "Carlos Dias", training_name: "Operação de Empilhadeira", completion_date: "2023-09-01", expiry_date: "2024-09-01" },
   ];
 
   return (

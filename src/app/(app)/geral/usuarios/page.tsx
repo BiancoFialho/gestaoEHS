@@ -21,8 +21,10 @@ export default function UsuariosPage() {
     { id: 1, name: "Admin EHS", email: "admin@ehscontrol.com", role: "admin", is_active: true },
     { id: 2, name: "Gerente Seg", email: "gerente.seg@company.com", role: "manager", is_active: true },
     { id: 3, name: "Técnico SST", email: "tecnico.sst@company.com", role: "user", is_active: true },
-    { id: 4, name: "Analista Amb", email: "analista.amb@company.com", role: "user", is_active: true },
+    { id: 4, name: "Bianco Fialho", email: "biancofialho@gmail.com", role: "admin", is_active: true }, // Added user
     { id: 5, name: "Usuário Inativo", email: "inativo@company.com", role: "user", is_active: false },
+    { id: 6, name: "Analista Ambiental", email: "analista.amb@company.com", role: "user", is_active: true },
+    { id: 7, name: "Consultor Externo", email: "consultor@external.com", role: "user", is_active: true }, // Added example external user
   ];
 
   const getRoleBadgeVariant = (role: string) => {

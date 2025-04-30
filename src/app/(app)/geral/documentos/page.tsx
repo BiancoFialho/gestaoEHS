@@ -17,10 +17,12 @@ export default function DocumentosPage() {
 
   // Placeholder data for document list (fetch from DB later)
   const documents = [
-    { id: 1, title: "Política de Segurança", category: "Política", version: "1.2", upload_date: "2024-07-15", status: "Ativo" },
-    { id: 2, title: "FDS - Produto X", category: "FDS", version: "3.0", upload_date: "2024-06-01", status: "Ativo" }, // Changed FISPQ to FDS
-    { id: 3, title: "Plano de Emergência", category: "Procedimento", version: "2.1", upload_date: "2023-11-20", status: "Ativo" },
-    { id: 4, title: "Manual Operacional Y", category: "Manual", version: "1.0", upload_date: "2024-01-10", status: "Em Revisão" },
+    { id: 1, title: "Política de Segurança e Saúde", category: "Política", version: "2.0", upload_date: "2024-07-15", status: "Ativo" },
+    { id: 2, title: "FDS - Álcool Etílico 70%", category: "FDS", version: "1.1", upload_date: "2024-06-01", status: "Ativo" },
+    { id: 3, title: "Procedimento Bloqueio e Etiquetagem", category: "Procedimento", version: "3.0", upload_date: "2023-11-20", status: "Em Revisão" },
+    { id: 4, title: "Manual Operacional Prensa P-10", category: "Manual", version: "1.0", upload_date: "2024-01-10", status: "Ativo" },
+    { id: 5, title: "PPRA (Histórico)", category: "PGR/PPRA", version: "2021", upload_date: "2022-02-01", status: "Obsoleto" },
+    { id: 6, title: "Plano de Emergência", category: "Plano", version: "2.1", upload_date: "2023-05-10", status: "Ativo" },
   ];
 
   return (

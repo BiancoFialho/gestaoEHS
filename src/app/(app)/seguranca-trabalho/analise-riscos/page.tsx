@@ -19,10 +19,12 @@ export default function AnaliseRiscosPage() {
   // Placeholder data for risk list (Fetch from DB later)
   const risks = [
     { id: 1, description: "Queda de altura durante manutenção de telhado", location_name: "Fábrica - Telhado", probability: 3, severity: 5, risk_level: 15, status: "Controlado" },
-    { id: 2, description: "Exposição a ruído acima do limite", location_name: "Produção A - Máquina X", probability: 4, severity: 3, risk_level: 12, status: "Em Andamento" },
-    { id: 3, description: "Contato com produto químico corrosivo", location_name: "Laboratório", probability: 2, severity: 4, risk_level: 8, status: "Controlado" },
-    { id: 4, description: "Lesão ergonômica por movimento repetitivo", location_name: "Escritório", probability: 3, severity: 2, risk_level: 6, status: "Aberto" },
-    { id: 5, description: "Atropelamento por empilhadeira", location_name: "Armazém", probability: 2, severity: 5, risk_level: 10, status: "Em Andamento" },
+    { id: 2, description: "Exposição a ruído acima do limite na Prensa P-10", location_name: "Fábrica - Setor A", probability: 4, severity: 3, risk_level: 12, status: "Em Andamento" },
+    { id: 3, description: "Contato com ácido sulfúrico no laboratório", location_name: "Laboratório Químico", probability: 2, severity: 4, risk_level: 8, status: "Controlado" },
+    { id: 4, description: "Lesão ergonômica por digitação", location_name: "Escritório - RH", probability: 3, severity: 2, risk_level: 6, status: "Aberto" },
+    { id: 5, description: "Atropelamento por empilhadeira no corredor C", location_name: "Almoxarifado Central", probability: 2, severity: 5, risk_level: 10, status: "Em Andamento" },
+    { id: 6, description: "Choque elétrico em painel não sinalizado", location_name: "Fábrica - Setor A", probability: 1, severity: 5, risk_level: 5, status: "Mitigado" },
+    { id: 7, description: "Incêndio por curto-circuito", location_name: "Escritório - RH", probability: 1, severity: 4, risk_level: 4, status: "Aberto" },
   ];
 
    const getRiskLevelBadge = (level: number | null | undefined) => {

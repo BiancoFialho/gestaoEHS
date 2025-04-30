@@ -1,4 +1,3 @@
-
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
@@ -9,6 +8,7 @@ let db: Database | null = null;
 /**
  * Abre e retorna a conexão com o banco de dados SQLite.
  * Cria o banco de dados e as tabelas se não existirem.
+ * Popula com dados de exemplo se as tabelas estiverem vazias.
  */
 export async function getDbConnection(): Promise<Database> {
   if (db) {
@@ -486,6 +486,82 @@ export async function getDbConnection(): Promise<Database> {
 
   console.log('Tabelas SQLite verificadas/criadas com sucesso.');
 
+  // -- POPULAR COM DADOS DE EXEMPLO --
+  // Use INSERT OR IGNORE to avoid errors if data already exists (e.g., on hot reload)
+
+  // Sample Users
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', TRUE); // Replace with real hash
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', TRUE);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', '$2a$10$dummyhashuser', 'user', TRUE);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho', 'biancofialho@gmail.com', '$2a$10$mY4C4mN3/8wFfO60V.sR6eJ9F0o/qA3mR7K9Q8B1Z6v7J3k9D2c.a', 'admin', TRUE); // Senha '1234'
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', '$2a$10$dummyhashinactive', 'user', FALSE);
+
+
+  // Sample Locations
+  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 1, 'Fábrica - Setor A', 'Área de produção principal', 'Fábrica');
+  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 2, 'Almoxarifado Central', 'Armazenamento de materiais', 'Armazém');
+  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 3, 'Escritório - RH', 'Recursos Humanos', 'Escritório');
+  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 4, 'Laboratório Químico', 'Análises e testes', 'Laboratório');
+  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 5, 'Pátio Externo', 'Área de carga e descarga', 'Externo');
+
+  // Sample Employees
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 1, 'Alice Silva', 'Operadora', 'Produção', '2022-03-15');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 2, 'Bruno Costa', 'Técnico Manutenção', 'Manutenção', '2021-08-01');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 3, 'Carlos Dias', 'Almoxarife', 'Logística', '2023-01-10');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 4, 'Diana Souza', 'Analista RH', 'RH', '2020-11-20');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 5, 'Eduardo Lima', 'Químico', 'Laboratório', '2022-05-05');
+
+  // Sample Equipment
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Extintor CO2 #1', 'Extintor', 1, 'EXT-001', 'Inspeção Mensal, Recarga Anual');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Prensa Hidráulica P-10', 'Máquina', 1, 'PH-10-SN123', 'Lubrificação Semanal, Inspeção Trimestral');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Empilhadeira E-02', 'Veículo', 2, 'EMP-02-SN456', 'Checklist Diário, Revisão Semestral');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Capela Exaustão Lab', 'Equipamento Lab.', 4, 'CAP-LAB-SN789', 'Verificação Fluxo Mensal, Limpeza Semestral');
+
+  // Sample Trainings (Courses)
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 1, 'NR-35 Trabalho em Altura', 'Capacitação para trabalhos acima de 2m', 'Consultoria Segura', 8, 24);
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 2, 'NR-33 Espaços Confinados (Vigia/Trabalhador)', 'Entrada e trabalho em espaços confinados', 'TreinaEHS', 16, 12);
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Primeiros Socorros Básico', 'Atendimento inicial em emergências', 'Interno - Téc. Enfermagem', 4, 12);
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Uso de EPIs Específicos', 'Treinamento sobre seleção e uso correto', 'Interno - Téc. Segurança', 2, 0);
+
+  // Sample Training Records
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 1, 1, '2023-10-15', '2025-10-15', 9.5);
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 2, 2, '2024-02-20', '2025-02-20', 8.0);
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 1, 3, '2024-05-01', '2025-05-01', 10.0);
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, score) VALUES (?, ?, ?, ?)', 3, 4, '2024-01-10', 8.8);
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 2, 1, '2022-11-01', '2024-11-01', 9.0); // Vencendo
+
+  // Sample Documents
+  await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Política de Segurança e Saúde', 'Política', '2.0', 'Ativo', '/docs/politica_sst_v2.pdf', 'Diretrizes gerais de SST');
+  await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 'FDS - Álcool Etílico 70%', 'FDS', '1.1', 'Ativo', '/docs/fds_alcool_70.pdf', 'Ficha de Dados de Segurança');
+  await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description) VALUES (?, ?, ?, ?, ?, ?, ?)', 3, 'Procedimento Bloqueio e Etiquetagem', 'Procedimento', '3.0', 'Em Revisão', '/docs/proc_loto_v3.pdf', 'Procedimento LOTO');
+  await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description) VALUES (?, ?, ?, ?, ?, ?, ?)', 4, 'Manual Operacional Prensa P-10', 'Manual', '1.0', 'Ativo', '/docs/manual_p10.pdf', 'Manual da prensa hidráulica');
+  await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description) VALUES (?, ?, ?, ?, ?, ?, ?)', 5, 'PPRA (Histórico)', 'PGR/PPRA', '2021', 'Obsoleto', '/docs/ppra_2021.pdf', 'Programa de Prevenção de Riscos Ambientais 2021');
+
+
+  // Sample KPIs
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Riscos Identificados', 18, 'Segurança - Riscos', 'número', 'Total');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Riscos Críticos', 3, 'Segurança - Riscos', 'número', 'Total');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Incidentes Abertos', 4, 'Segurança - Incidentes', 'número', 'Atual');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Incidentes com Afastamento', 1, 'Segurança - Incidentes', 'número', 'Mês Atual');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Auditorias Pendentes', 2, 'Segurança - Auditorias', 'número', 'Atual');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Treinamentos Vencidos', 5, 'Geral - Treinamentos', 'número', 'Atual');
+
+  // Sample Risks
+  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Queda de altura durante manutenção de telhado', 1, 3, 5, 15, 'Controlado', 2);
+  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Exposição a ruído acima do limite na Prensa P-10', 1, 4, 3, 12, 'Em Andamento', 3);
+  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Contato com ácido sulfúrico no laboratório', 4, 2, 4, 8, 'Controlado', 3);
+  await db.run('INSERT OR IGNORE INTO risks (id, description, location_id, probability, severity, risk_level, status, responsible_person_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Lesão ergonômica por digitação', 3, 3, 2, 6, 'Aberto', 1);
+
+  // Sample Incidents
+  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0);
+  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, '2024-08-18 14:00:00', 'Acidente com Afastamento', 'Moderado', 1, 'Em Investigação', 'Entorse no tornozelo ao descer escada da máquina.', 3, 5);
+  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, '2024-08-19 09:15:00', 'Quase Acidente', 'N/A', 2, 'Fechado', 'Caixa caiu de prateleira próxima ao funcionário Carlos.', 1);
+  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, '2024-08-22 11:00:00', 'Incidente Ambiental', 'Insignificante', 5, 'Aberto', 'Pequeno vazamento de óleo contido na área de descarte.', 2);
+
+
+  console.log('Dados de exemplo SQLite verificados/inseridos com sucesso.');
+
+
   return db;
 }
 
@@ -794,3 +870,4 @@ export async function getAllActivityLogs(limit: number = 50) {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+
