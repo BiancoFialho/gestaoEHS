@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
+import { TooltipProvider } from '@/components/ui/tooltip'; // Import TooltipProvider
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,8 +33,10 @@ export default function RootLayout({
         suppressHydrationWarning // Add suppressHydrationWarning to body too
       >
         <AuthProvider>
-          {children}
-          <Toaster /> {/* Add Toaster component */}
+          <TooltipProvider delayDuration={0}> {/* Wrap with TooltipProvider */}
+            {children}
+            <Toaster /> {/* Add Toaster component */}
+          </TooltipProvider>
         </AuthProvider>
       </body>
     </html>
