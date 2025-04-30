@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Import useState, useEffect
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,7 +44,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { addIncident } from '@/actions/incidentActions'; // Import server action
-import { getAllLocations, getAllUsers } from '@/lib/db'; // Fetch related data
+// Import server actions for fetching data
+import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
 
 interface IncidentDialogProps {
   open: boolean;
@@ -76,15 +77,15 @@ interface User { id: number; name: string; } // Assuming User type
 
 const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
-  const [locations, setLocations] = React.useState<Location[]>([]);
-  const [users, setUsers] = React.useState<User[]>([]); // For reporter dropdown
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [users, setUsers] = useState<User[]>([]); // For reporter dropdown
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<IncidentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: new Date(), // Default to today
+      date: undefined, // Start with undefined date
       type: "",
       description: "",
       locationId: "",
@@ -94,19 +95,31 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
     },
   });
 
-   // Fetch locations and users when the dialog opens
-   React.useEffect(() => {
+   // Fetch locations and users using Server Actions within useEffect
+   useEffect(() => {
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          // Direct DB calls (consider implications)
-          const [fetchedLocations, fetchedUsers] = await Promise.all([
-            getAllLocations(),
-            getAllUsers(), // Fetch users to select who reported
+          const [locationsResult, usersResult] = await Promise.all([
+            fetchLocations(),
+            fetchUsers(),
           ]);
-          setLocations(fetchedLocations as Location[]);
-          setUsers(fetchedUsers as User[]);
+
+          if (locationsResult.success && locationsResult.data) {
+            setLocations(locationsResult.data);
+          } else {
+            console.error("Error fetching locations:", locationsResult.error);
+            toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
+          }
+
+          if (usersResult.success && usersResult.data) {
+            setUsers(usersResult.data);
+          } else {
+             console.error("Error fetching users:", usersResult.error);
+             toast({ title: "Erro", description: "Não foi possível carregar os usuários.", variant: "destructive" });
+          }
+
         } catch (error) {
           console.error("Error fetching data:", error);
           toast({ title: "Erro", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
@@ -116,14 +129,31 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
       };
       fetchData();
     } else {
-       form.reset();
+       form.reset({
+           date: undefined, // Explicitly reset date field
+            type: "",
+            description: "",
+            locationId: "",
+            severity: "",
+            reportedById: "",
+            status: "Aberto",
+        });
        setLocations([]);
        setUsers([]);
        setIsSubmitting(false);
     }
-  }, [open, form, toast]);
+   }, [open, form, toast]);
 
   const onSubmit = async (values: IncidentFormValues) => {
+     if (!values.date) {
+        toast({
+            title: "Erro de Validação",
+            description: "Data do incidente é obrigatória.",
+            variant: "destructive",
+        });
+        return;
+     }
+
     setIsSubmitting(true);
     const dataToSend = {
       ...values,
@@ -131,6 +161,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
       locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
       reportedById: values.reportedById ? parseInt(values.reportedById, 10) : undefined,
       severity: values.severity || undefined, // Ensure undefined if empty string
+      status: values.status || 'Aberto', // Ensure default status if needed
     };
     console.log("Submitting Incident Data:", dataToSend);
 
@@ -141,7 +172,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
           title: "Sucesso!",
           description: "Incidente reportado com sucesso.",
         });
-        form.reset();
+        form.reset({ date: undefined, type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto" });
         onOpenChange(false);
       } else {
         toast({
@@ -227,7 +258,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
                         <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => field.onChange(date || new Date())} // Ensure a date is always set
                             disabled={(date) => date > new Date() } // Prevent future dates
                             initialFocus
                         />

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Import useState, useEffect
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -42,9 +42,11 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label"; // Import Label
 import { useToast } from "@/hooks/use-toast";
 import { addRisk } from '@/actions/riskActions'; // Import server action
-import { getAllLocations, getAllUsers } from '@/lib/db'; // Fetch related data
+// Import server actions for fetching data
+import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
 
 interface RiskDialogProps {
   open: boolean;
@@ -73,10 +75,10 @@ interface User { id: number; name: string; }
 
 const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
-  const [locations, setLocations] = React.useState<Location[]>([]);
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<RiskFormValues>({
     resolver: zodResolver(formSchema),
@@ -94,19 +96,30 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
     },
   });
 
-   // Fetch locations and users when the dialog opens
-  React.useEffect(() => {
+   // Fetch locations and users using Server Actions within useEffect
+  useEffect(() => {
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          // Direct DB calls (consider implications)
-          const [fetchedLocations, fetchedUsers] = await Promise.all([
-            getAllLocations(),
-            getAllUsers(), // Assuming getAllUsers excludes sensitive info like password_hash
+           const [locationsResult, usersResult] = await Promise.all([
+            fetchLocations(),
+            fetchUsers(),
           ]);
-          setLocations(fetchedLocations as Location[]);
-          setUsers(fetchedUsers as User[]);
+
+          if (locationsResult.success && locationsResult.data) {
+            setLocations(locationsResult.data);
+          } else {
+            console.error("Error fetching locations:", locationsResult.error);
+            toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
+          }
+
+          if (usersResult.success && usersResult.data) {
+            setUsers(usersResult.data);
+          } else {
+             console.error("Error fetching users:", usersResult.error);
+             toast({ title: "Erro", description: "Não foi possível carregar os usuários.", variant: "destructive" });
+          }
         } catch (error) {
           console.error("Error fetching data:", error);
           toast({ title: "Erro", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
@@ -125,14 +138,26 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
 
 
   const onSubmit = async (values: RiskFormValues) => {
+    if (!values.probability || !values.severity) {
+        toast({
+            title: "Erro de Validação",
+            description: "Probabilidade e Severidade são obrigatórias para calcular o nível de risco.",
+            variant: "destructive",
+        });
+        return;
+    }
      setIsSubmitting(true);
     const dataToSend = {
         ...values,
         locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
         responsiblePersonId: values.responsiblePersonId ? parseInt(values.responsiblePersonId, 10) : undefined,
-        probability: values.probability ?? undefined, // Send undefined if null
-        severity: values.severity ?? undefined, // Send undefined if null
+        probability: values.probability, // Already coerced to number
+        severity: values.severity,      // Already coerced to number
         reviewDate: values.reviewDate ? format(values.reviewDate, 'yyyy-MM-dd') : undefined,
+        activity: values.activity || null,
+        hazardType: values.hazardType || null,
+        controlMeasures: values.controlMeasures || null,
+        status: values.status || 'Aberto',
     }
     console.log("Submitting Risk Data:", dataToSend);
 
@@ -163,6 +188,11 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
        setIsSubmitting(false);
     }
   };
+
+  // Watch probability and severity to calculate risk level
+  const probability = form.watch('probability');
+  const severity = form.watch('severity');
+  const calculatedRiskLevel = (probability && severity) ? (probability * severity) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -248,9 +278,9 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
                     name="probability"
                     render={({ field }) => (
                         <FormItem className="grid grid-cols-2 items-center gap-4">
-                        <FormLabel className="text-right">Probab. (1-5)</FormLabel>
+                        <FormLabel className="text-right">Probab.* (1-5)</FormLabel>
                         <FormControl>
-                           <Input type="number" min="1" max="5" {...field} value={field.value ?? ''}/>
+                           <Input type="number" min="1" max="5" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/>
                         </FormControl>
                         <FormMessage className="col-span-2 text-right" />
                         </FormItem>
@@ -261,9 +291,9 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
                     name="severity"
                     render={({ field }) => (
                         <FormItem className="grid grid-cols-2 items-center gap-4">
-                        <FormLabel className="text-right">Severid. (1-5)</FormLabel>
+                        <FormLabel className="text-right">Severid.* (1-5)</FormLabel>
                          <FormControl>
-                           <Input type="number" min="1" max="5" {...field} value={field.value ?? ''}/>
+                           <Input type="number" min="1" max="5" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/>
                          </FormControl>
                          <FormMessage className="col-span-2 text-right" />
                         </FormItem>
@@ -271,13 +301,13 @@ const RiskDialog: React.FC<RiskDialogProps> = ({ open, onOpenChange }) => {
                     />
             </div>
 
-            {/* Display calculated risk level (optional) */}
+            {/* Display calculated risk level */}
              <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right font-semibold">Nível Risco</Label>
-                <div className="col-span-3 text-sm">
-                    {(form.watch('probability') && form.watch('severity'))
-                        ? (form.watch('probability')! * form.watch('severity')!)
-                        : 'N/A (Preencha Prob. e Sev.)'
+                <div className="col-span-3 text-sm font-medium">
+                    {calculatedRiskLevel !== null
+                        ? calculatedRiskLevel
+                        : <span className="text-muted-foreground">N/A</span>
                     }
                 </div>
             </div>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Import useState and useEffect
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -35,7 +35,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { addEquipment } from '@/actions/equipmentActions'; // Import server action
-import { getAllLocations } from '@/lib/db'; // To fetch locations for dropdown
+// Import the server action for fetching locations
+import { fetchLocations } from '@/actions/dataFetchingActions';
 
 interface EquipmentDialogProps {
   open: boolean;
@@ -61,9 +62,9 @@ interface Location {
 
 const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
-  const [locations, setLocations] = React.useState<Location[]>([]);
-  const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
   const form = useForm<EquipmentFormValues>({
@@ -78,18 +79,18 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
     },
   });
 
-  // Fetch locations when the dialog opens
-  React.useEffect(() => {
+  // Fetch locations using Server Action within useEffect
+  useEffect(() => {
     if (open) {
-      const fetchLocations = async () => {
+      const loadLocations = async () => {
         setIsLoadingLocations(true);
         try {
-          // Note: Calling db functions directly in Client Components is generally discouraged.
-          // Ideally, fetch locations via an API route or Server Action if needed dynamically.
-          // For simplicity here, we might fetch them once or pass them as props if static.
-          // This direct call might cause issues in some environments or with edge runtime.
-           const fetchedLocations = await getAllLocations(); // Direct DB call (consider implications)
-           setLocations(fetchedLocations as Location[]);
+           const result = await fetchLocations();
+           if (result.success && result.data) {
+               setLocations(result.data);
+           } else {
+               throw new Error(result.error || "Failed to fetch locations");
+           }
         } catch (error) {
           console.error("Error fetching locations:", error);
           toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
@@ -97,7 +98,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
           setIsLoadingLocations(false);
         }
       };
-      fetchLocations();
+      loadLocations();
     } else {
        // Reset form and locations when dialog closes
       form.reset();
@@ -112,6 +113,9 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
     const dataToSend = {
         ...values,
         locationId: values.locationId ? parseInt(values.locationId, 10) : null,
+        serialNumber: values.serialNumber || null, // Ensure null if empty string
+        maintenanceSchedule: values.maintenanceSchedule || null, // Ensure null if empty string
+        type: values.type || null, // Ensure null if empty string
     }
 
     try {
@@ -210,6 +214,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                       <SelectItem value="">Nenhum</SelectItem>
                       {locations.map((loc) => (
                         <SelectItem key={loc.id} value={loc.id.toString()}>
                           {loc.name}

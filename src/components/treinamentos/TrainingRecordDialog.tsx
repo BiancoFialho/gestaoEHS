@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Import useState, useEffect
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,7 +43,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { addTrainingRecord } from '@/actions/trainingRecordActions'; // Server action for records
-import { getAllEmployees, getAllTrainings } from '@/lib/db'; // To fetch employees/trainings
+// Import server actions for fetching data
+import { fetchEmployees, fetchTrainings } from '@/actions/dataFetchingActions';
 
 interface TrainingRecordDialogProps {
   open: boolean;
@@ -75,10 +76,10 @@ interface Training {
 
 const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
-  const [employees, setEmployees] = React.useState<Employee[]>([]);
-  const [trainings, setTrainings] = React.useState<Training[]>([]);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [trainings, setTrainings] = useState<Training[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
   const form = useForm<RecordFormValues>({
@@ -92,19 +93,31 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
     },
   });
 
-  // Fetch employees and trainings when dialog opens
-  React.useEffect(() => {
+  // Fetch employees and trainings using Server Actions within useEffect
+  useEffect(() => {
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          // Direct DB calls (consider implications - API/Server Action preferred)
-          const [fetchedEmployees, fetchedTrainings] = await Promise.all([
-            getAllEmployees(),
-            getAllTrainings(),
+          const [employeesResult, trainingsResult] = await Promise.all([
+            fetchEmployees(),
+            fetchTrainings(),
           ]);
-          setEmployees(fetchedEmployees as Employee[]);
-          setTrainings(fetchedTrainings as Training[]);
+
+          if (employeesResult.success && employeesResult.data) {
+            setEmployees(employeesResult.data);
+          } else {
+             console.error("Error fetching employees:", employeesResult.error);
+             toast({ title: "Erro", description: "Não foi possível carregar funcionários.", variant: "destructive" });
+          }
+
+          if (trainingsResult.success && trainingsResult.data) {
+            setTrainings(trainingsResult.data);
+          } else {
+             console.error("Error fetching trainings:", trainingsResult.error);
+             toast({ title: "Erro", description: "Não foi possível carregar cursos.", variant: "destructive" });
+          }
+
         } catch (error) {
           console.error("Error fetching data:", error);
           toast({ title: "Erro", description: "Não foi possível carregar funcionários ou cursos.", variant: "destructive" });
@@ -115,7 +128,13 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
       fetchData();
     } else {
       // Reset form and data when dialog closes
-      form.reset();
+      form.reset({
+          employeeId: "",
+          trainingId: "",
+          completionDate: undefined,
+          expiryDate: null,
+          score: null,
+      });
       setEmployees([]);
       setTrainings([]);
       setIsSubmitting(false);
@@ -123,6 +142,14 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
   }, [open, form, toast]);
 
   const onSubmit = async (values: RecordFormValues) => {
+    if (!values.completionDate) {
+        toast({
+            title: "Erro de Validação",
+            description: "Data de conclusão é obrigatória.",
+            variant: "destructive",
+        });
+        return;
+    }
     setIsSubmitting(true);
     // Convert IDs to numbers and format dates
     const dataToSend = {
@@ -131,6 +158,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
         trainingId: parseInt(values.trainingId, 10),
         completionDate: format(values.completionDate, 'yyyy-MM-dd'), // Format for DB
         expiryDate: values.expiryDate ? format(values.expiryDate, 'yyyy-MM-dd') : null,
+        score: values.score ?? null, // Ensure null if empty
     };
     console.log("Submitting Record Data:", dataToSend);
 
@@ -141,7 +169,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
           title: "Sucesso!",
           description: "Registro de treinamento adicionado com sucesso.",
         });
-        form.reset();
+        form.reset({ employeeId: "", trainingId: "", completionDate: undefined, expiryDate: null, score: null });
         onOpenChange(false);
       } else {
          toast({
@@ -248,7 +276,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                         <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => field.onChange(date || new Date())} // Ensure date is always set
                             disabled={(date) =>
                             date > new Date() || date < new Date("1900-01-01")
                             }
@@ -302,7 +330,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                 <FormItem className="grid grid-cols-4 items-center gap-4">
                   <FormLabel className="text-right">Nota/Score</FormLabel>
                   <FormControl className="col-span-3">
-                    <Input type="number" placeholder="Ex: 8.5 (opcional)" {...field} value={field.value ?? ''} step="0.1"/>
+                    <Input type="number" placeholder="Ex: 8.5 (opcional)" {...field} value={field.value ?? ''} step="0.1" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
                   </FormControl>
                   <FormMessage className="col-span-4 text-right" />
                 </FormItem>
