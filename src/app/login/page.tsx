@@ -1,6 +1,7 @@
 
 "use client";
 
+import type { MouseEvent } from 'react';
 import React, { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -17,13 +18,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
 const formSchema = z.object({
-  username: z.string().min(1, { message: "Username is required." }),
-  password: z.string().min(1, { message: "Password is required." }),
+  email: z.string().email({ message: "Por favor, insira um e-mail válido." }).min(1, { message: "O e-mail é obrigatório." }),
+  password: z.string().min(1, { message: "A senha é obrigatória." }),
+  manterLogado: z.boolean().default(false).optional(),
 });
 
 export default function LoginPage() {
@@ -42,35 +46,48 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
+      manterLogado: false,
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    if (login(values.username, values.password)) {
+    // Use email for login check
+    if (login(values.email, values.password)) {
       toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-        variant: "default", // Use default (likely blue based on theme) or "accent" (green)
+        title: "Login bem-sucedido",
+        description: "Bem-vindo de volta!",
+        variant: "default",
       });
       router.push('/'); // Redirect to home page on successful login
     } else {
       toast({
-        title: "Login Failed",
-        description: "Invalid username or password.",
+        title: "Falha no Login",
+        description: "E-mail ou senha inválidos.",
         variant: "destructive",
       });
       form.resetField("password"); // Clear password field on failure
     }
   }
 
+  const handleSignUpClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    // Implement sign-up navigation or modal logic here
+    toast({
+        title: "Função não implementada",
+        description: "A funcionalidade de cadastro ainda não está disponível.",
+        variant: "default",
+    });
+    // Example: router.push('/signup');
+  };
+
   // Avoid rendering the form server-side or before hydration check
   if (!isClient || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         {/* Optional: Add a loading spinner */}
-        <p>Loading...</p>
+        <p>Carregando...</p>
       </div>
     );
   }
@@ -79,29 +96,30 @@ export default function LoginPage() {
   if (isAuthenticated) {
     return (
        <div className="flex min-h-screen items-center justify-center bg-background p-4">
-         <p>Redirecting...</p>
+         <p>Redirecionando...</p>
        </div>
      );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to access StepWise.</CardDescription>
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-sm shadow-lg border border-primary/20">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-3xl font-bold text-primary">Login</CardTitle>
+          {/* Optional: Add a subtle line if desired */}
+          {/* <hr className="border-primary/30 mt-2" /> */}
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="username"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Seu e-mail</FormLabel>
                     <FormControl>
-                      <Input placeholder="Admin" {...field} />
+                      <Input placeholder="" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -112,24 +130,47 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Sua senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••" {...field} />
+                      <Input type="password" placeholder="" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Logging in...' : 'Login'}
+               <FormField
+                control={form.control}
+                name="manterLogado"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="font-normal text-sm text-muted-foreground">
+                        Manter-me logado
+                      </FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Entrando...' : 'Logar'}
               </Button>
             </form>
           </Form>
         </CardContent>
-         <CardFooter className="text-center text-sm text-muted-foreground">
-             Use 'Admin' and '1234' to login.
+         <CardFooter className="flex justify-center items-center pt-4 pb-6 border-t border-border">
+             <span className="text-sm text-muted-foreground mr-2">Ainda não tem conta?</span>
+             <Link href="#" onClick={handleSignUpClick} className="text-sm text-primary hover:underline font-medium px-2 py-1 rounded-sm bg-accent/20 hover:bg-accent/30 transition-colors">
+                Cadastre-se
+             </Link>
           </CardFooter>
       </Card>
     </div>
   );
 }
+

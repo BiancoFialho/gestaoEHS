@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (username: string, pass: string) => boolean;
+  login: (email: string, pass: string) => boolean; // Changed username to email
   logout: () => void;
   isLoading: boolean;
 }
@@ -36,9 +36,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = (username: string, pass: string): boolean => {
-    // Hardcoded credentials
-    if (username === 'Admin' && pass === '1234') {
+  const login = (email: string, pass: string): boolean => { // Changed username to email
+    // Hardcoded credentials - Use email for check
+    // NOTE: For a real application, replace 'admin@stepwise.app' with the actual Admin email
+    // or implement proper database authentication.
+    if ((email.toLowerCase() === 'admin' || email.toLowerCase() === 'admin@stepwise.app') && pass === '1234') {
       try {
         localStorage.setItem(AUTH_KEY, 'true');
       } catch (error) {
@@ -75,3 +77,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
