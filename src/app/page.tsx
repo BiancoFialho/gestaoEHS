@@ -45,7 +45,6 @@ import {
   SidebarFooter,
   SidebarInset,
   SidebarGroup, // Import SidebarGroup
-  SidebarGroupLabel, // Import SidebarGroupLabel
 } from '@/components/ui/sidebar';
 // import { Button } from '@/components/ui/button'; // Keep if needed later
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"; // Added CardDescription and CardFooter
@@ -142,14 +141,13 @@ export default function EhsDashboardPage() {
                  <ShieldCheck className="size-6 shrink-0 text-primary"/>
                  <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                      <span className="text-lg font-semibold">Gestão EHS</span>
-                     <span className="text-xs text-muted-foreground">Segurança e Meio Ambiente</span>
+                     {/* Removed subtitle */}
                  </div>
             </SidebarHeader>
             <SidebarContent className="p-2 flex-1 overflow-y-auto">
                 <SidebarMenu>
                     {/* Menu Items Group */}
                     <SidebarGroup className="p-0">
-                         {/* Removed <SidebarGroupLabel> */}
                          <SidebarMenuItem>
                             <SidebarMenuButton href="#" tooltip="Cadastros">
                                 <ClipboardList />
@@ -247,14 +245,6 @@ export default function EhsDashboardPage() {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarGroup>
-
-                    {/* Optional: Settings moved to footer or separate menu */}
-                     {/* <SidebarMenuItem className="mt-auto">
-                        <SidebarMenuButton href="#" tooltip="Configurações">
-                            <Settings />
-                            <span>Configurações</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem> */}
                 </SidebarMenu>
             </SidebarContent>
             <SidebarFooter className="p-2 border-t border-sidebar-border">
@@ -423,3 +413,4 @@ export default function EhsDashboardPage() {
     </SidebarProvider>
   );
 }
+
