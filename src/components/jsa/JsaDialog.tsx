@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Added useRef
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from "date-fns";
 import { ptBR } from 'date-fns/locale'; // Import locale pt-BR
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Paperclip } from "lucide-react"; // Added Paperclip
 
 import { cn } from "@/lib/utils";
 import {
@@ -43,9 +43,10 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-// Import the actual server action
-import { addJsa } from '@/actions/jsaActions';
+// Import the actual server action that handles FormData
+import { addJsaWithAttachment } from '@/actions/jsaActions';
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
+import { Label } from '@/components/ui/label'; // Import Label
 
 interface JsaDialogProps {
   open: boolean;
@@ -53,17 +54,18 @@ interface JsaDialogProps {
   // TODO: Add 'initialData' prop for editing
 }
 
-// Zod schema for validation - Adapted for JSA, Steps removed from initial dialog
+// Zod schema for validation - Keep basic client-side validation
+// File validation is better handled on the server or with custom client logic
 const formSchema = z.object({
   task: z.string().min(5, { message: "Tarefa deve ter pelo menos 5 caracteres." }),
   locationId: z.string().optional(),
   department: z.string().optional(), // Could be useful
   responsiblePersonId: z.string().optional(),
   teamMembers: z.string().optional(), // Text area for members
-  // steps removed for initial creation simplification
   requiredPpe: z.string().optional(),
   status: z.string().optional().default('Rascunho'),
   reviewDate: z.date().optional().nullable(),
+  attachment: z.instanceof(FileList).optional(), // For file input type checking if needed client-side
 });
 
 type JsaFormValues = z.infer<typeof formSchema>;
@@ -78,7 +80,8 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // State for calendar popover
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null); // Ref for the form element
 
 
   const form = useForm<JsaFormValues>({
@@ -89,21 +92,21 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
       department: "",
       responsiblePersonId: "",
       teamMembers: "",
-      // steps: [], // No longer needed in defaultValues for this simplified dialog
       requiredPpe: "",
       status: "Rascunho",
       reviewDate: null,
+      attachment: undefined,
     },
   });
 
    // Fetch locations and users
   useEffect(() => {
-     let isMounted = true; // Track if component is mounted
+     let isMounted = true;
 
     if (open) {
       const fetchData = async () => {
         setIsLoading(true);
-        console.log("Fetching locations and users..."); // Debug log
+        console.log("Fetching locations and users...");
         try {
            const [locationsResult, usersResult] = await Promise.all([
             fetchLocations(),
@@ -112,7 +115,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
 
            if (isMounted) {
               if (locationsResult.success && locationsResult.data) {
-                 console.log("Locations fetched:", locationsResult.data); // Debug log
+                 console.log("Locations fetched:", locationsResult.data);
                  setLocations(locationsResult.data);
               } else {
                 console.error("Error fetching locations:", locationsResult.error);
@@ -121,7 +124,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               }
 
               if (usersResult.success && usersResult.data) {
-                 console.log("Users fetched:", usersResult.data); // Debug log
+                 console.log("Users fetched:", usersResult.data);
                  setUsers(usersResult.data);
               } else {
                  console.error("Error fetching users:", usersResult.error);
@@ -138,7 +141,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
           }
         } finally {
           if (isMounted) {
-             console.log("Finished fetching data."); // Debug log
+             console.log("Finished fetching data.");
              setIsLoading(false);
           }
         }
@@ -150,7 +153,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
        setUsers([]);
        setIsSubmitting(false);
        setIsLoading(false);
-       setIsCalendarOpen(false); // Reset calendar state
+       setIsCalendarOpen(false);
     }
 
     return () => {
@@ -159,31 +162,34 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
   }, [open, form, toast]);
 
 
+  // Updated onSubmit to handle FormData
   const onSubmit = async (values: JsaFormValues) => {
      setIsSubmitting(true);
-     // Prepare data for the server action
-     const dataToSend = {
-        task: values.task,
-        // Convert string ID from Select back to number, handle 'none' or empty string as undefined
-        locationId: values.locationId && values.locationId !== 'none' ? parseInt(values.locationId, 10) : undefined,
-        department: values.department || null,
-        responsiblePersonId: values.responsiblePersonId && values.responsiblePersonId !== 'none' ? parseInt(values.responsiblePersonId, 10) : undefined,
-        teamMembers: values.teamMembers || null,
-        requiredPpe: values.requiredPpe || null,
-        status: values.status || 'Rascunho',
-        reviewDate: values.reviewDate ? format(values.reviewDate, 'yyyy-MM-dd') : undefined,
-        // Steps are not included in this simplified creation form
-        steps: [], // Send empty array for steps
+     if (!formRef.current) return; // Ensure form ref is available
+
+     const formData = new FormData(formRef.current); // Create FormData from form element
+
+     // Format the reviewDate if it exists before appending
+     if (values.reviewDate) {
+        formData.set('reviewDate', format(values.reviewDate, 'yyyy-MM-dd'));
+     } else {
+        formData.delete('reviewDate'); // Remove if null/undefined
      }
-     console.log("Submitting JSA Data:", dataToSend);
+
+     console.log("Submitting JSA FormData:", formData); // Log FormData (note: files won't show directly here)
+     for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+     }
+
 
     try {
-      // Call the actual addJsa server action
-      const result = await addJsa(dataToSend, dataToSend.steps); // Pass empty steps array
+      // Call the server action that accepts FormData
+      const result = await addJsaWithAttachment(formData);
        if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "JSA adicionada com sucesso. Adicione os passos na tela de edição.", // Updated message
+          // description: result.message || "JSA adicionada com sucesso. Adicione os passos na tela de edição.", // Use message from server if provided
+          description: "JSA adicionada com sucesso. Edição e visualização de passos pendente.",
         });
         form.reset();
         onOpenChange(false);
@@ -208,17 +214,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Adjusted width */}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar Nova JSA</DialogTitle>
           <DialogDescription>
-            Insira as informações básicas da tarefa. Os passos serão adicionados na edição.
+            Insira as informações básicas e anexe o arquivo Excel (opcional).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-           {/* Scrollable form area with vertical layout */}
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+          {/* Use a form element ref */}
+          <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
              <FormField
               control={form.control}
               name="task"
@@ -238,10 +243,10 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Local</FormLabel>
-                   {/* Ensure Select value matches the string representation of the ID */}
                    <Select
+                      name={field.name} // Add name attribute for FormData
                       onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                      value={field.value || 'none'} // Use 'none' for placeholder/empty state
+                      value={field.value || 'none'}
                       disabled={isLoading}
                     >
                         <FormControl>
@@ -250,9 +255,8 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {/* Add an explicit "None" option */}
                         <SelectItem value="none">Nenhum</SelectItem>
-                        {locations.map((loc) => ( // Ensure locations are mapped
+                        {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
                             </SelectItem>
@@ -283,10 +287,10 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
-                   {/* Ensure Select value matches the string representation of the ID */}
                    <Select
+                       name={field.name} // Add name attribute for FormData
                        onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                       value={field.value || 'none'} // Use 'none' for placeholder/empty state
+                       value={field.value || 'none'}
                        disabled={isLoading}
                     >
                         <FormControl>
@@ -295,9 +299,8 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                         {/* Add an explicit "None" option */}
                         <SelectItem value="none">Nenhum</SelectItem>
-                        {users.map((user) => ( // Ensure users are mapped
+                        {users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
                             </SelectItem>
@@ -323,8 +326,6 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               )}
             />
 
-             {/* Steps section removed for simplicity */}
-
              <FormField
               control={form.control}
               name="requiredPpe"
@@ -339,13 +340,39 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               )}
             />
 
+            {/* File Attachment Input */}
+             <FormField
+                control={form.control}
+                name="attachment"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Anexar JSA (Excel, PDF)</FormLabel>
+                        <FormControl>
+                             {/* Use standard input type file */}
+                             <Input
+                                type="file"
+                                accept=".xlsx, .xls, .pdf" // Specify accepted file types
+                                onChange={(e) => field.onChange(e.target.files)} // RHF expects FileList
+                                name={field.name} // Ensure name attribute for FormData
+                             />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+             />
+
+
              <FormField
               control={form.control}
               name="status"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status Inicial</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    name={field.name} // Add name attribute for FormData
+                    onValueChange={field.onChange}
+                    value={field.value} // RHF manages default value
+                   >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o status" />
@@ -388,12 +415,10 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                             mode="single"
                             selected={field.value}
                              onSelect={(date) => {
-                                field.onChange(date || null); // Set to null if cleared
-                                // Optional: Close calendar on selection
-                                // setIsCalendarOpen(false);
+                                field.onChange(date || null);
                             }}
                             initialFocus
-                            locale={ptBR} // Use ptBR locale for calendar display
+                            locale={ptBR}
                         />
                          <div className="p-2 flex justify-end">
                             <Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button>
@@ -405,11 +430,11 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
               )}
             />
 
-            {/* Sticky footer */}
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
+                 {/* Change button type to submit to trigger form submission */}
                 <Button type="submit" disabled={isLoading || isSubmitting}>
                  {isSubmitting ? "Salvando..." : "Salvar"}
                 </Button>
