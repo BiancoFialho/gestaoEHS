@@ -977,26 +977,60 @@ export async function getAllActivityLogs(limit: number = 50) {
 
 
 // --- Action Plans ---
-// Add this new function to fetch dashboard items
-export async function getDashboardActionItems(limit: number = 5): Promise<any[]> {
-  const db = await getDbConnection();
-  const items = await db.all(`
-    SELECT ap.*, u.name as responsible_name
-    FROM action_plans ap
-    LEFT JOIN users u ON ap.responsible_id = u.id
-    WHERE ap.status = 'Aberta' OR (ap.status = 'Em Andamento') OR (ap.status = 'Atrasada') -- Include 'Atrasada'
-    ORDER BY
-      CASE ap.priority
-        WHEN 'Alta' THEN 1
-        WHEN 'Média' THEN 2
-        WHEN 'Baixa' THEN 3
-        ELSE 4
-      END,
-      ap.due_date ASC -- Order by due date after priority
-    LIMIT ?
-  `, limit);
-  return items;
+// Updated function to be more flexible
+export async function getDashboardActionItems(statusFilter?: string[], limit?: number): Promise<any[]> {
+    const db = await getDbConnection();
+    let whereClause = '';
+    const params: any[] = [];
+
+    if (statusFilter && statusFilter.length > 0) {
+        whereClause = `WHERE ap.status IN (${statusFilter.map(() => '?').join(',')})`;
+        params.push(...statusFilter);
+    }
+
+    let limitClause = '';
+    if (limit) {
+        limitClause = 'LIMIT ?';
+        params.push(limit);
+    }
+
+    const items = await db.all(`
+      SELECT ap.*, u.name as responsible_name
+      FROM action_plans ap
+      LEFT JOIN users u ON ap.responsible_id = u.id
+      ${whereClause}
+      ORDER BY
+        CASE ap.priority
+          WHEN 'Alta' THEN 1
+          WHEN 'Média' THEN 2
+          WHEN 'Baixa' THEN 3
+          ELSE 4
+        END,
+        ap.due_date ASC -- Order by due date after priority
+      ${limitClause}
+    `, ...params);
+    return items;
 }
+
+// New function to fetch all items sorted by due date
+export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
+    const db = await getDbConnection();
+    const items = await db.all(`
+        SELECT ap.*, u.name as responsible_name
+        FROM action_plans ap
+        LEFT JOIN users u ON ap.responsible_id = u.id
+        ORDER BY
+            -- Sort non-completed items first, then completed
+            CASE
+                WHEN ap.status = 'Concluída' OR ap.status = 'Cancelada' THEN 1
+                ELSE 0
+            END,
+            -- Then sort by due date (earliest first)
+            ap.due_date ASC
+    `);
+    return items;
+}
+
 
 // ... Implement CRUD for other tables similarly ...
 // (audits, audit_items, work_permits, ppe_types, ppe_records, action_plans, legal_actions, asos, occupational_diseases, etc.)
@@ -1032,3 +1066,4 @@ export async function getDashboardActionItems(limit: number = 5): Promise<any[]>
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+

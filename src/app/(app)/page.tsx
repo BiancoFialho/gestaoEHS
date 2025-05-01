@@ -12,14 +12,17 @@ import {
   ListChecks, // Plano de Ação Icon
   AlertTriangle, // High Priority Icon
   Clock, // Medium Priority Icon
-  ArrowDown // Low Priority Icon
+  ArrowDown, // Low Priority Icon
+  CheckCircle, // Completed Icon
+  XCircle // Cancelled Icon
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { getDashboardActionItems } from '@/lib/db'; // Importar função para buscar itens do plano de ação
+// Importar nova função para buscar todos os itens ordenados
+import { getAllActionItemsSortedByDueDate } from '@/lib/db';
 import DashboardCharts from '@/components/dashboard/charts'; // Importar o componente cliente para gráficos
 
 // --- Tipos ---
@@ -34,10 +37,10 @@ interface ActionItem {
 }
 
 // --- Dados do Banco de Dados ---
-async function fetchActionItems(): Promise<ActionItem[]> {
+async function fetchAllActionItems(): Promise<ActionItem[]> {
   try {
-    const items = await getDashboardActionItems(5); // Busca 5 itens para o dashboard
-    console.log("Action items fetched:", items);
+    const items = await getAllActionItemsSortedByDueDate(); // Busca todos os itens
+    console.log("All action items fetched:", items);
     return items as ActionItem[];
   } catch (error) {
     console.error("Erro ao buscar itens do plano de ação:", error);
@@ -55,6 +58,19 @@ const getPriorityIcon = (priority: string) => {
   }
 };
 
+// Função auxiliar para ícone de status
+const getStatusIcon = (status: string | null | undefined) => {
+    if (!status) return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
+   switch (status) {
+       case 'Aberta': return <Clock className="h-4 w-4 text-blue-500" />;
+       case 'Em Andamento': return <Clock className="h-4 w-4 text-yellow-500 animate-pulse" />;
+       case 'Concluída': return <CheckCircle className="h-4 w-4 text-green-600" />;
+       case 'Atrasada': return <AlertTriangle className="h-4 w-4 text-destructive" />;
+       case 'Cancelada': return <XCircle className="h-4 w-4 text-muted-foreground" />; // Assuming XCircle exists
+       default: return <Clock className="h-4 w-4 text-muted-foreground" />;
+   }
+};
+
 // Função auxiliar para variant da badge de status
 const getStatusBadgeVariant = (status: string | null | undefined) => {
     if (!status) return 'outline';
@@ -69,8 +85,8 @@ const getStatusBadgeVariant = (status: string | null | undefined) => {
  };
 
  // Função para verificar se está atrasado
- const isOverdue = (dueDateStr: string, status: string) => {
-     if (status === 'Concluída' || status === 'Cancelada') return false;
+ const isOverdue = (dueDateStr: string | null, status: string) => {
+     if (status === 'Concluída' || status === 'Cancelada' || !dueDateStr) return false;
      try {
          // Garante que a data esteja no formato YYYY-MM-DD para comparação correta
          const dueDate = new Date(dueDateStr + 'T00:00:00'); // Adiciona T00:00:00 para evitar problemas de fuso horário
@@ -85,7 +101,7 @@ const getStatusBadgeVariant = (status: string | null | undefined) => {
 
 
 export default async function EhsDashboardPage() { // Marcar como async para usar await
-  const actionItems = await fetchActionItems();
+  const allActionItems = await fetchAllActionItems(); // Buscar todos os itens
 
   // Dados de exemplo para gráficos (mantidos)
   const incidentesQuaseAcidentesData = [
@@ -127,19 +143,22 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
            </div>
       </div>
 
-       {/* KPI Cards Row REMOVIDO */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"> ... </div> */}
+      {/* Renderizar o componente cliente para gráficos */}
+      <DashboardCharts
+        incidentesData={incidentesQuaseAcidentesData}
+        atividadesData={atividadesSegurancaData}
+      />
 
-      {/* Action Plan Card */}
-       <Card className="shadow-md border border-border mb-6">
+      {/* Action Plan Card - Moved below charts */}
+       <Card className="shadow-md border border-border mt-6"> {/* Added mt-6 for spacing */}
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ListChecks className="h-5 w-5 text-primary" /> Plano de Ação Pendente
+              <ListChecks className="h-5 w-5 text-primary" /> Plano de Ação Completo
             </CardTitle>
-            <CardDescription>Ações abertas ou atrasadas com maior prioridade.</CardDescription>
+            <CardDescription>Lista de todas as ações, ordenadas por data de vencimento.</CardDescription>
           </CardHeader>
           <CardContent className="pt-0 pb-2">
-             {actionItems.length > 0 ? (
+             {allActionItems.length > 0 ? (
                  <Table>
                     <TableHeader>
                         <TableRow>
@@ -151,40 +170,39 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {actionItems.map((item) => (
-                            <TableRow key={item.id} className={isOverdue(item.due_date, item.status) ? 'bg-destructive/10' : ''}>
+                        {allActionItems.map((item) => (
+                            <TableRow key={item.id} className={isOverdue(item.due_date, item.status) && item.status !== 'Concluída' && item.status !== 'Cancelada' ? 'bg-destructive/10' : ''}>
                                 <TableCell className="text-center">{getPriorityIcon(item.priority)}</TableCell>
                                 <TableCell className="font-medium max-w-xs truncate">{item.description}</TableCell>
                                 <TableCell>{item.responsible_name || 'N/A'}</TableCell>
                                 <TableCell>
-                                    {format(new Date(item.due_date + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
-                                    {isOverdue(item.due_date, item.status) && <AlertTriangle className="inline ml-1 h-4 w-4 text-destructive" title="Atrasado"/>}
+                                    {item.due_date ? format(new Date(item.due_date + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}
+                                    {isOverdue(item.due_date, item.status) && item.status !== 'Concluída' && item.status !== 'Cancelada' && <AlertTriangle className="inline ml-1 h-4 w-4 text-destructive" title="Atrasado"/>}
                                 </TableCell>
                                 <TableCell>
-                                <Badge variant={getStatusBadgeVariant(item.status)}>{item.status}</Badge>
+                                <Badge variant={getStatusBadgeVariant(item.status)} className="flex items-center gap-1 w-fit">
+                                    {getStatusIcon(item.status)}
+                                    {item.status}
+                                </Badge>
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                  </Table>
              ) : (
-                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma ação pendente encontrada.</p>
+                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma ação encontrada.</p>
              )}
           </CardContent>
-           <CardFooter className="pt-2 pb-4 px-6">
+           {/* Footer removed as it linked to the full page */}
+           {/* <CardFooter className="pt-2 pb-4 px-6">
                <Link href="/seguranca-trabalho/plano-acao" className="flex items-center justify-end w-full text-sm text-primary hover:underline">
                    Ver Plano de Ação Completo <ChevronRight className="h-4 w-4 ml-1" />
                </Link>
-           </CardFooter>
+           </CardFooter> */}
        </Card>
 
-
-      {/* Renderizar o componente cliente para gráficos */}
-      <DashboardCharts
-        incidentesData={incidentesQuaseAcidentesData}
-        atividadesData={atividadesSegurancaData}
-      />
 
     </>
   );
 }
+
