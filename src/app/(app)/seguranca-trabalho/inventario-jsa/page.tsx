@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -82,36 +83,6 @@ export default function InventarioJsaPage() {
       // }
   };
   
-  const handleDownload = (filePath: string | null) => {
-      if (!filePath) {
-          console.warn("No file path provided for download.");
-          toast({ title: "Sem Anexo", description: "Nenhum arquivo anexado para esta JSA.", variant: "default"});
-          return;
-      }
-
-      // Constrói a URL completa para logging e para o link
-      // Assume que filePath é algo como "/uploads/filename.ext"
-      const downloadUrl = new URL(filePath, window.location.origin).toString();
-      console.log(`Tentando baixar arquivo da URL: ${downloadUrl}`);
-      console.log(`Caminho original do arquivo no banco de dados: ${filePath}`);
-
-
-      const link = document.createElement('a');
-      link.href = filePath; // Caminho relativo como /uploads/file.ext funciona aqui
-      link.download = filePath.split('/').pop() || 'download'; 
-      document.body.appendChild(link);
-      try {
-        link.click();
-        toast({ title: "Download Iniciado", description: `Baixando ${link.download}. Verifique a pasta de downloads do seu navegador.`});
-      } catch (error) {
-        console.error("Error triggering download:", error);
-        toast({ title: "Erro no Download", description: "Não foi possível iniciar o download. Verifique o console para mais detalhes.", variant: "destructive"});
-      } finally {
-        if (document.body.contains(link)) {
-            document.body.removeChild(link);
-        }
-      }
-  }
 
   const filteredJsas = jsaEntries.filter(jsa =>
     jsa.task.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,9 +149,26 @@ export default function InventarioJsaPage() {
                     <TableCell><Badge variant={getStatusBadgeVariant(jsa.status)}>{jsa.status || 'N/A'}</Badge></TableCell>
                     <TableCell className="text-center">
                         {jsa.attachment_path ? (
-                            <Button variant="ghost" size="icon" onClick={() => handleDownload(jsa.attachment_path)} title="Baixar Anexo">
+                             <a
+                                href={jsa.attachment_path}
+                                download={jsa.attachment_path.split('/').pop() || 'download'}
+                                className="inline-flex items-center justify-center p-2 rounded-md hover:bg-accent"
+                                title="Baixar Anexo"
+                                onClick={(e) => {
+                                    // Prevent default if you want to handle download via JS, but for direct download, it's not strictly needed.
+                                    // e.preventDefault();
+                                    // // Optional: if you need more complex download logic or tracking
+                                    // const link = document.createElement('a');
+                                    // link.href = jsa.attachment_path!;
+                                    // link.download = jsa.attachment_path!.split('/').pop() || 'download';
+                                    // document.body.appendChild(link);
+                                    // link.click();
+                                    // document.body.removeChild(link);
+                                    toast({ title: "Download Iniciado", description: `Baixando ${jsa.attachment_path!.split('/').pop() || 'download'}.`});
+                                }}
+                            >
                                 <Download className="h-4 w-4 text-primary" />
-                            </Button>
+                            </a>
                         ) : (
                             <Paperclip className="h-4 w-4 text-muted-foreground mx-auto" title="Sem Anexo" />
                         )}
@@ -210,3 +198,4 @@ export default function InventarioJsaPage() {
     </div>
   );
 }
+
