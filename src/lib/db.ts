@@ -1,7 +1,7 @@
-
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
+import type { JsaInput as JsaInputTypeFromAction } from '@/actions/jsaActions'; // Import the type
 
 // Variável global para armazenar a conexão do banco de dados
 let db: Database | null = null;
@@ -10,6 +10,13 @@ let db: Database | null = null;
  * Abre e retorna a conexão com o banco de dados SQLite.
  * Cria o banco de dados e as tabelas se não existirem.
  * Popula com dados de exemplo se as tabelas estiverem vazias.
+ *
+ * IMPORTANTE: Em desenvolvimento, se você alterar o schema das tabelas (adicionar/remover colunas, etc.),
+ * o arquivo do banco de dados SQLite (ehs_database.sqlite) pode ficar dessincronizado.
+ * Nesse caso, para garantir que o banco de dados reflita o schema mais recente,
+ * você pode precisar excluir o arquivo `ehs_database.sqlite` na raiz do seu projeto.
+ * Ao reiniciar o aplicativo, ele será recriado com o schema atualizado.
+ * FAÇA BACKUP DE DADOS IMPORTANTES ANTES DE EXCLUIR O ARQUIVO DO BANCO DE DADOS EM PRODUÇÃO.
  */
 export async function getDbConnection(): Promise<Database> {
   if (db) {
@@ -757,17 +764,8 @@ export async function getAllIncidents() {
 }
 
 // --- JSA (Job Safety Analysis) ---
-interface JsaInput {
-    task: string;
-    locationId?: number | null; // Allow null from form
-    department?: string | null;
-    responsiblePersonId?: number | null; // Allow null from form
-    teamMembers?: string | null;
-    requiredPpe?: string | null;
-    status?: string | null;
-    reviewDate?: string | null; // YYYY-MM-DD or null
-    attachmentPath?: string | null; // Add attachment path
-}
+// JsaInputTypeFromAction já está tipado no jsaActions.ts e inclui attachmentPath.
+// A função insertJsa já espera este tipo.
 
 interface JsaStepInput {
     step_order: number;
@@ -776,7 +774,7 @@ interface JsaStepInput {
     controls: string;
 }
 
-export async function insertJsa(jsaData: JsaInput, stepsData: JsaStepInput[]): Promise<number | undefined> {
+export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaStepInput[]): Promise<number | undefined> {
     const db = await getDbConnection();
     let jsaId: number | undefined;
 
@@ -784,19 +782,17 @@ export async function insertJsa(jsaData: JsaInput, stepsData: JsaStepInput[]): P
         // Iniciar transação
         await db.run('BEGIN TRANSACTION');
 
-        // Inserir dados principais da JSA
-        // Certifique-se de que valores undefined se tornem NULL no banco de dados
         const resultJsa = await db.run(
             'INSERT INTO jsa (task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             jsaData.task,
-            jsaData.locationId ?? null, // Use ?? null para converter undefined para null
+            jsaData.locationId ?? null,
             jsaData.department ?? null,
             jsaData.responsiblePersonId ?? null,
             jsaData.teamMembers ?? null,
             jsaData.requiredPpe ?? null,
             jsaData.status ?? 'Rascunho',
             jsaData.reviewDate ?? null,
-            jsaData.attachmentPath ?? null // Add attachment path
+            jsaData.attachmentPath ?? null // Este campo já está no tipo JsaInputTypeFromAction
         );
         jsaId = resultJsa.lastID;
 
@@ -1207,6 +1203,7 @@ export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+
 
 
 
