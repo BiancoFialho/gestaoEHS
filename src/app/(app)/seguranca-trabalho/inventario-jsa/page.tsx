@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { fetchJsas } from '@/actions/dataFetchingActions'; // Importar a Server Action correta
-import { useToast } from "@/hooks/use-toast"; // Importar useToast
+import { fetchJsas } from '@/actions/dataFetchingActions'; 
+import { useToast } from "@/hooks/use-toast"; 
 
 interface JsaEntry {
     id: number;
@@ -27,15 +27,15 @@ export default function InventarioJsaPage() {
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const { toast } = useToast(); // Inicializar toast
+  const { toast } = useToast(); 
 
   React.useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
-        const result = await fetchJsas(); // Chamar a Server Action
+        const result = await fetchJsas(); 
         if (result.success && result.data) {
-          setJsaEntries(result.data as JsaEntry[]); // Ajustar a tipagem se necessário
+          setJsaEntries(result.data as JsaEntry[]); 
         } else {
           console.error("Failed to fetch JSA entries:", result.error);
           toast({
@@ -43,7 +43,7 @@ export default function InventarioJsaPage() {
             description: result.error || "Não foi possível buscar as JSAs.",
             variant: "destructive",
           });
-          setJsaEntries([]); // Limpar em caso de erro
+          setJsaEntries([]); 
         }
       } catch (error) {
         console.error("Failed to fetch JSA entries:", error);
@@ -52,13 +52,13 @@ export default function InventarioJsaPage() {
             description: "Ocorreu um erro de rede ou inesperado.",
             variant: "destructive",
         });
-        setJsaEntries([]); // Limpar em caso de erro
+        setJsaEntries([]); 
       } finally {
         setIsLoading(false);
       }
     }
     loadData();
-  }, [isJsaDialogOpen, toast]); // Adicionar toast como dependência
+  }, [isJsaDialogOpen, toast]); 
 
    const getStatusBadgeVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
        if (!status) return 'outline';
@@ -81,23 +81,36 @@ export default function InventarioJsaPage() {
       // setJsaDialogOpen(true); // Need to pass data to dialog
       // }
   };
+  
   const handleDownload = (filePath: string | null) => {
       if (!filePath) {
           console.warn("No file path provided for download.");
           toast({ title: "Sem Anexo", description: "Nenhum arquivo anexado para esta JSA.", variant: "default"});
           return;
       }
-      console.log(`Download file: ${filePath}`);
-      // Para downloads no cliente, o arquivo precisa estar acessível publicamente (ex: na pasta /public)
-      // Se o arquivo estiver em /public/uploads/, o link seria apenas /uploads/nome_do_arquivo.ext
-      // A implementação atual salva os arquivos em public/uploads, então isso deve funcionar.
+
+      // Constrói a URL completa para logging e para o link
+      // Assume que filePath é algo como "/uploads/filename.ext"
+      const downloadUrl = new URL(filePath, window.location.origin).toString();
+      console.log(`Tentando baixar arquivo da URL: ${downloadUrl}`);
+      console.log(`Caminho original do arquivo no banco de dados: ${filePath}`);
+
+
       const link = document.createElement('a');
-      link.href = filePath; // filePath já deve ser o caminho público, ex: /uploads/arquivo.xlsx
-      link.download = filePath.split('/').pop() || 'download';
+      link.href = filePath; // Caminho relativo como /uploads/file.ext funciona aqui
+      link.download = filePath.split('/').pop() || 'download'; 
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast({ title: "Download Iniciado", description: `Baixando ${link.download}.`});
+      try {
+        link.click();
+        toast({ title: "Download Iniciado", description: `Baixando ${link.download}. Verifique a pasta de downloads do seu navegador.`});
+      } catch (error) {
+        console.error("Error triggering download:", error);
+        toast({ title: "Erro no Download", description: "Não foi possível iniciar o download. Verifique o console para mais detalhes.", variant: "destructive"});
+      } finally {
+        if (document.body.contains(link)) {
+            document.body.removeChild(link);
+        }
+      }
   }
 
   const filteredJsas = jsaEntries.filter(jsa =>
