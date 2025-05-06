@@ -21,11 +21,12 @@ const nextConfig: NextConfig = {
   },
    // Add webpack configuration to externalize server-only modules for the client bundle
   webpack: (config, { isServer }) => {
-    // Exclude 'sqlite3' from client-side bundles as it uses Node.js 'fs' module
+    // Exclude server-only modules from client-side bundles
     if (!isServer) {
-       // Ensure externals is an array and add sqlite3
+       // Ensure externals is an array
        config.externals = Array.isArray(config.externals) ? config.externals : [];
        config.externals.push('sqlite3');
+       config.externals.push('bindings'); // Add bindings here
     }
     // Important: return the modified config
     return config;
