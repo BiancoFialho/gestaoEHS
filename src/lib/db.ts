@@ -1,3 +1,4 @@
+
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
@@ -43,8 +44,8 @@ export async function getDbConnection(): Promise<Database> {
       name TEXT NOT NULL,
       role TEXT,
       department TEXT,
-      hire_date DATE, -- Data de admissão
-      birth_date DATE, -- Data de nascimento
+      hire_date TEXT, -- Data de admissão (YYYY-MM-DD)
+      birth_date TEXT, -- Data de nascimento (YYYY-MM-DD)
       rg TEXT, -- RG
       cpf TEXT UNIQUE, -- CPF (único)
       phone TEXT, -- Telefone
@@ -72,11 +73,11 @@ export async function getDbConnection(): Promise<Database> {
       serial_number TEXT UNIQUE,
       brand TEXT, -- Marca
       model TEXT, -- Modelo
-      acquisition_date DATE, -- Data de aquisição
+      acquisition_date TEXT, -- Data de aquisição (YYYY-MM-DD)
       status TEXT DEFAULT 'Operacional', -- e.g., 'Operacional', 'Em Manutenção', 'Fora de Uso'
       maintenance_schedule TEXT,
-      last_maintenance_date DATE,
-      next_maintenance_date DATE, -- Próxima manutenção
+      last_maintenance_date TEXT, -- (YYYY-MM-DD)
+      next_maintenance_date TEXT, -- Próxima manutenção (YYYY-MM-DD)
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL -- Optionally set null if location is deleted
     );
@@ -99,8 +100,8 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       training_id INTEGER NOT NULL,
-      completion_date DATE NOT NULL,
-      expiry_date DATE,
+      completion_date TEXT NOT NULL, -- (YYYY-MM-DD)
+      expiry_date TEXT, -- (YYYY-MM-DD)
       score REAL,
       status TEXT DEFAULT 'Concluído', -- e.g., 'Concluído', 'Pendente', 'Vencido'
       certificate_path TEXT,
@@ -132,11 +133,11 @@ export async function getDbConnection(): Promise<Database> {
       team_members TEXT, -- Nomes dos participantes (texto)
       required_ppe TEXT, -- EPIs necessários (texto)
       status TEXT DEFAULT 'Rascunho', -- e.g., 'Rascunho', 'Ativo', 'Revisado', 'Obsoleto'
-      creation_date DATE DEFAULT CURRENT_DATE,
-      review_date DATE, -- Data da última revisão
-      approval_date DATE, -- Data de aprovação
+      creation_date TEXT DEFAULT (strftime('%Y-%m-%d', 'now')), -- Use strftime for YYYY-MM-DD
+      review_date TEXT, -- Data da última revisão (YYYY-MM-DD)
+      approval_date TEXT, -- Data de aprovação (YYYY-MM-DD)
       approver_id INTEGER, -- Quem aprovou
-      attachment_path TEXT, -- Caminho para o arquivo Excel anexado
+      attachment_path TEXT, -- Caminho para o arquivo Excel/PDF anexado
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
       FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -151,8 +152,8 @@ export async function getDbConnection(): Promise<Database> {
       category TEXT,
       file_path TEXT, -- Path or Link to the document
       version TEXT,
-      upload_date DATE DEFAULT CURRENT_DATE,
-      review_date DATE,
+      upload_date TEXT DEFAULT (strftime('%Y-%m-%d', 'now')), -- Use strftime for YYYY-MM-DD
+      review_date TEXT, -- (YYYY-MM-DD)
       status TEXT DEFAULT 'Ativo', -- e.g., 'Ativo', 'Obsoleto', 'Em Revisão'
       jsa_id INTEGER, -- Chave estrangeira opcional para JSA
       author_id INTEGER, -- Autor do documento
@@ -184,7 +185,7 @@ export async function getDbConnection(): Promise<Database> {
       unit TEXT, -- e.g., 'número', 'taxa', '%', 'dias', 'R$'
       target REAL, -- Meta
       period TEXT, -- e.g., 'Mensal', 'Anual'
-      data_date DATE, -- Data a que o KPI se refere
+      data_date TEXT, -- Data a que o KPI se refere (YYYY-MM-DD)
       source TEXT, -- Fonte do dado
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -207,7 +208,7 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS incidents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       description TEXT NOT NULL,
-      date TEXT NOT NULL, -- Manter como TEXT por enquanto, ou mudar para DATETIME
+      date TEXT NOT NULL, -- Manter como TEXT por enquanto (YYYY-MM-DD HH:MM:SS), ou mudar para DATETIME
       type TEXT NOT NULL, -- 'Acidente com Afastamento', 'Acidente sem Afastamento', 'Quase Acidente', 'Incidente Ambiental'
       severity TEXT, -- 'Leve', 'Moderado', 'Grave', 'Fatalidade', 'Insignificante' (para ambiental)
       location_id INTEGER,
@@ -220,7 +221,7 @@ export async function getDbConnection(): Promise<Database> {
       cost REAL DEFAULT 0.0,
       reported_by_id INTEGER,
       status TEXT DEFAULT 'Aberto', -- e.g., 'Aberto', 'Em Investigação', 'Aguardando Ação', 'Fechado'
-      closure_date DATE, -- Data de fechamento
+      closure_date TEXT, -- Data de fechamento (YYYY-MM-DD)
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
       FOREIGN KEY (reported_by_id) REFERENCES users(id) ON DELETE SET NULL, -- Ou employees(id)
@@ -233,11 +234,11 @@ export async function getDbConnection(): Promise<Database> {
       description TEXT NOT NULL,
       origin TEXT, -- e.g., 'Incidente ID 123', 'Auditoria ID 45', 'JSA ID 67'
       responsible_id INTEGER, -- Allow NULL initially
-      due_date DATE,
+      due_date TEXT, -- (YYYY-MM-DD)
       priority TEXT DEFAULT 'Média', -- e.g., 'Alta', 'Média', 'Baixa'
       status TEXT DEFAULT 'Aberta', -- e.g., 'Aberta', 'Em Andamento', 'Concluída', 'Atrasada', 'Cancelada'
-      completion_date DATE,
-      effectiveness_check_date DATE, -- Data de verificação da eficácia
+      completion_date TEXT, -- (YYYY-MM-DD)
+      effectiveness_check_date TEXT, -- Data de verificação da eficácia (YYYY-MM-DD)
       effectiveness_notes TEXT, -- Notas sobre a eficácia
       evidence TEXT, -- Descrição ou link para evidência
       cost REAL, -- Custo da ação
@@ -251,7 +252,7 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL, -- e.g., 'Interna', 'Externa', 'Comportamental'
       scope TEXT NOT NULL, -- Área ou processo auditado
-      audit_date DATE NOT NULL,
+      audit_date TEXT NOT NULL, -- (YYYY-MM-DD)
       auditor TEXT NOT NULL, -- Could link to users/employees if needed
       lead_auditor_id INTEGER, -- Auditor líder
       findings TEXT, -- Resumo dos achados
@@ -273,7 +274,7 @@ export async function getDbConnection(): Promise<Database> {
       related_requirement TEXT, -- Norma ou requisito relacionado
       action_plan_id INTEGER, -- Link para plano de ação
       status TEXT DEFAULT 'Aberta', -- e.g., 'Aberta', 'Em Análise', 'Ação Definida', 'Concluída', 'Verificada'
-      closure_date DATE,
+      closure_date TEXT, -- (YYYY-MM-DD)
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE, -- Delete items if audit is deleted
       FOREIGN KEY (action_plan_id) REFERENCES action_plans(id) ON DELETE SET NULL -- Keep action plan even if audit item is deleted? Or CASCADE?
@@ -288,8 +289,8 @@ export async function getDbConnection(): Promise<Database> {
       requester_id INTEGER NOT NULL,
       approver_id INTEGER,
       executor_team TEXT, -- Equipe executora
-      start_datetime DATETIME NOT NULL,
-      end_datetime DATETIME NOT NULL,
+      start_datetime TEXT NOT NULL, -- (YYYY-MM-DD HH:MM:SS)
+      end_datetime TEXT NOT NULL, -- (YYYY-MM-DD HH:MM:SS)
       precautions TEXT,
       equipment_used TEXT, -- Equipamentos utilizados
       status TEXT DEFAULT 'Solicitada', -- e.g., 'Solicitada', 'Aprovada', 'Rejeitada', 'Em Andamento', 'Concluída', 'Expirada', 'Cancelada'
@@ -316,12 +317,12 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       ppe_type_id INTEGER NOT NULL,
-      delivery_date DATE NOT NULL,
+      delivery_date TEXT NOT NULL, -- (YYYY-MM-DD)
       quantity INTEGER DEFAULT 1,
       ca_number TEXT, -- Certificado de Aprovação (CA)
       receipt_signed INTEGER DEFAULT 0, -- Confirmação de recebimento. Changed from BOOLEAN DEFAULT FALSE
-      return_date DATE,
-      due_date DATE, -- Calculated or set manually based on lifespan
+      return_date TEXT, -- (YYYY-MM-DD)
+      due_date TEXT, -- Calculated or set manually based on lifespan (YYYY-MM-DD)
       notes TEXT, -- Observações
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
@@ -336,7 +337,7 @@ export async function getDbConnection(): Promise<Database> {
       claimant_name TEXT, -- Nome do reclamante (pode ser ex-funcionário)
       subject TEXT, -- e.g., 'Insalubridade', 'Acidente de Trabalho', 'Doença Ocupacional'
       status TEXT DEFAULT 'Em Andamento', -- e.g., 'Em Andamento', 'Acordo', 'Sentença', 'Arquivado'
-      filed_date DATE,
+      filed_date TEXT, -- (YYYY-MM-DD)
       court TEXT, -- Vara do trabalho
       company_lawyer TEXT,
       opposing_lawyer TEXT, -- Advogado da outra parte
@@ -344,7 +345,7 @@ export async function getDbConnection(): Promise<Database> {
       final_cost REAL,
       provision_value REAL, -- Valor provisionado
       details TEXT,
-      last_update_date DATE, -- Data da última atualização
+      last_update_date TEXT, -- Data da última atualização (YYYY-MM-DD)
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -354,13 +355,13 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       type TEXT NOT NULL, -- 'Admissional', 'Periódico', 'Retorno ao Trabalho', 'Mudança de Função', 'Demissional'
-      exam_date DATE NOT NULL,
+      exam_date TEXT NOT NULL, -- (YYYY-MM-DD)
       result TEXT NOT NULL, -- 'Apto', 'Inapto', 'Apto com Restrições'
       restrictions TEXT, -- Se Apto com Restrições
       doctor_name TEXT,
       crm TEXT, -- CRM do médico
       clinic_name TEXT,
-      next_exam_due_date DATE,
+      next_exam_due_date TEXT, -- (YYYY-MM-DD)
       observations TEXT, -- Observações adicionais
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
@@ -372,7 +373,7 @@ export async function getDbConnection(): Promise<Database> {
       employee_id INTEGER NOT NULL,
       disease_name TEXT NOT NULL,
       cid TEXT, -- Código Internacional de Doenças
-      diagnosis_date DATE,
+      diagnosis_date TEXT, -- (YYYY-MM-DD)
       related_activity TEXT, -- Atividade suspeita de causar a doença
       cat_issued INTEGER DEFAULT 0, -- Comunicação de Acidente de Trabalho emitida? Changed from BOOLEAN DEFAULT FALSE
       cat_number TEXT, -- Número da CAT
@@ -387,8 +388,8 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS absenteeism_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
-      start_date DATE NOT NULL,
-      end_date DATE NOT NULL,
+      start_date TEXT NOT NULL, -- (YYYY-MM-DD)
+      end_date TEXT NOT NULL, -- (YYYY-MM-DD)
       reason TEXT NOT NULL, -- e.g., 'Doença Comum', 'Doença Ocupacional', 'Acidente Trabalho', 'Licença Médica'
       medical_certificate_code TEXT, -- CID ou código do atestado
       lost_hours REAL,
@@ -404,7 +405,7 @@ export async function getDbConnection(): Promise<Database> {
       location_id INTEGER,
       ghe_id INTEGER, -- Grupo Homogêneo de Exposição (se aplicável)
       agent_type TEXT NOT NULL, -- 'Ruído', 'Calor', 'Poeira Sílica', 'Benzeno', etc.
-      measurement_date DATE NOT NULL,
+      measurement_date TEXT NOT NULL, -- (YYYY-MM-DD)
       measurement_value REAL NOT NULL,
       unit TEXT NOT NULL, -- 'dB(A)', '°C IBUTG', 'mg/m³'
       legal_limit REAL, -- Limite de tolerância
@@ -421,7 +422,7 @@ export async function getDbConnection(): Promise<Database> {
     -- Tabela Saúde: Avaliações Psicossociais (Resultados agregados ou individuais com controle de privacidade)
     CREATE TABLE IF NOT EXISTS psychosocial_evaluations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      evaluation_date DATE NOT NULL,
+      evaluation_date TEXT NOT NULL, -- (YYYY-MM-DD)
       type TEXT, -- e.g., 'Pesquisa de Clima', 'Avaliação de Estresse', 'Aplicação de Questionário Específico'
       target_group TEXT, -- e.g., 'Departamento X', 'Empresa Toda', 'Função Y'
       overall_score REAL,
@@ -439,10 +440,10 @@ export async function getDbConnection(): Promise<Database> {
       employee_id INTEGER NOT NULL,
       vaccine_name TEXT NOT NULL, -- e.g., 'Hepatite B', 'Tétano', 'Gripe'
       dose TEXT, -- e.g., '1ª Dose', '2ª Dose', 'Reforço'
-      vaccination_date DATE NOT NULL,
+      vaccination_date TEXT NOT NULL, -- (YYYY-MM-DD)
       batch_number TEXT,
       provider TEXT, -- Onde foi aplicada
-      next_due_date DATE,
+      next_due_date TEXT, -- (YYYY-MM-DD)
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
@@ -452,7 +453,7 @@ export async function getDbConnection(): Promise<Database> {
     -- Tabela Meio Ambiente: Geração de Resíduos
     CREATE TABLE IF NOT EXISTS waste_generation (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date DATE NOT NULL,
+      date TEXT NOT NULL, -- (YYYY-MM-DD)
       location_id INTEGER,
       waste_type TEXT NOT NULL, -- e.g., 'Papel', 'Plástico', 'Orgânico', 'Metal', 'Resíduo Perigoso Classe I'
       classification TEXT, -- e.g., 'Reciclável', 'Não Reciclável', 'Perigoso'
@@ -469,7 +470,7 @@ export async function getDbConnection(): Promise<Database> {
      -- Tabela Meio Ambiente: Consumo de Água
     CREATE TABLE IF NOT EXISTS water_consumption (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date DATE NOT NULL, -- Ou Mês/Ano
+      date TEXT NOT NULL, -- Ou Mês/Ano (YYYY-MM-DD)
       location_id INTEGER,
       reading REAL NOT NULL,
       unit TEXT DEFAULT 'm³',
@@ -483,7 +484,7 @@ export async function getDbConnection(): Promise<Database> {
     -- Tabela Meio Ambiente: Consumo de Energia
     CREATE TABLE IF NOT EXISTS energy_consumption (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date DATE NOT NULL, -- Ou Mês/Ano
+      date TEXT NOT NULL, -- Ou Mês/Ano (YYYY-MM-DD)
       location_id INTEGER,
       reading REAL NOT NULL,
       unit TEXT DEFAULT 'kWh',
@@ -497,7 +498,7 @@ export async function getDbConnection(): Promise<Database> {
     -- Tabela Meio Ambiente: Emissões de GEE (Gases de Efeito Estufa) - Pode ser calculada ou registrada
     CREATE TABLE IF NOT EXISTS ghg_emissions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date DATE NOT NULL, -- Ou Mês/Ano
+      date TEXT NOT NULL, -- Ou Mês/Ano (YYYY-MM-DD)
       location_id INTEGER,
       source_type TEXT NOT NULL, -- e.g., 'Consumo Energia Elétrica', 'Combustível Frota', 'Processo Industrial'
       emission_factor REAL,
@@ -516,7 +517,7 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS environmental_incidents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       incident_id INTEGER UNIQUE, -- Link opcional para a tabela geral de incidentes
-      date DATETIME NOT NULL,
+      date DATETIME NOT NULL, -- (YYYY-MM-DD HH:MM:SS)
       location_id INTEGER,
       type TEXT NOT NULL, -- 'Derrame', 'Vazamento', 'Emissão não controlada'
       substance TEXT NOT NULL, -- Produto envolvido
@@ -538,15 +539,15 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       infraction_number TEXT UNIQUE NOT NULL,
       issuing_body TEXT NOT NULL, -- e.g., 'IBAMA', 'Secretaria Estadual Meio Ambiente'
-      issue_date DATE NOT NULL,
+      issue_date TEXT NOT NULL, -- (YYYY-MM-DD)
       description TEXT NOT NULL, -- Motivo da autuação
       legal_basis TEXT, -- Artigo/Lei infringido
       fine_amount REAL,
       status TEXT DEFAULT 'Em Análise', -- e.g., 'Em Análise', 'Recurso', 'Paga', 'Termo de Ajuste'
-      defense_deadline DATE,
-      payment_due_date DATE, -- Data de vencimento da multa
+      defense_deadline TEXT, -- (YYYY-MM-DD)
+      payment_due_date TEXT, -- Data de vencimento da multa (YYYY-MM-DD)
       resolution TEXT, -- Como foi resolvida
-      resolution_date DATE, -- Data da resolução
+      resolution_date TEXT, -- Data da resolução (YYYY-MM-DD)
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -562,8 +563,8 @@ export async function getDbConnection(): Promise<Database> {
       hazard_class TEXT, -- GHS classification
       sds_path TEXT, -- Path to Safety Data Sheet (FDS)
       supplier_name TEXT, -- Nome do fornecedor
-      acquisition_date DATE, -- Data de aquisição
-      last_updated DATE DEFAULT CURRENT_DATE,
+      acquisition_date TEXT, -- Data de aquisição (YYYY-MM-DD)
+      last_updated TEXT DEFAULT (strftime('%Y-%m-%d', 'now')), -- Use strftime for YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL -- Changed to SET NULL
     );
@@ -627,10 +628,10 @@ export async function getDbConnection(): Promise<Database> {
 
   // Sample JSAs
   await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Manutenção de Telhado', 6, 'Revisado', 2, '2024-05-10', '/uploads/jsa_telhado_v1.xlsx');
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Operação da Prensa P-10', 1, 'Ativo', 3, '2024-06-20');
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Manuseio de Ácido Sulfúrico', 4, 'Ativo', 3, '2024-07-01');
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id) VALUES (?, ?, ?, ?, ?)', 4, 'Trabalho em Escritório (Digitação)', 3, 'Rascunho', 1);
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Operação de Empilhadeira', 2, 'Ativo', 2, '2023-12-15');
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 'Operação da Prensa P-10', 1, 'Ativo', 3, '2024-06-20', NULL);
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?)', 3, 'Manuseio de Ácido Sulfúrico', 4, 'Ativo', 3, '2024-07-01', NULL);
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, attachment_path) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Trabalho em Escritório (Digitação)', 3, 'Rascunho', 1, NULL);
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?)', 5, 'Operação de Empilhadeira', 2, 'Ativo', 2, '2023-12-15', NULL);
   await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?)', 6, 'Manutenção Elétrica Painel X', 1, 'Revisado', 3, '2024-08-01', '/uploads/jsa_painel_eletrico.pdf');
 
   // Sample JSA Steps (for JSA ID 1)
@@ -781,18 +782,18 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
     try {
         // Iniciar transação
         await db.run('BEGIN TRANSACTION');
-
+        // Certifique-se de que valores undefined se tornem NULL no banco de dados
         const resultJsa = await db.run(
             'INSERT INTO jsa (task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             jsaData.task,
-            jsaData.locationId ?? null,
+            jsaData.locationId ?? null, // Use ?? null para converter undefined para null
             jsaData.department ?? null,
             jsaData.responsiblePersonId ?? null,
             jsaData.teamMembers ?? null,
             jsaData.requiredPpe ?? null,
             jsaData.status ?? 'Rascunho',
             jsaData.reviewDate ?? null,
-            jsaData.attachmentPath ?? null // Este campo já está no tipo JsaInputTypeFromAction
+            jsaData.attachmentPath ?? null // Este campo agora está na definição da tabela
         );
         jsaId = resultJsa.lastID;
 
@@ -1037,7 +1038,7 @@ export async function insertDocument(
 ): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date, jsa_id, author_id, owner_department) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?)',
+    'INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date, jsa_id, author_id, owner_department) VALUES (?, ?, ?, ?, ?, ?, ?, strftime(\'%Y-%m-%d\', \'now\'), ?, ?, ?)',
     title,
     description || null,
     category || null,
@@ -1203,6 +1204,7 @@ export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+
 
 
 

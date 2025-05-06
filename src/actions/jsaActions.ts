@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -56,7 +57,7 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
             const filePath = path.join(uploadsDir, safeFilename);
             const buffer = Buffer.from(await file.arrayBuffer());
             await fs.writeFile(filePath, buffer);
-            attachmentPath = `/uploads/${safeFilename}`;
+            attachmentPath = `/uploads/${safeFilename}`; // Relative path for serving
             console.log(`File saved successfully: ${attachmentPath}`);
         } catch (uploadError) {
             console.error('Error saving file:', uploadError);
@@ -71,42 +72,30 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
     const responsiblePersonIdString = formData.get('responsiblePersonId') as string | null;
 
     // Construct jsaDataFromForm based on JsaInput type (derived from Zod schema)
-    const jsaDataFromForm: JsaInput = {
+    const jsaDataForDb: JsaInput = {
         task: formData.get('task') as string,
         locationId: (locationIdString && locationIdString !== NONE_SELECT_VALUE) ? parseInt(locationIdString, 10) : null,
-        department: formData.get('department') as string | null,
+        department: formData.get('department') as string | null || null, // Ensure null if empty
         responsiblePersonId: (responsiblePersonIdString && responsiblePersonIdString !== NONE_SELECT_VALUE) ? parseInt(responsiblePersonIdString, 10) : null,
-        teamMembers: formData.get('teamMembers') as string | null,
-        requiredPpe: formData.get('requiredPpe') as string | null,
-        status: formData.get('status') as string | null,
-        reviewDate: formData.get('reviewDate') as string | null,
-        attachmentPath: attachmentPath, // Include attachmentPath here
+        teamMembers: formData.get('teamMembers') as string | null || null, // Ensure null if empty
+        requiredPpe: formData.get('requiredPpe') as string | null || null, // Ensure null if empty
+        status: formData.get('status') as string | null || 'Rascunho', // Ensure default if null
+        reviewDate: formData.get('reviewDate') as string | null || null, // Ensure null if empty
+        attachmentPath: attachmentPath, // Use the determined attachmentPath
         steps: [], // Assuming steps are not sent via this form for simplicity now
     };
 
+
      // Basic validation (can be more robust with Zod if needed)
-     if (!jsaDataFromForm.task || jsaDataFromForm.task.length < 5) {
+     if (!jsaDataForDb.task || jsaDataForDb.task.length < 5) {
         return { success: false, error: 'Tarefa inválida. Deve ter pelo menos 5 caracteres.' };
     }
 
     try {
-        // Prepare data for dbInsertJsa, ensuring it matches the JsaInput type expected by db.ts
-        // Note: dbInsertJsa in db.ts uses JsaInput from this file as its type.
-        const dataForDb = {
-            task: jsaDataFromForm.task,
-            locationId: jsaDataFromForm.locationId,
-            department: jsaDataFromForm.department,
-            responsiblePersonId: jsaDataFromForm.responsiblePersonId,
-            teamMembers: jsaDataFromForm.teamMembers,
-            requiredPpe: jsaDataFromForm.requiredPpe,
-            status: jsaDataFromForm.status ?? 'Rascunho',
-            reviewDate: jsaDataFromForm.reviewDate,
-            attachmentPath: jsaDataFromForm.attachmentPath, // Already part of JsaInput type now
-        };
-
+        // Pass the structured data and steps to dbInsertJsa
         const newJsaId = await dbInsertJsa(
-            dataForDb, // Pass the structured data
-            jsaDataFromForm.steps // Pass the (currently empty) steps array
+            jsaDataForDb,
+            jsaDataForDb.steps || [] // Ensure steps is an array
         );
 
         if (newJsaId === undefined || newJsaId === null) {
@@ -129,3 +118,4 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
         return { success: false, error: `Erro ao adicionar JSA: ${errorMessage}` };
     }
 }
+
