@@ -8,7 +8,24 @@ type Location = { id: number; name: string };
 type User = { id: number; name: string };
 type Employee = { id: number; name: string };
 type Training = { id: number; course_name: string };
-type Jsa = { id: number; task: string }; // Basic JSA type for dropdown
+
+// Updated Jsa type to match JsaEntry in InventarioJsaPage
+type Jsa = {
+    id: number;
+    task: string;
+    location_name: string | null;
+    responsible_person_name: string | null;
+    review_date: string | null;
+    status: string | null;
+    attachment_path: string | null;
+    // Include other fields from the 'jsa' table if they might be needed elsewhere
+    department?: string | null;
+    team_members?: string | null;
+    required_ppe?: string | null;
+    creation_date?: string | null;
+    approval_date?: string | null;
+    approver_id?: number | null;
+};
 
 type FetchResult<T> = {
     success: boolean;
@@ -19,8 +36,7 @@ type FetchResult<T> = {
 // Fetch all locations (specifically id and name for dropdowns)
 export async function fetchLocations(): Promise<FetchResult<Location>> {
     try {
-        const locations = await dbGetAllLocations(); // Assuming this returns at least { id, name }
-        // Ensure the returned data matches the Location type or cast safely
+        const locations = await dbGetAllLocations();
         return { success: true, data: locations as Location[] };
     } catch (error) {
         console.error('Error fetching locations:', error);
@@ -32,8 +48,7 @@ export async function fetchLocations(): Promise<FetchResult<Location>> {
 // Fetch all users (specifically id and name for dropdowns)
 export async function fetchUsers(): Promise<FetchResult<User>> {
     try {
-        const users = await dbGetAllUsers(); // Assuming this returns at least { id, name }
-        // Ensure the returned data matches the User type or cast safely
+        const users = await dbGetAllUsers();
         return { success: true, data: users as User[] };
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -45,7 +60,7 @@ export async function fetchUsers(): Promise<FetchResult<User>> {
 
 export async function fetchEmployees(): Promise<FetchResult<Employee>> {
     try {
-        const employees = await getAllEmployees(); // Assuming this returns { id, name }
+        const employees = await getAllEmployees();
         return { success: true, data: employees as Employee[] };
     } catch (error) {
         console.error('Error fetching employees:', error);
@@ -56,7 +71,7 @@ export async function fetchEmployees(): Promise<FetchResult<Employee>> {
 
 export async function fetchTrainings(): Promise<FetchResult<Training>> {
     try {
-        const trainings = await getAllTrainings(); // Assuming this returns { id, course_name }
+        const trainings = await getAllTrainings();
         return { success: true, data: trainings as Training[] };
     } catch (error) {
         console.error('Error fetching trainings:', error);
@@ -67,8 +82,8 @@ export async function fetchTrainings(): Promise<FetchResult<Training>> {
 
 export async function fetchJsas(): Promise<FetchResult<Jsa>> {
     try {
-        const jsas = await dbGetAllJsas(); // Assuming this returns at least { id, task }
-        // Ensure the returned data matches the Jsa type or cast safely
+        const jsas = await dbGetAllJsas(); // This function returns a more complex object
+        // The type casting here should be safe if dbGetAllJsas returns objects matching the expanded Jsa type.
         return { success: true, data: jsas as Jsa[] };
     } catch (error) {
         console.error('Error fetching JSAs:', error);

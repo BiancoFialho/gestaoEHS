@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -10,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { getAllJsas } from '@/lib/db'; // Assuming this function is correctly implemented to fetch data
+import { fetchJsas } from '@/actions/dataFetchingActions'; // Importar a Server Action correta
+import { useToast } from "@/hooks/use-toast"; // Importar useToast
 
 interface JsaEntry {
     id: number;
@@ -26,23 +26,39 @@ export default function InventarioJsaPage() {
   const [isJsaDialogOpen, setJsaDialogOpen] = React.useState(false);
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [searchTerm, setSearchTerm] = React.useState(""); // For search functionality
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const { toast } = useToast(); // Inicializar toast
 
   React.useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
-        const data = await getAllJsas(); // Fetch data from DB
-        setJsaEntries(data as JsaEntry[]);
+        const result = await fetchJsas(); // Chamar a Server Action
+        if (result.success && result.data) {
+          setJsaEntries(result.data as JsaEntry[]); // Ajustar a tipagem se necessário
+        } else {
+          console.error("Failed to fetch JSA entries:", result.error);
+          toast({
+            title: "Erro ao Carregar JSAs",
+            description: result.error || "Não foi possível buscar as JSAs.",
+            variant: "destructive",
+          });
+          setJsaEntries([]); // Limpar em caso de erro
+        }
       } catch (error) {
         console.error("Failed to fetch JSA entries:", error);
-        // TODO: Show error toast
+        toast({
+            title: "Erro ao Carregar JSAs",
+            description: "Ocorreu um erro de rede ou inesperado.",
+            variant: "destructive",
+        });
+        setJsaEntries([]); // Limpar em caso de erro
       } finally {
         setIsLoading(false);
       }
     }
     loadData();
-  }, [isJsaDialogOpen]); // Reload data when dialog closes (after potential add/edit)
+  }, [isJsaDialogOpen, toast]); // Adicionar toast como dependência
 
    const getStatusBadgeVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
        if (!status) return 'outline';
@@ -53,10 +69,13 @@ export default function InventarioJsaPage() {
        return 'outline';
    }
 
-  const handleViewSteps = (id: number) => console.log(`View Steps for JSA ${id}`);
+  const handleViewSteps = (id: number) => {
+    console.log(`View Steps for JSA ${id}`);
+    toast({ title: "Funcionalidade Pendente", description: "Visualizar passos da JSA ainda não implementado."});
+  }
   const handleEdit = (id: number) => {
       console.log(`Edit JSA ${id}`);
-      // TODO: Implement opening dialog with JSA data for editing
+      toast({ title: "Funcionalidade Pendente", description: "Editar JSA ainda não implementado."});
       // const jsaToEdit = jsaEntries.find(jsa => jsa.id === id);
       // if (jsaToEdit) {
       // setJsaDialogOpen(true); // Need to pass data to dialog
@@ -65,15 +84,20 @@ export default function InventarioJsaPage() {
   const handleDownload = (filePath: string | null) => {
       if (!filePath) {
           console.warn("No file path provided for download.");
+          toast({ title: "Sem Anexo", description: "Nenhum arquivo anexado para esta JSA.", variant: "default"});
           return;
       }
       console.log(`Download file: ${filePath}`);
+      // Para downloads no cliente, o arquivo precisa estar acessível publicamente (ex: na pasta /public)
+      // Se o arquivo estiver em /public/uploads/, o link seria apenas /uploads/nome_do_arquivo.ext
+      // A implementação atual salva os arquivos em public/uploads, então isso deve funcionar.
       const link = document.createElement('a');
-      link.href = filePath;
+      link.href = filePath; // filePath já deve ser o caminho público, ex: /uploads/arquivo.xlsx
       link.download = filePath.split('/').pop() || 'download';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast({ title: "Download Iniciado", description: `Baixando ${link.download}.`});
   }
 
   const filteredJsas = jsaEntries.filter(jsa =>
@@ -105,7 +129,7 @@ export default function InventarioJsaPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
            />
-            <Button variant="outline" disabled> {/* Filter button disabled for now */}
+            <Button variant="outline" disabled>
                 <ListFilter className="mr-2 h-4 w-4" /> Filtrar
             </Button>
        </div>
@@ -118,14 +142,43 @@ export default function InventarioJsaPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow><TableHead className="w-[30%]">Tarefa Analisada</TableHead><TableHead>Local</TableHead><TableHead>Responsável</TableHead><TableHead>Última Revisão</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Anexo</TableHead><TableHead className="text-right">Ações</TableHead></TableRow>
+              <TableRow>
+                <TableHead className="w-[30%]">Tarefa Analisada</TableHead>
+                <TableHead>Local</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Última Revisão</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-center">Anexo</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Carregando JSAs...</TableCell></TableRow>
               ) : filteredJsas.length > 0 ? (
                 filteredJsas.map((jsa) => (
-                  <TableRow key={jsa.id}><TableCell className="font-medium">{jsa.task}</TableCell><TableCell>{jsa.location_name || 'N/A'}</TableCell><TableCell>{jsa.responsible_person_name || 'N/A'}</TableCell><TableCell>{jsa.review_date || 'N/A'}</TableCell><TableCell><Badge variant={getStatusBadgeVariant(jsa.status)}>{jsa.status || 'N/A'}</Badge></TableCell><TableCell className="text-center">{jsa.attachment_path ? (<Button variant="ghost" size="icon" onClick={() => handleDownload(jsa.attachment_path)} title="Baixar Anexo"><Download className="h-4 w-4 text-blue-600" /></Button>) : (<Paperclip className="h-4 w-4 text-muted-foreground mx-auto" title="Sem Anexo" />)}</TableCell><TableCell className="text-right space-x-1"><Button variant="ghost" size="sm" onClick={() => handleViewSteps(jsa.id)} title="Visualizar Passos" disabled>Ver Passos</Button><Button variant="ghost" size="icon" onClick={() => handleEdit(jsa.id)} title="Editar JSA" disabled><Edit className="h-4 w-4" /></Button></TableCell></TableRow>
+                  <TableRow key={jsa.id}>
+                    <TableCell className="font-medium">{jsa.task}</TableCell>
+                    <TableCell>{jsa.location_name || 'N/A'}</TableCell>
+                    <TableCell>{jsa.responsible_person_name || 'N/A'}</TableCell>
+                    <TableCell>{jsa.review_date || 'N/A'}</TableCell>
+                    <TableCell><Badge variant={getStatusBadgeVariant(jsa.status)}>{jsa.status || 'N/A'}</Badge></TableCell>
+                    <TableCell className="text-center">
+                        {jsa.attachment_path ? (
+                            <Button variant="ghost" size="icon" onClick={() => handleDownload(jsa.attachment_path)} title="Baixar Anexo">
+                                <Download className="h-4 w-4 text-primary" />
+                            </Button>
+                        ) : (
+                            <Paperclip className="h-4 w-4 text-muted-foreground mx-auto" title="Sem Anexo" />
+                        )}
+                    </TableCell>
+                    <TableCell className="text-right space-x-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewSteps(jsa.id)} title="Visualizar Passos">Ver Passos</Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(jsa.id)} title="Editar JSA">
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : (
                 <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Nenhuma JSA encontrada.</TableCell></TableRow>
@@ -137,8 +190,7 @@ export default function InventarioJsaPage() {
 
        <JsaDialog open={isJsaDialogOpen} onOpenChange={setJsaDialogOpen} />
 
-       {/* Placeholder for displaying JSA Steps */}
-        <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
+       <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
             <p className="text-muted-foreground">A visualização e edição detalhada dos passos da JSA será implementada aqui.</p>
         </div>
 
