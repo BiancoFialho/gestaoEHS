@@ -1,3 +1,4 @@
+
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
@@ -1206,5 +1207,6 @@ export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+
 
 
