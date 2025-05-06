@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react'; // Import useState, useEffect
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from "date-fns";
-import { ptBR } from 'date-fns/locale'; // Import locale pt-BR
+import { format, parseISO } from "date-fns"; // Added parseISO
+import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -44,14 +44,35 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { addIncident } from '@/actions/incidentActions'; // Import server action
-// Import server actions for fetching data
+import { addIncident, updateIncident } from '@/actions/incidentActions'; // Import updateIncident
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
+
+interface IncidentData { // More comprehensive type for initialData and DB interaction
+  id?: number; // Optional for new incidents
+  description: string;
+  date: string; // Expecting string from DB, will convert to Date for form
+  type: string;
+  severity?: string | null;
+  locationId?: number | null;
+  reportedById?: number | null;
+  status?: string | null;
+  // Add other fields from your incidents table that might be edited
+  root_cause?: string | null;
+  corrective_actions?: string | null;
+  preventive_actions?: string | null;
+  involved_persons_ids?: string | null; // Keep as string for now
+  investigation_responsible_id?: number | null;
+  lost_days?: number | null;
+  cost?: number | null;
+  closure_date?: string | null; // Expecting string from DB
+}
+
 
 interface IncidentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // TODO: Add 'initialData' prop for editing
+  initialData?: IncidentData | null; // For editing
+  onIncidentAddedOrUpdated?: () => void; // Callback to refresh list
 }
 
 // Zod schema for validation
@@ -61,45 +82,57 @@ const formSchema = z.object({
   description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
   locationId: z.string().optional(),
   severity: z.string().optional(),
-  reportedById: z.string().optional(), // Who reported it
+  reportedById: z.string().optional(), 
   status: z.string().optional().default('Aberto'),
-   // Add fields for investigation details later if needed
-  // rootCause: z.string().optional(),
-  // correctiveActions: z.string().optional(),
-  // involvedPersonsIds: z.string().optional(), // Maybe use multi-select later
-  // lostDays: z.coerce.number().int().nonnegative().optional(),
-  // cost: z.coerce.number().nonnegative().optional(),
+  root_cause: z.string().optional().nullable(),
+  corrective_actions: z.string().optional().nullable(),
+  preventive_actions: z.string().optional().nullable(),
+  involved_persons_ids: z.string().optional().nullable(),
+  investigation_responsible_id: z.string().optional().nullable(),
+  lost_days: z.coerce.number().int().nonnegative().optional().nullable(),
+  cost: z.coerce.number().nonnegative().optional().nullable(),
+  closure_date: z.date().optional().nullable(),
 });
 
 type IncidentFormValues = z.infer<typeof formSchema>;
 
 interface Location { id: number; name: string; }
-interface User { id: number; name: string; } // Assuming User type
+interface User { id: number; name: string; } 
 
-const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) => {
+const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, initialData, onIncidentAddedOrUpdated }) => {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
-  const [users, setUsers] = useState<User[]>([]); // For reporter dropdown
+  const [users, setUsers] = useState<User[]>([]); 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // State to control calendar popover
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false); 
+  const [isClosureCalendarOpen, setIsClosureCalendarOpen] = useState(false);
+
+  const isEditMode = !!initialData;
 
   const form = useForm<IncidentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: undefined, // Start with undefined date
+      date: undefined, 
       type: "",
       description: "",
       locationId: "",
       severity: "",
       reportedById: "",
       status: "Aberto",
+      root_cause: "",
+      corrective_actions: "",
+      preventive_actions: "",
+      involved_persons_ids: "",
+      investigation_responsible_id: "",
+      lost_days: null,
+      cost: null,
+      closure_date: null,
     },
   });
 
-   // Fetch locations and users using Server Actions within useEffect
    useEffect(() => {
-    let isMounted = true; // Track if component is mounted
+    let isMounted = true; 
 
     if (open) {
       const fetchData = async () => {
@@ -116,7 +149,6 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               } else {
                 console.error("Error fetching locations:", locationsResult.error);
                 toast({ title: "Erro", description: locationsResult.error || "Não foi possível carregar os locais.", variant: "destructive" });
-                setLocations([]);
               }
 
               if (usersResult.success && usersResult.data) {
@@ -124,16 +156,12 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
               } else {
                  console.error("Error fetching users:", usersResult.error);
                  toast({ title: "Erro", description: usersResult.error || "Não foi possível carregar os usuários.", variant: "destructive" });
-                 setUsers([]);
               }
            }
-
         } catch (error) {
            if (isMounted) {
               console.error("Error fetching data:", error);
               toast({ title: "Erro", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
-              setLocations([]);
-              setUsers([]);
            }
         } finally {
           if (isMounted) {
@@ -142,67 +170,86 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
         }
       };
       fetchData();
-    } else {
-       form.reset({
-           date: undefined, // Explicitly reset date field
-            type: "",
-            description: "",
-            locationId: "",
-            severity: "",
-            reportedById: "",
-            status: "Aberto",
+
+      if (isEditMode && initialData) {
+        form.reset({
+          ...initialData,
+          date: initialData.date ? parseISO(initialData.date) : new Date(),
+          locationId: initialData.locationId?.toString() || "",
+          reportedById: initialData.reportedById?.toString() || "",
+          investigation_responsible_id: initialData.investigation_responsible_id?.toString() || "",
+          severity: initialData.severity || "",
+          status: initialData.status || "Aberto",
+          closure_date: initialData.closure_date ? parseISO(initialData.closure_date) : null,
+          lost_days: initialData.lost_days ?? null,
+          cost: initialData.cost ?? null,
         });
-       setLocations([]);
-       setUsers([]);
+      } else {
+        form.reset({
+            date: new Date(), // Set current date for new incidents
+            type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto",
+            root_cause: "", corrective_actions: "", preventive_actions: "",
+            involved_persons_ids: "", investigation_responsible_id: "",
+            lost_days: null, cost: null, closure_date: null,
+        });
+      }
+    } else {
        setIsSubmitting(false);
        setIsLoading(false);
-       setIsCalendarOpen(false); // Reset calendar state
+       setIsCalendarOpen(false); 
+       setIsClosureCalendarOpen(false);
     }
-
-     return () => {
-      isMounted = false;
-    };
-   }, [open, form, toast]);
+     return () => { isMounted = false; };
+   }, [open, form, toast, initialData, isEditMode]);
 
   const onSubmit = async (values: IncidentFormValues) => {
      if (!values.date) {
-        toast({
-            title: "Erro de Validação",
-            description: "Data do incidente é obrigatória.",
-            variant: "destructive",
-        });
+        toast({ title: "Erro de Validação", description: "Data do incidente é obrigatória.", variant: "destructive" });
         return;
      }
 
     setIsSubmitting(true);
-    const dataToSend = {
+    const dataToSend: IncidentData = { // Use the more comprehensive IncidentData type
       ...values,
-      date: format(values.date, 'yyyy-MM-dd HH:mm:ss'), // Format date with time for DB
-      locationId: values.locationId ? parseInt(values.locationId, 10) : undefined,
-      reportedById: values.reportedById ? parseInt(values.reportedById, 10) : undefined,
-      severity: values.severity === 'none' ? undefined : (values.severity || undefined), // Handle "None" and empty string
-      status: values.status || 'Aberto', // Ensure default status if needed
+      id: isEditMode ? initialData?.id : undefined,
+      date: format(values.date, 'yyyy-MM-dd HH:mm:ss'), 
+      locationId: values.locationId ? parseInt(values.locationId, 10) : null,
+      reportedById: values.reportedById ? parseInt(values.reportedById, 10) : null,
+      investigation_responsible_id: values.investigation_responsible_id ? parseInt(values.investigation_responsible_id, 10) : null,
+      severity: values.severity === 'none' || values.severity === "" ? null : values.severity,
+      status: values.status || 'Aberto',
+      lost_days: values.lost_days ?? null,
+      cost: values.cost ?? null,
+      closure_date: values.closure_date ? format(values.closure_date, 'yyyy-MM-dd') : null,
+      // Ensure other fields are passed correctly
+      root_cause: values.root_cause || null,
+      corrective_actions: values.corrective_actions || null,
+      preventive_actions: values.preventive_actions || null,
+      involved_persons_ids: values.involved_persons_ids || null,
     };
     console.log("Submitting Incident Data:", dataToSend);
 
     try {
-       const result = await addIncident(dataToSend);
+       const result = isEditMode 
+         ? await updateIncident(dataToSend) 
+         : await addIncident(dataToSend);
+
        if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "Incidente reportado com sucesso.",
+          description: `Incidente ${isEditMode ? 'atualizado' : 'reportado'} com sucesso.`,
         });
-        form.reset({ date: undefined, type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto" });
+        onIncidentAddedOrUpdated?.(); // Call callback to refresh list
         onOpenChange(false);
       } else {
         toast({
           title: "Erro",
-          description: result.error || "Falha ao reportar incidente.",
+          description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'reportar'} incidente.`,
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error reporting incident:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'reporting'} incident:`, error);
       toast({
         title: "Erro",
         description: "Ocorreu um erro inesperado.",
@@ -213,256 +260,137 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
     }
   };
 
-  // Predefined options
   const incidentTypes = [
-    "Acidente com Afastamento",
-    "Acidente sem Afastamento",
-    "Quase Acidente",
-    "Incidente Ambiental",
-    "Condição Insegura", // Added option
-    "Comportamento Inseguro", // Added option
-    "Primeiros Socorros", // Added option
+    "Acidente com Afastamento", "Acidente sem Afastamento", "Quase Acidente",
+    "Incidente Ambiental", "Condição Insegura", "Comportamento Inseguro", "Primeiros Socorros",
   ];
-
-  const severities = [
-    "N/A",
-    "Insignificante",
-    "Leve",
-    "Moderado",
-    "Grave",
-    "Fatalidade",
-  ];
-
-  const statuses = [
-    "Aberto",
-    "Em Investigação",
-    "Aguardando Ação",
-    "Fechado",
-    "Cancelado",
-  ]
+  const severities = [ "N/A", "Insignificante", "Leve", "Moderado", "Grave", "Fatalidade" ];
+  const statuses = [ "Aberto", "Em Investigação", "Aguardando Ação", "Fechado", "Cancelado" ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl"> {/* Increased width for more fields */}
         <DialogHeader>
-          <DialogTitle>Reportar Novo Incidente</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Editar Incidente' : 'Reportar Novo Incidente'}</DialogTitle>
           <DialogDescription>
-            Descreva o ocorrido, selecione o tipo, local e data.
+            {isEditMode ? 'Atualize as informações do incidente.' : 'Descreva o ocorrido, selecione o tipo, local e data.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">Data/Hora *</FormLabel>
-                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl className="col-span-3">
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                             {/* Format date and potentially time */}
-                            {field.value ? format(field.value, "dd/MM/yyyy HH:mm", { locale: ptBR }) : <span>Selecione data/hora</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={(date) => {
-                                if (date) {
-                                    // Keep current time if date is selected, otherwise use current time
-                                    const currentTime = field.value || new Date();
-                                    date.setHours(currentTime.getHours());
-                                    date.setMinutes(currentTime.getMinutes());
-                                    field.onChange(date);
-                                } else {
-                                    field.onChange(new Date()); // Fallback to current date/time if selection is cleared
-                                }
-                                // Do not close calendar on select: setIsCalendarOpen(false);
-                            }}
-                            disabled={(date) => date > new Date() } // Prevent future dates
-                            initialFocus
-                            locale={ptBR} // Use ptBR locale for calendar display
-                        />
-                         {/* Basic Time Input (Consider a dedicated time picker component) */}
-                        <div className="p-2 border-t border-border">
-                             <Input
-                                type="time"
-                                value={field.value ? format(field.value, "HH:mm") : ""}
-                                onChange={(e) => {
-                                    const time = e.target.value;
-                                    const [hours, minutes] = time.split(':').map(Number);
-                                    const newDate = field.value ? new Date(field.value) : new Date();
-                                    newDate.setHours(hours);
-                                    newDate.setMinutes(minutes);
-                                    field.onChange(newDate);
-                                }}
-                                className="w-full"
-                            />
-                        </div>
-                         <div className="p-2 flex justify-end">
-                            <Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button>
-                         </div>
-                        </PopoverContent>
-                    </Popover>
-                    <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Tipo *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
-                    <FormControl className="col-span-3">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo de incidente" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {incidentTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="severity"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Gravidade</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} value={field.value || undefined}>
-                    <FormControl className="col-span-3">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a gravidade (opcional)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                       {/* Add an explicit "None" option */}
-                       <SelectItem value="none">Nenhuma</SelectItem>
-                      {severities.map((sev) => (
-                        <SelectItem key={sev} value={sev}>{sev}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                   <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="locationId"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Local</FormLabel>
-                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
-                        <FormControl className="col-span-3">
-                        <SelectTrigger>
-                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local (opcional)"} />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                         {/* Add an explicit "None" option */}
-                         <SelectItem value="none">Nenhum</SelectItem>
-                        {locations && locations.length > 0 && locations.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id.toString()}>
-                            {loc.name}
-                            </SelectItem>
-                        ))}
-                        {!isLoading && (!locations || locations.length === 0) && <SelectItem value="no-loc" disabled>Nenhum local cadastrado</SelectItem>}
-                        </SelectContent>
-                    </Select>
-                  <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
-                  <FormLabel className="text-right pt-2">Descrição *</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Textarea placeholder="Descreva detalhadamente o que aconteceu..." {...field} rows={5} />
-                  </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="reportedById"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Reportado Por</FormLabel>
-                   <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
-                        <FormControl className="col-span-3">
-                        <SelectTrigger>
-                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione quem reportou (opcional)"} />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                         {/* Add an explicit "None" option */}
-                         <SelectItem value="none">Anônimo/Não especificado</SelectItem>
-                        {users && users.length > 0 && users.map((user) => (
-                            <SelectItem key={user.id} value={user.id.toString()}>
-                            {user.name}
-                            </SelectItem>
-                        ))}
-                         {!isLoading && (!users || users.length === 0) && <SelectItem value="no-user" disabled>Nenhum usuário cadastrado</SelectItem>}
-                        </SelectContent>
-                    </Select>
-                  <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Status Inicial</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl className="col-span-3">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Status inicial" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {statuses.map(status => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                   <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-            {/* TODO: Add fields for root cause, actions, involved persons, cost, lost days */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            {/* Basic Info Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="date" render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Data/Hora *</FormLabel>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                            <PopoverTrigger asChild><FormControl>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? format(field.value, "dd/MM/yyyy HH:mm", { locale: ptBR }) : <span>Selecione</span>}
+                                </Button>
+                            </FormControl></PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={field.value} onSelect={(date) => { if (date) { const currentTime = field.value || new Date(); date.setHours(currentTime.getHours()); date.setMinutes(currentTime.getMinutes()); field.onChange(date); } else { field.onChange(new Date()); } }} disabled={(date) => date > new Date() } initialFocus locale={ptBR} />
+                                <div className="p-2 border-t border-border">
+                                    <Input type="time" value={field.value ? format(field.value, "HH:mm") : ""} onChange={(e) => { const time = e.target.value; const [hours, minutes] = time.split(':').map(Number); const newDate = field.value ? new Date(field.value) : new Date(); newDate.setHours(hours); newDate.setMinutes(minutes); field.onChange(newDate); }} className="w-full" />
+                                </div>
+                                <div className="p-2 flex justify-end"><Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button></div>
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage/>
+                    </FormItem>
+                )}/>
+                <FormField control={form.control} name="type" render={({ field }) => (
+                    <FormItem><FormLabel>Tipo *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""} disabled={isLoading}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl>
+                            <SelectContent>{incidentTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent>
+                        </Select><FormMessage/>
+                    </FormItem>
+                )}/>
+                <FormField control={form.control} name="severity" render={({ field }) => (
+                    <FormItem><FormLabel>Gravidade</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger></FormControl>
+                            <SelectContent><SelectItem value="none">Nenhuma</SelectItem>{severities.map((sev) => (<SelectItem key={sev} value={sev}>{sev}</SelectItem>))}</SelectContent>
+                        </Select><FormMessage/>
+                    </FormItem>
+                )}/>
+                <FormField control={form.control} name="locationId" render={({ field }) => (
+                    <FormItem><FormLabel>Local</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                            <FormControl><SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} /></SelectTrigger></FormControl>
+                            <SelectContent><SelectItem value="none">Nenhum</SelectItem>{locations.map((loc) => (<SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>))} {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local</SelectItem>}</SelectContent>
+                        </Select><FormMessage/>
+                    </FormItem>
+                )}/>
+            </div>
+            <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem><FormLabel>Descrição *</FormLabel><FormControl><Textarea placeholder="Descreva o ocorrido..." {...field} rows={3} /></FormControl><FormMessage/></FormItem>
+            )}/>
 
+            {/* Investigation Details - Only show if editing or specific conditions met */}
+             {(isEditMode || form.watch('status') !== 'Aberto') && (
+              <>
+                <h3 className="text-md font-semibold mt-4 pt-2 border-t">Detalhes da Investigação</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="root_cause" render={({ field }) => (<FormItem><FormLabel>Causa Raiz</FormLabel><FormControl><Textarea placeholder="Análise da causa raiz..." {...field} value={field.value ?? ''} rows={2}/></FormControl><FormMessage/></FormItem>)}/>
+                    <FormField control={form.control} name="corrective_actions" render={({ field }) => (<FormItem><FormLabel>Ações Corretivas</FormLabel><FormControl><Textarea placeholder="Ações imediatas e corretivas..." {...field} value={field.value ?? ''} rows={2}/></FormControl><FormMessage/></FormItem>)}/>
+                    <FormField control={form.control} name="preventive_actions" render={({ field }) => (<FormItem><FormLabel>Ações Preventivas</FormLabel><FormControl><Textarea placeholder="Ações para evitar recorrência..." {...field} value={field.value ?? ''} rows={2}/></FormControl><FormMessage/></FormItem>)}/>
+                    <FormField control={form.control} name="involved_persons_ids" render={({ field }) => (<FormItem><FormLabel>Pessoas Envolvidas (IDs)</FormLabel><FormControl><Input placeholder="IDs separados por vírgula" {...field} value={field.value ?? ''}/></FormControl><FormMessage/></FormItem>)}/>
+                    <FormField control={form.control} name="investigation_responsible_id" render={({ field }) => (
+                        <FormItem><FormLabel>Responsável Investigação</FormLabel>
+                            <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                                <FormControl><SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} /></SelectTrigger></FormControl>
+                                <SelectContent><SelectItem value="none">Nenhum</SelectItem>{users.map((user) => (<SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>))} {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}</SelectContent>
+                            </Select><FormMessage/>
+                        </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="lost_days" render={({ field }) => (<FormItem><FormLabel>Dias Perdidos</FormLabel><FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/></FormControl><FormMessage/></FormItem>)}/>
+                    <FormField control={form.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Custo Estimado (R$)</FormLabel><FormControl><Input type="number" placeholder="0.00" step="0.01" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/></FormControl><FormMessage/></FormItem>)}/>
+                    <FormField control={form.control} name="closure_date" render={({ field }) => (
+                        <FormItem className="flex flex-col"><FormLabel>Data Fechamento</FormLabel>
+                             <Popover open={isClosureCalendarOpen} onOpenChange={setIsClosureCalendarOpen}>
+                                <PopoverTrigger asChild><FormControl>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
+                                    </Button>
+                                </FormControl></PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsClosureCalendarOpen(false); }} initialFocus locale={ptBR} />
+                                </PopoverContent>
+                            </Popover>
+                        <FormMessage/></FormItem>
+                    )}/>
+                </div>
+              </>
+            )}
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="reportedById" render={({ field }) => (
+                    <FormItem><FormLabel>Reportado Por</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                            <FormControl><SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} /></SelectTrigger></FormControl>
+                            <SelectContent><SelectItem value="none">Anônimo/Não especificado</SelectItem>{users.map((user) => (<SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>))} {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}</SelectContent>
+                        </Select><FormMessage/>
+                    </FormItem>
+                )}/>
+                 <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem><FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || "Aberto"}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger></FormControl>
+                            <SelectContent>{statuses.map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
+                        </Select><FormMessage/>
+                    </FormItem>
+                )}/>
+            </div>
+            
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
-                <DialogClose asChild>
-                 <Button type="button" variant="outline">Cancelar</Button>
-                </DialogClose>
+                <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isLoading || isSubmitting}>
-                    {isSubmitting ? "Salvando..." : "Salvar"}
+                    {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar Incidente")}
                 </Button>
             </DialogFooter>
           </form>
@@ -473,3 +401,4 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange }) =
 };
 
 export default IncidentDialog;
+

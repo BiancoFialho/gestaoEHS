@@ -1,39 +1,97 @@
 
-"use client"; // Add "use client" directive
+"use client"; 
 
 import React from 'react';
-import { FileWarning, PlusCircle, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { FileWarning, PlusCircle, AlertCircle, CheckCircle, Clock, Edit, Eye } from 'lucide-react'; // Added Edit, Eye
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from '@/components/ui/badge'; // For severity and status
-
-// Import Dialog Component
+import { Badge } from '@/components/ui/badge'; 
 import IncidentDialog from '@/components/incidentes/IncidentDialog';
+import IncidentDetailsDialog from '@/components/incidentes/IncidentDetailsDialog'; // Import Details Dialog
+import { useToast } from '@/hooks/use-toast';
+import { getAllIncidents } from '@/lib/db'; // Assuming getAllIncidents is updated to fetch all fields
+
+interface IncidentEntry {
+  id: number;
+  date: string; 
+  type: string;
+  severity: string | null;
+  location_name: string | null;
+  status: string | null;
+  description: string;
+  reporter_name: string | null;
+  // Add other fields that might be returned by getAllIncidents
+  involved_persons_ids?: string | null;
+  root_cause?: string | null;
+  corrective_actions?: string | null;
+  preventive_actions?: string | null;
+  investigation_responsible_id?: number | null;
+  investigation_responsible_name?: string | null;
+  lost_days?: number | null;
+  cost?: number | null;
+  closure_date?: string | null;
+}
+
 
 export default function IncidentesPage() {
-  // State and functions for dialogs
   const [isIncidentDialogOpen, setIncidentDialogOpen] = React.useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = React.useState(false);
+  const [selectedIncidentForDetails, setSelectedIncidentForDetails] = React.useState<IncidentEntry | null>(null);
+  const [selectedIncidentForEdit, setSelectedIncidentForEdit] = React.useState<IncidentEntry | null>(null);
+  const [incidents, setIncidents] = React.useState<IncidentEntry[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const { toast } = useToast();
 
-  // Placeholder data for incident list (Fetch from DB later)
-  const incidents = [
-    { id: 1, date: "2024-08-17 10:30:00", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Fábrica - Setor A", status: "Fechado", description: "Corte superficial no dedo ao manusear peça.", reporter_name: "Técnico SST" },
-    { id: 2, date: "2024-08-18 14:00:00", type: "Acidente com Afastamento", severity: "Moderado", location_name: "Fábrica - Setor A", status: "Em Investigação", description: "Entorse no tornozelo ao descer escada da máquina.", reporter_name: "Técnico SST" },
-    { id: 3, date: "2024-08-19 09:15:00", type: "Quase Acidente", severity: "N/A", location_name: "Almoxarifado Central", status: "Fechado", description: "Caixa caiu de prateleira próxima ao funcionário Carlos.", reporter_name: "Admin EHS" },
-    { id: 4, date: "2024-08-22 11:00:00", type: "Incidente Ambiental", severity: "Insignificante", location_name: "Pátio Externo", status: "Aberto", description: "Pequeno vazamento de óleo contido na área de descarte.", reporter_name: "Gerente Seg" },
-    { id: 5, date: "2024-08-23 16:45:00", type: "Quase Acidente", severity: "N/A", location_name: "Produção B", status: "Aguardando Ação", description: "Piso escorregadio devido a vazamento de óleo na máquina Y.", reporter_name: "Alice Silva" },
-    { id: 6, date: "2024-08-24 08:00:00", type: "Acidente sem Afastamento", severity: "Leve", location_name: "Escritório - RH", status: "Aberto", description: "Colisão com mobília, resultando em hematoma.", reporter_name: "Diana Souza" },
-    { id: 7, date: "2024-07-10 15:20:00", type: "Acidente com Afastamento", severity: "Grave", location_name: "Manutenção", status: "Fechado", description: "Queda de escada durante reparo.", reporter_name: "Gerente Seg"},
-  ];
+  const fetchIncidents = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const fetchedIncidents = await getAllIncidents();
+      setIncidents(fetchedIncidents as IncidentEntry[]);
+    } catch (error) {
+      console.error("Failed to fetch incidents:", error);
+      toast({
+        title: "Erro ao Carregar Incidentes",
+        description: error instanceof Error ? error.message : "Não foi possível buscar os incidentes.",
+        variant: "destructive",
+      });
+      setIncidents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
-    const getSeverityBadgeVariant = (severity: string | null | undefined) => {
+  React.useEffect(() => {
+    fetchIncidents();
+  }, [fetchIncidents, isIncidentDialogOpen]); // Refresh list when dialog closes
+
+  const handleOpenDetailsDialog = (incident: IncidentEntry) => {
+    setSelectedIncidentForDetails(incident);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (incident: IncidentEntry) => {
+    setSelectedIncidentForEdit(incident);
+    setIncidentDialogOpen(true); // Open the main dialog for editing
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIncidentDialogOpen(open);
+    if (!open) {
+      setSelectedIncidentForEdit(null); // Clear edit state when dialog closes
+    }
+  };
+
+
+    const getSeverityBadgeVariant = (severity: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
         if (!severity) return 'outline';
         switch (severity) {
             case 'Fatalidade':
             case 'Grave': return 'destructive';
-            case 'Moderado': return 'secondary'; // Yellowish
-            case 'Leve': return 'outline'; // Default or blueish
+            case 'Moderado': return 'secondary'; 
+            case 'Leve': return 'default'; 
             case 'Insignificante':
             case 'N/A': return 'outline';
             default: return 'outline';
@@ -47,20 +105,29 @@ export default function IncidentesPage() {
             case 'Em Investigação': return <Clock className="h-4 w-4 text-yellow-500" />;
             case 'Aguardando Ação': return <Clock className="h-4 w-4 text-blue-500" />;
             case 'Fechado': return <CheckCircle className="h-4 w-4 text-green-600" />;
+            case 'Cancelado': return <CheckCircle className="h-4 w-4 text-muted-foreground" />; // Updated icon
             default: return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
         }
     };
 
-     const getStatusBadgeVariant = (status: string | null | undefined) => {
+     const getStatusBadgeVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
         if (!status) return 'outline';
         switch (status) {
             case 'Aberto': return 'destructive';
-            case 'Em Investigação': return 'secondary'; // Yellow
-            case 'Aguardando Ação': return 'default'; // Blue
-            case 'Fechado': return 'outline'; // Gray/Greenish done
+            case 'Em Investigação': return 'secondary'; 
+            case 'Aguardando Ação': return 'default'; 
+            case 'Fechado': return 'outline'; 
+            case 'Cancelado': return 'secondary'; // Updated variant for canceled
             default: return 'outline';
         }
      }
+
+    const filteredIncidents = incidents.filter(incident =>
+        incident.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (incident.location_name && incident.location_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        incident.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (incident.date && new Date(incident.date).toLocaleDateString('pt-BR').includes(searchTerm))
+    );
 
   return (
     <div>
@@ -72,19 +139,19 @@ export default function IncidentesPage() {
               <p className="text-sm text-muted-foreground">Segurança do Trabalho</p>
             </div>
         </div>
-        <Button onClick={() => setIncidentDialogOpen(true)}>
+        <Button onClick={() => { setSelectedIncidentForEdit(null); setIncidentDialogOpen(true); }}>
             <PlusCircle className="mr-2 h-4 w-4" /> Reportar Incidente
         </Button>
       </div>
 
-       {/* Search and Filters (Optional) */}
        <div className="mb-4">
-           <Input placeholder="Buscar por tipo, local, data ou descrição..." />
-           {/* Add filter dropdowns for status, severity, type, date range */}
+           <Input 
+            placeholder="Buscar por tipo, local, data (dd/mm/aaaa) ou descrição..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+           />
        </div>
 
-
-      {/* Incident List Table */}
       <Card>
         <CardHeader>
           <CardTitle>Registros de Incidentes</CardTitle>
@@ -104,17 +171,19 @@ export default function IncidentesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {incidents.length > 0 ? (
-                incidents.map((incident) => (
+              {isLoading ? (
+                <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Carregando incidentes...</TableCell></TableRow>
+              ) : filteredIncidents.length > 0 ? (
+                filteredIncidents.map((incident) => (
                   <TableRow key={incident.id}>
-                    <TableCell>{incident.date}</TableCell>
+                    <TableCell>{incident.date ? new Date(incident.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'N/A'}</TableCell>
                     <TableCell>{incident.type}</TableCell>
                     <TableCell>
                        <Badge variant={getSeverityBadgeVariant(incident.severity)}>
                            {incident.severity || 'N/A'}
                        </Badge>
                     </TableCell>
-                    <TableCell>{incident.location_name}</TableCell>
+                    <TableCell>{incident.location_name || 'N/A'}</TableCell>
                     <TableCell className="max-w-xs truncate">{incident.description}</TableCell>
                      <TableCell>
                         <Badge variant={getStatusBadgeVariant(incident.status)} className="flex items-center gap-1 w-fit">
@@ -122,10 +191,13 @@ export default function IncidentesPage() {
                          {incident.status || 'N/A'}
                         </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Detalhes</Button>
-                      <Button variant="ghost" size="sm">Editar</Button>
-                       {/* Link to investigation/action plan */}
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenDetailsDialog(incident)} title="Ver Detalhes">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(incident)} title="Editar Incidente">
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -138,13 +210,21 @@ export default function IncidentesPage() {
               )}
             </TableBody>
           </Table>
-          {/* TODO: Add pagination */}
         </CardContent>
       </Card>
 
-      {/* Dialog for reporting/editing incidents */}
-       <IncidentDialog open={isIncidentDialogOpen} onOpenChange={setIncidentDialogOpen} />
-
+      <IncidentDialog
+        open={isIncidentDialogOpen}
+        onOpenChange={handleDialogClose}
+        initialData={selectedIncidentForEdit}
+        onIncidentAddedOrUpdated={fetchIncidents} // Callback to refresh list
+      />
+      <IncidentDetailsDialog
+        incident={selectedIncidentForDetails}
+        open={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
+      />
     </div>
   );
 }
+
