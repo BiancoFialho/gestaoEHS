@@ -38,6 +38,7 @@ const jsaInputSchema = jsaBaseSchema.extend({
 type JsaInput = z.infer<typeof jsaInputSchema>;
 type JsaStepInput = z.infer<typeof jsaStepSchema>;
 
+const NONE_SELECT_VALUE = "__NONE__"; // Ensure this matches the client-side constant
 
 // Updated function to accept FormData
 export async function addJsaWithAttachment(formData: FormData): Promise<{ success: boolean; error?: string; id?: number }> {
@@ -77,15 +78,19 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
 
     // --- JSA Data Handling ---
     // Extract other form data
+    const locationIdString = formData.get('locationId') as string | null;
+    const responsiblePersonIdString = formData.get('responsiblePersonId') as string | null;
+
+
     const jsaData: JsaInput = {
         task: formData.get('task') as string,
-        locationId: formData.get('locationId') ? parseInt(formData.get('locationId') as string, 10) : null,
+        locationId: (locationIdString && locationIdString !== NONE_SELECT_VALUE) ? parseInt(locationIdString, 10) : null,
         department: formData.get('department') as string | null,
-        responsiblePersonId: formData.get('responsiblePersonId') ? parseInt(formData.get('responsiblePersonId') as string, 10) : null,
+        responsiblePersonId: (responsiblePersonIdString && responsiblePersonIdString !== NONE_SELECT_VALUE) ? parseInt(responsiblePersonIdString, 10) : null,
         teamMembers: formData.get('teamMembers') as string | null,
         requiredPpe: formData.get('requiredPpe') as string | null,
         status: formData.get('status') as string | null,
-        reviewDate: formData.get('reviewDate') as string | null,
+        reviewDate: formData.get('reviewDate') as string | null, // This is already a string or null from FormData
         // Steps data would need to be stringified and parsed if sent via FormData, or handled separately
         steps: [], // Assuming steps are not sent via this form for simplicity now
     };
@@ -101,8 +106,8 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
             { // Pass JsaInput object
                 ...jsaData,
                 attachmentPath: attachmentPath, // Pass the saved file path
-                 locationId: jsaData.locationId ?? undefined,
-                 responsiblePersonId: jsaData.responsiblePersonId ?? undefined,
+                 locationId: jsaData.locationId ?? undefined, // Ensure undefined if null for the db function
+                 responsiblePersonId: jsaData.responsiblePersonId ?? undefined, // Ensure undefined if null
                  reviewDate: jsaData.reviewDate ?? undefined,
                  status: jsaData.status ?? 'Rascunho',
                  teamMembers: jsaData.teamMembers ?? undefined,

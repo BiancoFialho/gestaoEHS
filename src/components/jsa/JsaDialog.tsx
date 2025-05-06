@@ -74,6 +74,8 @@ type JsaFormValues = z.infer<typeof formSchema>;
 interface Location { id: number; name: string; }
 interface User { id: number; name: string; }
 
+const NONE_SELECT_VALUE = "__NONE__"; // Constant for "Nenhum" option
+
 
 const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
@@ -178,8 +180,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
      }
 
      // Ensure locationId and responsiblePersonId are correctly handled if empty
-     if (!values.locationId) formData.delete('locationId');
-     if (!values.responsiblePersonId) formData.delete('responsiblePersonId');
+     // If they are the NONE_SELECT_VALUE, they should not be submitted or converted to null server-side
+     const locationIdValue = formData.get('locationId');
+     if (locationIdValue === NONE_SELECT_VALUE || !locationIdValue) {
+         formData.delete('locationId');
+     }
+
+     const responsiblePersonIdValue = formData.get('responsiblePersonId');
+     if (responsiblePersonIdValue === NONE_SELECT_VALUE || !responsiblePersonIdValue) {
+         formData.delete('responsiblePersonId');
+     }
 
 
      console.log("Submitting JSA FormData:");
@@ -250,7 +260,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                   <FormLabel>Local</FormLabel>
                    <Select
                       name={field.name} // Add name attribute for FormData
-                      onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                      onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)}
                       value={field.value || ''} // Use empty string for controlled component when no value
                       disabled={isLoading}
                     >
@@ -260,13 +270,13 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
                         {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
                             </SelectItem>
                         ))}
-                        {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local cadastrado</SelectItem>}
+                        {!isLoading && locations.length === 0 && <SelectItem value="no-loc-disabled" disabled>Nenhum local cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage />
@@ -294,7 +304,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                   <FormLabel>Responsável</FormLabel>
                    <Select
                        name={field.name} // Add name attribute for FormData
-                       onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                       onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)}
                        value={field.value || ''} // Use empty string for controlled component when no value
                        disabled={isLoading}
                     >
@@ -304,13 +314,13 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
                         {users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
                             </SelectItem>
                         ))}
-                         {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário cadastrado</SelectItem>}
+                         {!isLoading && users.length === 0 && <SelectItem value="no-user-disabled" disabled>Nenhum usuário cadastrado</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage />
