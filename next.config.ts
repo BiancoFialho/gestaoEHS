@@ -27,15 +27,13 @@ const nextConfig: NextConfig = {
         ...(config.resolve.fallback || {}),
         fs: false, // General fallback for 'fs'
         path: false, // General fallback for 'path'
-        // We'll use IgnorePlugin for sqlite3 and bindings for a stronger effect
       };
 
-      // More forcefully prevent sqlite3 and bindings from being included in the client bundle.
-      // This is crucial as they are server-only and can cause issues with 'fs' resolution.
+      // More forcefully prevent sqlite3, bindings, and sqlite from being included in the client bundle.
       if (webpack) { // webpack instance should be available from Next.js context
         config.plugins.push(
           new webpack.IgnorePlugin({
-            resourceRegExp: /^(sqlite3|bindings)$/,
+            resourceRegExp: /^(sqlite3|bindings|sqlite)$/, // Added 'sqlite'
           })
         );
       }
