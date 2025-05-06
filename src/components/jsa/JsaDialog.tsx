@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react'; // Added useRef
@@ -65,7 +66,7 @@ const formSchema = z.object({
   requiredPpe: z.string().optional(),
   status: z.string().optional().default('Rascunho'),
   reviewDate: z.date().optional().nullable(),
-  attachment: z.instanceof(FileList).optional(), // For file input type checking if needed client-side
+  attachment: z.any().optional(), // For file input type checking if needed client-side
 });
 
 type JsaFormValues = z.infer<typeof formSchema>;
@@ -176,9 +177,14 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
         formData.delete('reviewDate'); // Remove if null/undefined
      }
 
-     console.log("Submitting JSA FormData:", formData); // Log FormData (note: files won't show directly here)
+     // Ensure locationId and responsiblePersonId are correctly handled if empty
+     if (!values.locationId) formData.delete('locationId');
+     if (!values.responsiblePersonId) formData.delete('responsiblePersonId');
+
+
+     console.log("Submitting JSA FormData:");
      for (let [key, value] of formData.entries()) {
-        console.log(`${key}: ${value}`);
+        console.log(`${key}: ${value instanceof File ? value.name : value}`);
      }
 
 
@@ -188,7 +194,6 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
        if (result.success) {
         toast({
           title: "Sucesso!",
-          // description: result.message || "JSA adicionada com sucesso. Adicione os passos na tela de edição.", // Use message from server if provided
           description: "JSA adicionada com sucesso. Edição e visualização de passos pendente.",
         });
         form.reset();
@@ -246,7 +251,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                    <Select
                       name={field.name} // Add name attribute for FormData
                       onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                      value={field.value || 'none'}
+                      value={field.value || ''} // Use empty string for controlled component when no value
                       disabled={isLoading}
                     >
                         <FormControl>
@@ -255,7 +260,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
+                        <SelectItem value="">Nenhum</SelectItem>
                         {locations.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id.toString()}>
                             {loc.name}
@@ -290,7 +295,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                    <Select
                        name={field.name} // Add name attribute for FormData
                        onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                       value={field.value || 'none'}
+                       value={field.value || ''} // Use empty string for controlled component when no value
                        disabled={isLoading}
                     >
                         <FormControl>
@@ -299,7 +304,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
+                        <SelectItem value="">Nenhum</SelectItem>
                         {users.map((user) => (
                             <SelectItem key={user.id} value={user.id.toString()}>
                             {user.name}
@@ -344,16 +349,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
              <FormField
                 control={form.control}
                 name="attachment"
-                render={({ field }) => (
+                render={({ field: { onChange, value, ...restField }}) => ( // Destructure field to handle FileList
                     <FormItem>
                         <FormLabel>Anexar JSA (Excel, PDF)</FormLabel>
                         <FormControl>
-                             {/* Use standard input type file */}
                              <Input
                                 type="file"
-                                accept=".xlsx, .xls, .pdf" // Specify accepted file types
-                                onChange={(e) => field.onChange(e.target.files)} // RHF expects FileList
-                                name={field.name} // Ensure name attribute for FormData
+                                accept=".xlsx, .xls, .pdf"
+                                onChange={(e) => onChange(e.target.files)} // RHF expects FileList
+                                {...restField}
+                                name="attachment" // Ensure name attribute for FormData
                              />
                         </FormControl>
                         <FormMessage />
@@ -416,12 +421,14 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                             selected={field.value}
                              onSelect={(date) => {
                                 field.onChange(date || null);
+                                setIsCalendarOpen(false); // Close calendar on date select
                             }}
                             initialFocus
                             locale={ptBR}
                         />
                          <div className="p-2 flex justify-end">
-                            <Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button>
+                            <Button size="sm" onClick={() => {field.onChange(null); setIsCalendarOpen(false);}}>Limpar</Button>
+                            <Button size="sm" onClick={() => setIsCalendarOpen(false)} className="ml-2">Fechar</Button>
                          </div>
                         </PopoverContent>
                     </Popover>
@@ -447,3 +454,4 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
 };
 
 export default JsaDialog;
+
