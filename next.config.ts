@@ -19,14 +19,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-   // Add webpack configuration to externalize server-only modules for the client bundle
+   // Add webpack configuration
   webpack: (config, { isServer }) => {
     // Exclude server-only modules from client-side bundles
     if (!isServer) {
-       // Ensure externals is an array
-       config.externals = Array.isArray(config.externals) ? config.externals : [];
-       config.externals.push('sqlite3');
-       config.externals.push('bindings'); // Add bindings here
+       // For client-side bundle, provide fallbacks for Node.js core modules
+      config.resolve.fallback = {
+        ...config.resolve.fallback, // Retain existing fallbacks
+        fs: false,       // 'fs' module is not available in the browser
+        path: false,     // 'path' module is not available in the browser
+      };
+      
+      // Ensure externals is an array and add server-only packages
+      config.externals = Array.isArray(config.externals) ? config.externals : [];
+      config.externals.push('sqlite3', 'bindings');
     }
     // Important: return the modified config
     return config;
@@ -34,4 +40,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
 
