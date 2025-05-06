@@ -109,7 +109,7 @@ export async function getDbConnection(): Promise<Database> {
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT 'user', -- e.g., 'admin', 'manager', 'user'
-      is_active BOOLEAN DEFAULT TRUE,
+      is_active INTEGER DEFAULT 1, -- Changed from BOOLEAN DEFAULT TRUE
       last_login DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -311,7 +311,7 @@ export async function getDbConnection(): Promise<Database> {
       delivery_date DATE NOT NULL,
       quantity INTEGER DEFAULT 1,
       ca_number TEXT, -- Certificado de Aprovação (CA)
-      receipt_signed BOOLEAN DEFAULT FALSE, -- Confirmação de recebimento
+      receipt_signed INTEGER DEFAULT 0, -- Confirmação de recebimento. Changed from BOOLEAN DEFAULT FALSE
       return_date DATE,
       due_date DATE, -- Calculated or set manually based on lifespan
       notes TEXT, -- Observações
@@ -366,7 +366,7 @@ export async function getDbConnection(): Promise<Database> {
       cid TEXT, -- Código Internacional de Doenças
       diagnosis_date DATE,
       related_activity TEXT, -- Atividade suspeita de causar a doença
-      cat_issued BOOLEAN DEFAULT FALSE, -- Comunicação de Acidente de Trabalho emitida?
+      cat_issued INTEGER DEFAULT 0, -- Comunicação de Acidente de Trabalho emitida? Changed from BOOLEAN DEFAULT FALSE
       cat_number TEXT, -- Número da CAT
       status TEXT DEFAULT 'Suspeita', -- e.g., 'Suspeita', 'Confirmada', 'Afastado', 'Retornado'
       details TEXT,
@@ -568,13 +568,13 @@ export async function getDbConnection(): Promise<Database> {
   // Use INSERT OR IGNORE to avoid errors if data already exists (e.g., on hot reload)
 
   // Sample Users
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', TRUE); // Replace with real hash
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', TRUE);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', '$2a$10$dummyhashuser', 'user', TRUE);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho', 'biancofialho@gmail.com', '$2a$10$mY4C4mN3/8wFfO60V.sR6eJ9F0o/qA3mR7K9Q8B1Z6v7J3k9D2c.a', 'admin', TRUE); // Senha '1234'
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', '$2a$10$dummyhashinactive', 'user', FALSE);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 6, 'Alice Silva (Usuário)', 'alice@company.com', '$2a$10$dummyhashalice', 'user', TRUE);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 7, 'Bruno Costa (Usuário)', 'bruno@company.com', '$2a$10$dummyhashbruno', 'user', TRUE);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', 1); // Replace with real hash
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', 1);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', '$2a$10$dummyhashuser', 'user', 1);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho', 'biancofialho@gmail.com', '$2a$10$mY4C4mN3/8wFfO60V.sR6eJ9F0o/qA3mR7K9Q8B1Z6v7J3k9D2c.a', 'admin', 1); // Senha '1234'
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', '$2a$10$dummyhashinactive', 'user', 0);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 6, 'Alice Silva (Usuário)', 'alice@company.com', '$2a$10$dummyhashalice', 'user', 1);
+  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 7, 'Bruno Costa (Usuário)', 'bruno@company.com', '$2a$10$dummyhashbruno', 'user', 1);
 
 
   // Sample Locations
@@ -1072,7 +1072,7 @@ export async function insertUser(name: string, email: string, passwordHash: stri
     email,
     passwordHash,
     role || 'user',
-    isActive === null || isActive === undefined ? true : isActive
+    isActive === null || isActive === undefined ? 1 : (isActive ? 1 : 0) // Convert boolean to INTEGER 0 or 1
   );
   return result.lastID;
 }
@@ -1206,3 +1206,4 @@ export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
+

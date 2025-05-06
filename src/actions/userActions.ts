@@ -44,7 +44,7 @@ export async function addUser(data: UserInput): Promise<{ success: boolean; erro
         email,
         passwordHash, // Use the hashed password
         role,
-        isActive
+        isActive === undefined || isActive === null ? true : isActive // Ensure boolean is passed
     );
 
      if (newUserId === undefined || newUserId === null) {
@@ -55,6 +55,7 @@ export async function addUser(data: UserInput): Promise<{ success: boolean; erro
 
     // Revalidate the path where users are listed
     revalidatePath('/geral/usuarios'); // Adjust the path if needed
+    revalidatePath('/geral/cadastros'); // Also revalidate cadastros page if user list is displayed there
 
     return { success: true, id: newUserId };
   } catch (error) {
@@ -63,4 +64,5 @@ export async function addUser(data: UserInput): Promise<{ success: boolean; erro
     return { success: false, error: `Erro ao adicionar usuário: ${errorMessage}` };
   }
 }
+
 
