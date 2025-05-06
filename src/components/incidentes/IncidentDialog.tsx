@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO } from "date-fns"; // Added parseISO
+import { format, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from "lucide-react";
 
@@ -44,51 +44,52 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { addIncident, updateIncident } from '@/actions/incidentActions'; // Import updateIncident
+import { addIncident, updateIncident } from '@/actions/incidentActions';
+import type { IncidentInput as IncidentActionInputType } from '@/actions/incidentActions'; // Use the type from server action
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
 
-interface IncidentData { // More comprehensive type for initialData and DB interaction
-  id?: number; // Optional for new incidents
+// Interface para os dados iniciais (para edição) - pode ser mais flexível
+interface IncidentInitialData {
+  id?: number;
   description: string;
-  date: string; // Expecting string from DB, will convert to Date for form
+  date: string; // Espera-se string da base de dados no formato ISO
   type: string;
   severity?: string | null;
-  locationId?: number | null;
-  reportedById?: number | null;
+  locationId?: number | null; // Campo como número
+  reportedById?: number | null; // Campo como número
   status?: string | null;
-  // Add other fields from your incidents table that might be edited
   root_cause?: string | null;
   corrective_actions?: string | null;
   preventive_actions?: string | null;
-  involved_persons_ids?: string | null; // Keep as string for now
-  investigation_responsible_id?: number | null;
+  involved_persons_ids?: string | null;
+  investigation_responsible_id?: number | null; // Campo como número
   lost_days?: number | null;
   cost?: number | null;
-  closure_date?: string | null; // Expecting string from DB
+  closure_date?: string | null; // Espera-se string da base de dados no formato ISO
 }
 
 
 interface IncidentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialData?: IncidentData | null; // For editing
-  onIncidentAddedOrUpdated?: () => void; // Callback to refresh list
+  initialData?: IncidentInitialData | null; // Para edição
+  onIncidentAddedOrUpdated?: () => void; // Callback para atualizar lista
 }
 
-// Zod schema for validation
+// Zod schema para validação do formulário
 const formSchema = z.object({
   date: z.date({ required_error: "Data do incidente é obrigatória." }),
   type: z.string({ required_error: "Tipo de incidente é obrigatório." }).min(1, "Selecione o tipo."),
   description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
-  locationId: z.string().optional(),
+  locationId: z.string().optional(), // ID como string vindo do Select
   severity: z.string().optional(),
-  reportedById: z.string().optional(), 
+  reportedById: z.string().optional(), // ID como string vindo do Select
   status: z.string().optional().default('Aberto'),
   root_cause: z.string().optional().nullable(),
   corrective_actions: z.string().optional().nullable(),
   preventive_actions: z.string().optional().nullable(),
   involved_persons_ids: z.string().optional().nullable(),
-  investigation_responsible_id: z.string().optional().nullable(),
+  investigation_responsible_id: z.string().optional().nullable(), // ID como string vindo do Select
   lost_days: z.coerce.number().int().nonnegative().optional().nullable(),
   cost: z.coerce.number().nonnegative().optional().nullable(),
   closure_date: z.date().optional().nullable(),
@@ -97,34 +98,34 @@ const formSchema = z.object({
 type IncidentFormValues = z.infer<typeof formSchema>;
 
 interface Location { id: number; name: string; }
-interface User { id: number; name: string; } 
+interface User { id: number; name: string; }
 
 const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, initialData, onIncidentAddedOrUpdated }) => {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
-  const [users, setUsers] = useState<User[]>([]); 
+  const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false); 
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isClosureCalendarOpen, setIsClosureCalendarOpen] = useState(false);
 
-  const isEditMode = !!initialData;
+  const isEditMode = !!initialData?.id;
 
   const form = useForm<IncidentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: undefined, 
+      date: new Date(),
       type: "",
       description: "",
       locationId: "",
       severity: "",
       reportedById: "",
       status: "Aberto",
-      root_cause: "",
-      corrective_actions: "",
-      preventive_actions: "",
-      involved_persons_ids: "",
-      investigation_responsible_id: "",
+      root_cause: null,
+      corrective_actions: null,
+      preventive_actions: null,
+      involved_persons_ids: null,
+      investigation_responsible_id: null,
       lost_days: null,
       cost: null,
       closure_date: null,
@@ -132,10 +133,10 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
   });
 
    useEffect(() => {
-    let isMounted = true; 
+    let isMounted = true;
 
-    if (open) {
-      const fetchData = async () => {
+    const fetchData = async () => {
+        if (!isMounted) return;
         setIsLoading(true);
         try {
           const [locationsResult, usersResult] = await Promise.all([
@@ -169,38 +170,45 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
           }
         }
       };
+
+    if (open) {
       fetchData();
 
       if (isEditMode && initialData) {
+        console.log("Populating form with initialData:", initialData);
         form.reset({
-          ...initialData,
-          date: initialData.date ? parseISO(initialData.date) : new Date(),
+          ...initialData, // Spread initial data
+          date: initialData.date ? parseISO(initialData.date) : new Date(), // Parse ISO string to Date
           locationId: initialData.locationId?.toString() || "",
           reportedById: initialData.reportedById?.toString() || "",
           investigation_responsible_id: initialData.investigation_responsible_id?.toString() || "",
           severity: initialData.severity || "",
           status: initialData.status || "Aberto",
-          closure_date: initialData.closure_date ? parseISO(initialData.closure_date) : null,
-          lost_days: initialData.lost_days ?? null,
+          closure_date: initialData.closure_date ? parseISO(initialData.closure_date) : null, // Parse ISO string to Date
+          lost_days: initialData.lost_days ?? null, // Use ?? for nullish coalescing
           cost: initialData.cost ?? null,
+          // Ensure other fields are also reset or populated
+          root_cause: initialData.root_cause ?? null,
+          corrective_actions: initialData.corrective_actions ?? null,
+          preventive_actions: initialData.preventive_actions ?? null,
+          involved_persons_ids: initialData.involved_persons_ids ?? null,
         });
       } else {
-        form.reset({
-            date: new Date(), // Set current date for new incidents
-            type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto",
-            root_cause: "", corrective_actions: "", preventive_actions: "",
-            involved_persons_ids: "", investigation_responsible_id: "",
-            lost_days: null, cost: null, closure_date: null,
+        form.reset({ // Reset for new incident
+            date: new Date(), type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto",
+            root_cause: null, corrective_actions: null, preventive_actions: null, involved_persons_ids: null,
+            investigation_responsible_id: null, lost_days: null, cost: null, closure_date: null,
         });
       }
     } else {
        setIsSubmitting(false);
        setIsLoading(false);
-       setIsCalendarOpen(false); 
+       setIsCalendarOpen(false);
        setIsClosureCalendarOpen(false);
     }
      return () => { isMounted = false; };
-   }, [open, form, toast, initialData, isEditMode]);
+   }, [open, form, toast, initialData, isEditMode]); // Added isEditMode to dependencies
+
 
   const onSubmit = async (values: IncidentFormValues) => {
      if (!values.date) {
@@ -209,29 +217,29 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
      }
 
     setIsSubmitting(true);
-    const dataToSend: IncidentData = { // Use the more comprehensive IncidentData type
-      ...values,
+    const dataToSend: IncidentActionInputType = {
       id: isEditMode ? initialData?.id : undefined,
-      date: format(values.date, 'yyyy-MM-dd HH:mm:ss'), 
+      description: values.description,
+      date: format(values.date, 'yyyy-MM-dd HH:mm:ss'), // Format Date to string for server
+      type: values.type,
+      severity: values.severity === 'none' || values.severity === "" ? null : values.severity,
       locationId: values.locationId ? parseInt(values.locationId, 10) : null,
       reportedById: values.reportedById ? parseInt(values.reportedById, 10) : null,
-      investigation_responsible_id: values.investigation_responsible_id ? parseInt(values.investigation_responsible_id, 10) : null,
-      severity: values.severity === 'none' || values.severity === "" ? null : values.severity,
       status: values.status || 'Aberto',
-      lost_days: values.lost_days ?? null,
-      cost: values.cost ?? null,
-      closure_date: values.closure_date ? format(values.closure_date, 'yyyy-MM-dd') : null,
-      // Ensure other fields are passed correctly
       root_cause: values.root_cause || null,
       corrective_actions: values.corrective_actions || null,
       preventive_actions: values.preventive_actions || null,
       involved_persons_ids: values.involved_persons_ids || null,
+      investigation_responsible_id: values.investigation_responsible_id ? parseInt(values.investigation_responsible_id, 10) : null,
+      lost_days: values.lost_days ?? null,
+      cost: values.cost ?? null,
+      closure_date: values.closure_date ? format(values.closure_date, 'yyyy-MM-dd') : null, // Format Date to string
     };
     console.log("Submitting Incident Data:", dataToSend);
 
     try {
-       const result = isEditMode 
-         ? await updateIncident(dataToSend) 
+       const result = isEditMode && dataToSend.id
+         ? await updateIncident(dataToSend as Required<IncidentActionInputType>) // Cast if ID is present
          : await addIncident(dataToSend);
 
        if (result.success) {
@@ -239,7 +247,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
           title: "Sucesso!",
           description: `Incidente ${isEditMode ? 'atualizado' : 'reportado'} com sucesso.`,
         });
-        onIncidentAddedOrUpdated?.(); // Call callback to refresh list
+        onIncidentAddedOrUpdated?.();
         onOpenChange(false);
       } else {
         toast({
@@ -267,11 +275,13 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
   const severities = [ "N/A", "Insignificante", "Leve", "Moderado", "Grave", "Fatalidade" ];
   const statuses = [ "Aberto", "Em Investigação", "Aguardando Ação", "Fechado", "Cancelado" ];
 
+  const NONE_SELECT_VALUE = "__NONE__";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl"> {/* Increased width for more fields */}
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Editar Incidente' : 'Reportar Novo Incidente'}</DialogTitle>
+          <DialogTitle>{isEditMode ? `Editar Incidente #${initialData?.id}` : 'Reportar Novo Incidente'}</DialogTitle>
           <DialogDescription>
             {isEditMode ? 'Atualize as informações do incidente.' : 'Descreva o ocorrido, selecione o tipo, local e data.'}
           </DialogDescription>
@@ -293,7 +303,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                             <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar mode="single" selected={field.value} onSelect={(date) => { if (date) { const currentTime = field.value || new Date(); date.setHours(currentTime.getHours()); date.setMinutes(currentTime.getMinutes()); field.onChange(date); } else { field.onChange(new Date()); } }} disabled={(date) => date > new Date() } initialFocus locale={ptBR} />
                                 <div className="p-2 border-t border-border">
-                                    <Input type="time" value={field.value ? format(field.value, "HH:mm") : ""} onChange={(e) => { const time = e.target.value; const [hours, minutes] = time.split(':').map(Number); const newDate = field.value ? new Date(field.value) : new Date(); newDate.setHours(hours); newDate.setMinutes(minutes); field.onChange(newDate); }} className="w-full" />
+                                    <Input type="time" defaultValue={field.value ? format(field.value, "HH:mm") : ""} onChange={(e) => { const time = e.target.value; const [hours, minutes] = time.split(':').map(Number); const newDate = field.value ? new Date(field.value) : new Date(); newDate.setHours(hours); newDate.setMinutes(minutes); field.onChange(newDate); }} className="w-full" />
                                 </div>
                                 <div className="p-2 flex justify-end"><Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button></div>
                             </PopoverContent>
@@ -311,17 +321,17 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                 )}/>
                 <FormField control={form.control} name="severity" render={({ field }) => (
                     <FormItem><FormLabel>Gravidade</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                        <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoading}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger></FormControl>
-                            <SelectContent><SelectItem value="none">Nenhuma</SelectItem>{severities.map((sev) => (<SelectItem key={sev} value={sev}>{sev}</SelectItem>))}</SelectContent>
+                            <SelectContent><SelectItem value={NONE_SELECT_VALUE}>Nenhuma</SelectItem>{severities.map((sev) => (<SelectItem key={sev} value={sev}>{sev}</SelectItem>))}</SelectContent>
                         </Select><FormMessage/>
                     </FormItem>
                 )}/>
                 <FormField control={form.control} name="locationId" render={({ field }) => (
                     <FormItem><FormLabel>Local</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                        <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoading}>
                             <FormControl><SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} /></SelectTrigger></FormControl>
-                            <SelectContent><SelectItem value="none">Nenhum</SelectItem>{locations.map((loc) => (<SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>))} {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local</SelectItem>}</SelectContent>
+                            <SelectContent><SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>{locations.map((loc) => (<SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>))} {!isLoading && locations.length === 0 && <SelectItem value="no-loc" disabled>Nenhum local</SelectItem>}</SelectContent>
                         </Select><FormMessage/>
                     </FormItem>
                 )}/>
@@ -330,7 +340,6 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                 <FormItem><FormLabel>Descrição *</FormLabel><FormControl><Textarea placeholder="Descreva o ocorrido..." {...field} rows={3} /></FormControl><FormMessage/></FormItem>
             )}/>
 
-            {/* Investigation Details - Only show if editing or specific conditions met */}
              {(isEditMode || form.watch('status') !== 'Aberto') && (
               <>
                 <h3 className="text-md font-semibold mt-4 pt-2 border-t">Detalhes da Investigação</h3>
@@ -341,9 +350,9 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                     <FormField control={form.control} name="involved_persons_ids" render={({ field }) => (<FormItem><FormLabel>Pessoas Envolvidas (IDs)</FormLabel><FormControl><Input placeholder="IDs separados por vírgula" {...field} value={field.value ?? ''}/></FormControl><FormMessage/></FormItem>)}/>
                     <FormField control={form.control} name="investigation_responsible_id" render={({ field }) => (
                         <FormItem><FormLabel>Responsável Investigação</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                            <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoading}>
                                 <FormControl><SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} /></SelectTrigger></FormControl>
-                                <SelectContent><SelectItem value="none">Nenhum</SelectItem>{users.map((user) => (<SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>))} {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}</SelectContent>
+                                <SelectContent><SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>{users.map((user) => (<SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>))} {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}</SelectContent>
                             </Select><FormMessage/>
                         </FormItem>
                     )}/>
@@ -371,9 +380,9 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="reportedById" render={({ field }) => (
                     <FormItem><FormLabel>Reportado Por</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || ""} disabled={isLoading}>
+                        <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoading}>
                             <FormControl><SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} /></SelectTrigger></FormControl>
-                            <SelectContent><SelectItem value="none">Anônimo/Não especificado</SelectItem>{users.map((user) => (<SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>))} {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}</SelectContent>
+                            <SelectContent><SelectItem value={NONE_SELECT_VALUE}>Anônimo/Não especificado</SelectItem>{users.map((user) => (<SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>))} {!isLoading && users.length === 0 && <SelectItem value="no-user" disabled>Nenhum usuário</SelectItem>}</SelectContent>
                         </Select><FormMessage/>
                     </FormItem>
                 )}/>
@@ -386,7 +395,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                     </FormItem>
                 )}/>
             </div>
-            
+
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isLoading || isSubmitting}>
@@ -401,4 +410,3 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
 };
 
 export default IncidentDialog;
-

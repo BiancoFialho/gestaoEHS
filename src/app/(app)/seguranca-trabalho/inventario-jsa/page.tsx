@@ -10,15 +10,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { fetchJsas } from '@/actions/dataFetchingActions'; 
-import { useToast } from "@/hooks/use-toast"; 
+import { fetchJsas } from '@/actions/dataFetchingActions';
+import { useToast } from "@/hooks/use-toast";
 
 interface JsaEntry {
     id: number;
     task: string;
     location_name: string | null;
     responsible_person_name: string | null;
-    review_date: string | null;
+    review_date: string | null; // YYYY-MM-DD
     status: string | null;
     attachment_path: string | null;
 }
@@ -28,44 +28,52 @@ export default function InventarioJsaPage() {
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const { toast } = useToast(); 
+  const { toast } = useToast();
+
+  const loadJsaData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchJsas();
+      if (result.success && result.data) {
+        setJsaEntries(result.data as JsaEntry[]);
+      } else {
+        console.error("Failed to fetch JSA entries:", result.error);
+        toast({
+          title: "Erro ao Carregar JSAs",
+          description: result.error || "Não foi possível buscar as JSAs.",
+          variant: "destructive",
+        });
+        setJsaEntries([]);
+      }
+    } catch (error) {
+      console.error("Exception fetching JSA entries:", error);
+      toast({
+          title: "Erro Crítico ao Carregar JSAs",
+          description: error instanceof Error ? error.message : "Ocorreu um erro de rede ou inesperado.",
+          variant: "destructive",
+      });
+      setJsaEntries([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]); // Adicionado toast como dependência
 
   React.useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const result = await fetchJsas(); 
-        if (result.success && result.data) {
-          setJsaEntries(result.data as JsaEntry[]); 
-        } else {
-          console.error("Failed to fetch JSA entries:", result.error);
-          toast({
-            title: "Erro ao Carregar JSAs",
-            description: result.error || "Não foi possível buscar as JSAs.",
-            variant: "destructive",
-          });
-          setJsaEntries([]); 
-        }
-      } catch (error) {
-        console.error("Failed to fetch JSA entries:", error);
-        toast({
-            title: "Erro ao Carregar JSAs",
-            description: "Ocorreu um erro de rede ou inesperado.",
-            variant: "destructive",
-        });
-        setJsaEntries([]); 
-      } finally {
-        setIsLoading(false);
-      }
+    loadJsaData();
+  }, [loadJsaData]); // Removido isJsaDialogOpen da dependência para evitar recarregamento desnecessário
+
+  const handleDialogClose = (open: boolean) => {
+    setJsaDialogOpen(open);
+    if (!open) {
+      loadJsaData(); // Recarregar dados quando o diálogo é fechado
     }
-    loadData();
-  }, [isJsaDialogOpen, toast]); 
+  };
 
    const getStatusBadgeVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
        if (!status) return 'outline';
        if (status === 'Rascunho') return 'secondary';
-       if (status === 'Ativo') return 'default';
-       if (status === 'Revisado') return 'outline';
+       if (status === 'Ativo') return 'default'; // Green by default theme
+       if (status === 'Revisado') return 'outline'; // Consider a blueish or different outline
        if (status === 'Obsoleto') return 'destructive';
        return 'outline';
    }
@@ -82,7 +90,7 @@ export default function InventarioJsaPage() {
       // setJsaDialogOpen(true); // Need to pass data to dialog
       // }
   };
-  
+
 
   const filteredJsas = jsaEntries.filter(jsa =>
     jsa.task.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -145,27 +153,17 @@ export default function InventarioJsaPage() {
                     <TableCell className="font-medium">{jsa.task}</TableCell>
                     <TableCell>{jsa.location_name || 'N/A'}</TableCell>
                     <TableCell>{jsa.responsible_person_name || 'N/A'}</TableCell>
-                    <TableCell>{jsa.review_date || 'N/A'}</TableCell>
+                    <TableCell>{jsa.review_date ? new Date(jsa.review_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</TableCell>
                     <TableCell><Badge variant={getStatusBadgeVariant(jsa.status)}>{jsa.status || 'N/A'}</Badge></TableCell>
                     <TableCell className="text-center">
                         {jsa.attachment_path ? (
                              <a
                                 href={jsa.attachment_path}
-                                download={jsa.attachment_path.split('/').pop() || 'download'}
+                                download // Let the browser handle the download name from the URL
+                                target="_blank" // Open in new tab for better UX with PDFs, etc.
+                                rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center p-2 rounded-md hover:bg-accent"
-                                title="Baixar Anexo"
-                                onClick={(e) => {
-                                    // Prevent default if you want to handle download via JS, but for direct download, it's not strictly needed.
-                                    // e.preventDefault();
-                                    // // Optional: if you need more complex download logic or tracking
-                                    // const link = document.createElement('a');
-                                    // link.href = jsa.attachment_path!;
-                                    // link.download = jsa.attachment_path!.split('/').pop() || 'download';
-                                    // document.body.appendChild(link);
-                                    // link.click();
-                                    // document.body.removeChild(link);
-                                    toast({ title: "Download Iniciado", description: `Baixando ${jsa.attachment_path!.split('/').pop() || 'download'}.`});
-                                }}
+                                title={`Baixar ${jsa.attachment_path.split('/').pop() || 'anexo'}`}
                             >
                                 <Download className="h-4 w-4 text-primary" />
                             </a>
@@ -189,13 +187,11 @@ export default function InventarioJsaPage() {
         </CardContent>
       </Card>
 
-       <JsaDialog open={isJsaDialogOpen} onOpenChange={setJsaDialogOpen} />
+       <JsaDialog open={isJsaDialogOpen} onOpenChange={handleDialogClose} />
 
        <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
             <p className="text-muted-foreground">A visualização e edição detalhada dos passos da JSA será implementada aqui.</p>
         </div>
-
     </div>
   );
 }
-

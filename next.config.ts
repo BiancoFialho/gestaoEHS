@@ -21,27 +21,32 @@ const nextConfig: NextConfig = {
   },
    // Add webpack configuration
   webpack: (config, { isServer }) => {
-    // Exclude server-only modules from client-side bundles
+    // For client-side bundle, provide fallbacks for Node.js core modules
+    // and ensure server-only packages are not included.
     if (!isServer) {
-       // For client-side bundle, provide fallbacks for Node.js core modules
       config.resolve.fallback = {
-        ...(config.resolve.fallback || {}), // Ensure fallback object exists
-        fs: false,       // 'fs' module is not available in the browser
-        path: false,     // 'path' module is not available in the browser
+        ...(config.resolve.fallback || {}),
+        fs: false,
+        path: false,
+        // sqlite3 and bindings are server-side only,
+        // but sometimes imports can still try to resolve them on the client.
+        // Marking them as false or using an empty module helps.
+        sqlite3: false,
+        bindings: false,
       };
-      
-      // Ensure externals is an array and add server-only packages
-      // This handles if config.externals is undefined or already an array.
-      // If it were an object or function, this would replace it with an array.
-      config.externals = Array.isArray(config.externals) ? config.externals : [];
-      config.externals.push('sqlite3', 'bindings');
     }
-    // Important: return the modified config
+
+    // For server-side bundle, we don't need to do anything special for these typically,
+    // but if specific externals are needed for other reasons, they could be added here.
+    // However, sqlite3 should generally be bundled with the server or handled by the deployment environment.
+
+    // It's often better to ensure that code using 'sqlite3' and 'bindings'
+    // is strictly kept out of client components or client-side imports.
+    // If direct imports are causing issues even with the fallback,
+    // further investigation into component structure might be needed.
+
     return config;
   },
 };
 
 export default nextConfig;
-
-
-

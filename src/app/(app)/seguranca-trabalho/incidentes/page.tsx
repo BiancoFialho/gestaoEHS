@@ -1,21 +1,21 @@
 
-"use client"; 
+"use client";
 
 import React from 'react';
-import { FileWarning, PlusCircle, AlertCircle, CheckCircle, Clock, Edit, Eye } from 'lucide-react'; // Added Edit, Eye
+import { FileWarning, PlusCircle, AlertCircle, CheckCircle, Clock, Edit, Eye, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from '@/components/ui/badge'; 
+import { Badge } from '@/components/ui/badge';
 import IncidentDialog from '@/components/incidentes/IncidentDialog';
-import IncidentDetailsDialog from '@/components/incidentes/IncidentDetailsDialog'; // Import Details Dialog
+import IncidentDetailsDialog from '@/components/incidentes/IncidentDetailsDialog';
 import { useToast } from '@/hooks/use-toast';
 import { getAllIncidents } from '@/lib/db'; // Assuming getAllIncidents is updated to fetch all fields
 
 interface IncidentEntry {
   id: number;
-  date: string; 
+  date: string;
   type: string;
   severity: string | null;
   location_name: string | null;
@@ -31,7 +31,7 @@ interface IncidentEntry {
   investigation_responsible_name?: string | null;
   lost_days?: number | null;
   cost?: number | null;
-  closure_date?: string | null;
+  closure_date?: string | null; // YYYY-MM-DD format expected from DB
 }
 
 
@@ -48,7 +48,7 @@ export default function IncidentesPage() {
   const fetchIncidents = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedIncidents = await getAllIncidents();
+      const fetchedIncidents = await getAllIncidents(); // This function should return data consistent with IncidentEntry
       setIncidents(fetchedIncidents as IncidentEntry[]);
     } catch (error) {
       console.error("Failed to fetch incidents:", error);
@@ -65,7 +65,7 @@ export default function IncidentesPage() {
 
   React.useEffect(() => {
     fetchIncidents();
-  }, [fetchIncidents, isIncidentDialogOpen]); // Refresh list when dialog closes
+  }, [fetchIncidents]); // Fetch on initial load
 
   const handleOpenDetailsDialog = (incident: IncidentEntry) => {
     setSelectedIncidentForDetails(incident);
@@ -81,6 +81,14 @@ export default function IncidentesPage() {
     setIncidentDialogOpen(open);
     if (!open) {
       setSelectedIncidentForEdit(null); // Clear edit state when dialog closes
+      fetchIncidents(); // Refresh list when dialog closes after an add/update
+    }
+  };
+
+  const handleDetailsDialogClose = (open: boolean) => {
+    setIsDetailsDialogOpen(open);
+    if (!open) {
+      setSelectedIncidentForDetails(null);
     }
   };
 
@@ -90,8 +98,8 @@ export default function IncidentesPage() {
         switch (severity) {
             case 'Fatalidade':
             case 'Grave': return 'destructive';
-            case 'Moderado': return 'secondary'; 
-            case 'Leve': return 'default'; 
+            case 'Moderado': return 'secondary';
+            case 'Leve': return 'default';
             case 'Insignificante':
             case 'N/A': return 'outline';
             default: return 'outline';
@@ -99,14 +107,14 @@ export default function IncidentesPage() {
     };
 
      const getStatusIcon = (status: string | null | undefined) => {
-         if (!status) return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
+         if (!status) return <Info className="h-4 w-4 text-muted-foreground" />;
         switch (status) {
             case 'Aberto': return <AlertCircle className="h-4 w-4 text-destructive" />;
             case 'Em Investigação': return <Clock className="h-4 w-4 text-yellow-500" />;
             case 'Aguardando Ação': return <Clock className="h-4 w-4 text-blue-500" />;
             case 'Fechado': return <CheckCircle className="h-4 w-4 text-green-600" />;
             case 'Cancelado': return <CheckCircle className="h-4 w-4 text-muted-foreground" />; // Updated icon
-            default: return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
+            default: return <Info className="h-4 w-4 text-muted-foreground" />;
         }
     };
 
@@ -114,9 +122,9 @@ export default function IncidentesPage() {
         if (!status) return 'outline';
         switch (status) {
             case 'Aberto': return 'destructive';
-            case 'Em Investigação': return 'secondary'; 
-            case 'Aguardando Ação': return 'default'; 
-            case 'Fechado': return 'outline'; 
+            case 'Em Investigação': return 'secondary';
+            case 'Aguardando Ação': return 'default';
+            case 'Fechado': return 'outline';
             case 'Cancelado': return 'secondary'; // Updated variant for canceled
             default: return 'outline';
         }
@@ -145,7 +153,7 @@ export default function IncidentesPage() {
       </div>
 
        <div className="mb-4">
-           <Input 
+           <Input
             placeholder="Buscar por tipo, local, data (dd/mm/aaaa) ou descrição..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -216,15 +224,14 @@ export default function IncidentesPage() {
       <IncidentDialog
         open={isIncidentDialogOpen}
         onOpenChange={handleDialogClose}
-        initialData={selectedIncidentForEdit}
+        initialData={selectedIncidentForEdit} // Pass data for editing
         onIncidentAddedOrUpdated={fetchIncidents} // Callback to refresh list
       />
       <IncidentDetailsDialog
         incident={selectedIncidentForDetails}
         open={isDetailsDialogOpen}
-        onOpenChange={setIsDetailsDialogOpen}
+        onOpenChange={handleDetailsDialogClose}
       />
     </div>
   );
 }
-

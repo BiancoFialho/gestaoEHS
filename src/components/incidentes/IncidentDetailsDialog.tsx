@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle, Clock, FileText, MapPin, User, CalendarDays, AlertTriangleIcon, ShieldAlert, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileText, MapPin, User, CalendarDays, AlertTriangleIcon, ShieldAlert, Info, Users, TrendingUp, DollarSign } from 'lucide-react';
 
 interface Incident {
   id: number;
@@ -25,15 +25,15 @@ interface Incident {
   status: string | null;
   description: string;
   reporter_name: string | null;
-  // Optional fields from DB that might be present
   involved_persons_ids?: string | null;
   root_cause?: string | null;
   corrective_actions?: string | null;
   preventive_actions?: string | null;
-  investigation_responsible_name?: string | null; // Assuming a join might provide this
+  investigation_responsible_id?: number | null; // Added for completeness, though name is shown
+  investigation_responsible_name?: string | null;
   lost_days?: number | null;
   cost?: number | null;
-  closure_date?: string | null;
+  closure_date?: string | null; // YYYY-MM-DD format expected from DB
 }
 
 interface IncidentDetailsDialogProps {
@@ -48,7 +48,7 @@ const getSeverityBadgeVariant = (severity: string | null | undefined): "default"
         case 'Fatalidade':
         case 'Grave': return 'destructive';
         case 'Moderado': return 'secondary';
-        case 'Leve': return 'default'; // Use default for Leve for better visibility
+        case 'Leve': return 'default';
         case 'Insignificante':
         case 'N/A': return 'outline';
         default: return 'outline';
@@ -73,7 +73,7 @@ const getStatusBadgeVariant = (status: string | null | undefined): "default" | "
         case 'Aberto': return 'destructive';
         case 'Em Investigação': return 'secondary';
         case 'Aguardando Ação': return 'default';
-        case 'Fechado': return 'outline';
+        case 'Fechado': return 'outline'; // Changed to outline for better contrast if needed
         case 'Cancelado': return 'secondary';
         default: return 'outline';
     }
@@ -89,7 +89,7 @@ const IncidentDetailsDialog: React.FC<IncidentDetailsDialogProps> = ({ incident,
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
   }) : 'N/A';
 
-  const formattedClosureDate = incident.closure_date ? new Date(incident.closure_date).toLocaleDateString('pt-BR') : 'N/A';
+  const formattedClosureDate = incident.closure_date ? new Date(incident.closure_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A';
 
 
   return (
@@ -138,61 +138,73 @@ const IncidentDetailsDialog: React.FC<IncidentDetailsDialogProps> = ({ incident,
 
             <div className="space-y-1">
               <strong className="text-sm">Descrição:</strong>
-              <p className="text-sm p-2 border rounded-md bg-muted min-h-[60px]">{incident.description}</p>
+              <p className="text-sm p-2 border rounded-md bg-muted min-h-[60px] whitespace-pre-wrap">{incident.description}</p>
             </div>
-            
-            {/* Optional Fields - Render if they exist */}
-            {incident.root_cause && (
-              <div className="space-y-1">
-                <strong className="text-sm">Causa Raiz:</strong>
-                <p className="text-sm p-2 border rounded-md bg-muted">{incident.root_cause}</p>
-              </div>
-            )}
-            {incident.corrective_actions && (
-              <div className="space-y-1">
-                <strong className="text-sm">Ações Corretivas:</strong>
-                <p className="text-sm p-2 border rounded-md bg-muted">{incident.corrective_actions}</p>
-              </div>
-            )}
-             {incident.preventive_actions && (
-              <div className="space-y-1">
-                <strong className="text-sm">Ações Preventivas:</strong>
-                <p className="text-sm p-2 border rounded-md bg-muted">{incident.preventive_actions}</p>
-              </div>
+
+            {(incident.root_cause || incident.corrective_actions || incident.preventive_actions || incident.investigation_responsible_name) && (
+                <>
+                    <h4 className="text-md font-semibold mt-3 border-t pt-3">Detalhes da Investigação</h4>
+                    <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+                        {incident.investigation_responsible_name && (
+                            <>
+                                <strong className="col-span-1 text-sm flex items-center"><User className="mr-1.5 h-4 w-4 text-muted-foreground" /> Responsável:</strong>
+                                <p className="col-span-2 text-sm">{incident.investigation_responsible_name}</p>
+                            </>
+                        )}
+                    </div>
+                    {incident.root_cause && (
+                    <div className="space-y-1 mt-2">
+                        <strong className="text-sm">Causa Raiz:</strong>
+                        <p className="text-sm p-2 border rounded-md bg-muted whitespace-pre-wrap">{incident.root_cause}</p>
+                    </div>
+                    )}
+                    {incident.corrective_actions && (
+                    <div className="space-y-1 mt-2">
+                        <strong className="text-sm">Ações Corretivas:</strong>
+                        <p className="text-sm p-2 border rounded-md bg-muted whitespace-pre-wrap">{incident.corrective_actions}</p>
+                    </div>
+                    )}
+                    {incident.preventive_actions && (
+                    <div className="space-y-1 mt-2">
+                        <strong className="text-sm">Ações Preventivas:</strong>
+                        <p className="text-sm p-2 border rounded-md bg-muted whitespace-pre-wrap">{incident.preventive_actions}</p>
+                    </div>
+                    )}
+                </>
             )}
 
-            <div className="grid grid-cols-3 gap-x-4 gap-y-2">
-                {incident.investigation_responsible_name && (
-                    <>
-                        <strong className="col-span-1 text-sm">Responsável Investigação:</strong>
-                        <p className="col-span-2 text-sm">{incident.investigation_responsible_name}</p>
-                    </>
-                )}
-                 {(incident.lost_days !== null && incident.lost_days !== undefined) && (
-                    <>
-                        <strong className="col-span-1 text-sm">Dias Perdidos:</strong>
-                        <p className="col-span-2 text-sm">{incident.lost_days}</p>
-                    </>
-                )}
-                {(incident.cost !== null && incident.cost !== undefined) && (
-                     <>
-                        <strong className="col-span-1 text-sm">Custo Estimado:</strong>
-                        <p className="col-span-2 text-sm">{incident.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                    </>
-                )}
-                {incident.closure_date && (
-                    <>
-                        <strong className="col-span-1 text-sm">Data Fechamento:</strong>
-                        <p className="col-span-2 text-sm">{formattedClosureDate}</p>
-                    </>
-                )}
-                 {incident.involved_persons_ids && ( // This likely needs better display, e.g. fetching names
-                    <>
-                        <strong className="col-span-1 text-sm">Pessoas Envolvidas (IDs):</strong>
-                        <p className="col-span-2 text-sm">{incident.involved_persons_ids}</p>
-                    </>
-                )}
-            </div>
+
+            {(incident.involved_persons_ids || (incident.lost_days !== null && incident.lost_days !== undefined) || (incident.cost !== null && incident.cost !== undefined) || incident.closure_date) && (
+                <>
+                    <h4 className="text-md font-semibold mt-3 border-t pt-3">Informações Adicionais</h4>
+                     <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+                        {incident.involved_persons_ids && (
+                            <>
+                                <strong className="col-span-1 text-sm flex items-center"><Users className="mr-1.5 h-4 w-4 text-muted-foreground" /> Envolvidos (IDs):</strong>
+                                <p className="col-span-2 text-sm">{incident.involved_persons_ids}</p>
+                            </>
+                        )}
+                        {(incident.lost_days !== null && incident.lost_days !== undefined) && (
+                            <>
+                                <strong className="col-span-1 text-sm flex items-center"><TrendingUp className="mr-1.5 h-4 w-4 text-muted-foreground" /> Dias Perdidos:</strong>
+                                <p className="col-span-2 text-sm">{incident.lost_days}</p>
+                            </>
+                        )}
+                        {(incident.cost !== null && incident.cost !== undefined) && (
+                            <>
+                                <strong className="col-span-1 text-sm flex items-center"><DollarSign className="mr-1.5 h-4 w-4 text-muted-foreground" /> Custo (R$):</strong>
+                                <p className="col-span-2 text-sm">{incident.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </>
+                        )}
+                        {incident.closure_date && (
+                            <>
+                                <strong className="col-span-1 text-sm flex items-center"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground" /> Fechamento:</strong>
+                                <p className="col-span-2 text-sm">{formattedClosureDate}</p>
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
 
           </div>
         </ScrollArea>
