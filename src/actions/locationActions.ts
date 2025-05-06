@@ -6,9 +6,11 @@ import { revalidatePath } from 'next/cache';
 
 // Schema matching the form and database structure
 const locationSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().optional(),
-  type: z.string().optional(),
+  name: z.string().min(2, { message: "Nome do local deve ter pelo menos 2 caracteres." }),
+  description: z.string().optional().nullable(),
+  type: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  contactPerson: z.string().optional().nullable(),
 });
 
 type LocationInput = z.infer<typeof locationSchema>;
@@ -23,10 +25,16 @@ export async function addLocation(data: LocationInput): Promise<{ success: boole
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    const { name, description, type } = validatedData.data;
+    const { name, description, type, address, contactPerson } = validatedData.data;
 
     // Insert into the database
-    const newLocationId = await insertLocation(name, description, type);
+    const newLocationId = await insertLocation(
+        name,
+        description,
+        type,
+        address,
+        contactPerson
+    );
 
      if (newLocationId === undefined || newLocationId === null) {
         throw new Error('Failed to insert location, ID not returned.');

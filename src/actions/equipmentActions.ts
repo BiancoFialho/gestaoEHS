@@ -5,17 +5,20 @@ import { insertEquipment } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 // Schema matching the form and database structure
-// Note: locationId is received as number | null after conversion in the component
 const equipmentSchema = z.object({
-  name: z.string().min(2),
+  name: z.string().min(2, { message: "Nome do equipamento deve ter pelo menos 2 caracteres." }),
   type: z.string().optional().nullable(),
   locationId: z.number().nullable(), // Expect number or null
-  serialNumber: z.string().optional().nullable(), // Allow null from DB perspective
+  serialNumber: z.string().optional().nullable(),
+  brand: z.string().optional().nullable(),
+  model: z.string().optional().nullable(),
+  acquisitionDate: z.string().optional().nullable(), // Expecting 'YYYY-MM-DD' or null
+  status: z.string().optional().nullable().default('Operacional'),
   maintenanceSchedule: z.string().optional().nullable(),
-  // lastMaintenanceDate: z.string().optional(), // Add date validation if using
+  lastMaintenanceDate: z.string().optional().nullable(), // Expecting 'YYYY-MM-DD' or null
+  nextMaintenanceDate: z.string().optional().nullable(), // Expecting 'YYYY-MM-DD' or null
 });
 
-// Type for the data received *before* server-side conversion/validation
 type EquipmentInput = z.infer<typeof equipmentSchema>;
 
 
@@ -29,7 +32,19 @@ export async function addEquipment(data: EquipmentInput): Promise<{ success: boo
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    const { name, type, locationId, serialNumber, maintenanceSchedule } = validatedData.data;
+    const {
+        name,
+        type,
+        locationId,
+        serialNumber,
+        brand,
+        model,
+        acquisitionDate,
+        status,
+        maintenanceSchedule,
+        lastMaintenanceDate,
+        nextMaintenanceDate
+    } = validatedData.data;
 
     // Insert into the database
     const newEquipmentId = await insertEquipment(
@@ -37,9 +52,14 @@ export async function addEquipment(data: EquipmentInput): Promise<{ success: boo
         type,
         locationId, // Already number or null
         serialNumber,
-        maintenanceSchedule
-        // lastMaintenanceDate // Pass if added
-        );
+        brand,
+        model,
+        acquisitionDate, // Pass as string or null
+        status,
+        maintenanceSchedule,
+        lastMaintenanceDate, // Pass as string or null
+        nextMaintenanceDate // Pass as string or null
+    );
 
      if (newEquipmentId === undefined || newEquipmentId === null) {
         throw new Error('Failed to insert equipment, ID not returned.');

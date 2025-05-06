@@ -6,13 +6,16 @@ import { revalidatePath } from 'next/cache';
 
 // Schema matching the form and database structure
 const documentSchema = z.object({
-  title: z.string().min(3),
+  title: z.string().min(3, { message: "Título deve ter pelo menos 3 caracteres." }),
   category: z.string().optional().nullable(),
   version: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   filePath: z.string().optional().nullable(), // Path or URL
-  // reviewDate: z.string().optional().nullable(), // Add date validation if using
+  reviewDate: z.string().optional().nullable(), // Expecting 'YYYY-MM-DD' or null
+  authorId: z.number().int().positive().optional().nullable(),
+  ownerDepartment: z.string().optional().nullable(),
+  jsaId: z.number().int().positive().optional().nullable(), // Keep this if needed
 });
 
 type DocumentInput = z.infer<typeof documentSchema>;
@@ -27,24 +30,33 @@ export async function addDocument(data: DocumentInput): Promise<{ success: boole
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    const { title, description, category, filePath, version, status } = validatedData.data;
-    // const { title, description, category, filePath, version, reviewDate, status } = validatedData.data;
+    const {
+        title,
+        description,
+        category,
+        filePath,
+        version,
+        reviewDate,
+        status,
+        jsaId,
+        authorId,
+        ownerDepartment
+    } = validatedData.data;
 
     // TODO: Handle actual file upload here if necessary.
-    // - Receive file data (e.g., FormData)
-    // - Save file to storage (e.g., local disk, cloud storage)
-    // - Get the saved file path/URL to store in the database (filePath)
 
     // Insert metadata into the database
     const newDocumentId = await insertDocument(
       title,
       description,
       category,
-      filePath, // Use the path obtained from file upload or the provided URL
+      filePath,
       version,
-      // reviewDate,
-      null, // reviewDate placeholder
-      status
+      reviewDate,
+      status,
+      jsaId,
+      authorId,
+      ownerDepartment
     );
 
     if (newDocumentId === undefined || newDocumentId === null) {

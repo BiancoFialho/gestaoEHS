@@ -6,11 +6,13 @@ import { revalidatePath } from 'next/cache';
 
 // Schema matching the form and database structure
 const courseSchema = z.object({
-  courseName: z.string().min(3),
+  courseName: z.string().min(3, { message: "Nome do curso deve ter pelo menos 3 caracteres." }),
   description: z.string().optional().nullable(),
   provider: z.string().optional().nullable(),
   durationHours: z.number().int().positive().optional().nullable(),
   frequencyMonths: z.number().int().nonnegative().optional().nullable(),
+  targetAudience: z.string().optional().nullable(),
+  contentOutline: z.string().optional().nullable(),
 });
 
 type CourseInput = z.infer<typeof courseSchema>;
@@ -25,7 +27,15 @@ export async function addTraining(data: CourseInput): Promise<{ success: boolean
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    const { courseName, description, provider, durationHours, frequencyMonths } = validatedData.data;
+    const {
+        courseName,
+        description,
+        provider,
+        durationHours,
+        frequencyMonths,
+        targetAudience,
+        contentOutline
+    } = validatedData.data;
 
     // Insert into the database
     const newTrainingId = await insertTraining(
@@ -33,7 +43,9 @@ export async function addTraining(data: CourseInput): Promise<{ success: boolean
         description,
         provider,
         durationHours,
-        frequencyMonths
+        frequencyMonths,
+        targetAudience,
+        contentOutline
     );
 
     if (newTrainingId === undefined || newTrainingId === null) {

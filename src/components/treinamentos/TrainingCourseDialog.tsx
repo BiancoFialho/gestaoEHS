@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -26,21 +26,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { addTraining } from '@/actions/trainingActions'; // Server action for courses
+import { addTraining } from '@/actions/trainingActions';
 
 interface TrainingCourseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // TODO: Add 'initialData' prop for editing
 }
 
-// Zod schema for validation
 const formSchema = z.object({
   courseName: z.string().min(3, { message: "Nome do curso deve ter pelo menos 3 caracteres." }),
   description: z.string().optional(),
   provider: z.string().optional(),
-  durationHours: z.coerce.number().int().positive().optional().nullable(), // Coerce to number, allow optional null
-  frequencyMonths: z.coerce.number().int().nonnegative().optional().nullable(), // Allow 0 or positive, optional null
+  durationHours: z.coerce.number().int().positive().optional().nullable(),
+  frequencyMonths: z.coerce.number().int().nonnegative().optional().nullable(),
+  targetAudience: z.string().optional(),
+  contentOutline: z.string().optional(),
 });
 
 type CourseFormValues = z.infer<typeof formSchema>;
@@ -55,24 +55,26 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
       provider: "",
       durationHours: null,
       frequencyMonths: null,
+      targetAudience: "",
+      contentOutline: "",
     },
   });
-   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = async (values: CourseFormValues) => {
     setIsSubmitting(true);
-    console.log("Submitting Course Data:", values);
     try {
-      // Prepare data for server action, ensuring null for optional empty number fields
-       const dataToSend = {
+      const dataToSend = {
             ...values,
             description: values.description || null,
             provider: values.provider || null,
             durationHours: values.durationHours || null,
-            frequencyMonths: values.frequencyMonths === 0 ? 0 : (values.frequencyMonths || null), // Keep 0 if entered, otherwise null
+            frequencyMonths: values.frequencyMonths === 0 ? 0 : (values.frequencyMonths || null),
+            targetAudience: values.targetAudience || null,
+            contentOutline: values.contentOutline || null,
         };
-      const result = await addTraining(dataToSend); // Use the server action
-       if (result.success) {
+      const result = await addTraining(dataToSend);
+      if (result.success) {
         toast({
           title: "Sucesso!",
           description: "Curso de treinamento adicionado com sucesso.",
@@ -98,7 +100,6 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
     }
   };
 
-   // Reset form when dialog closes
   React.useEffect(() => {
     if (!open) {
       form.reset();
@@ -109,7 +110,7 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar Novo Curso</DialogTitle>
           <DialogDescription>
@@ -117,76 +118,104 @@ const TrainingCourseDialog: React.FC<TrainingCourseDialogProps> = ({ open, onOpe
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-             <FormField
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            <FormField
               control={form.control}
               name="courseName"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Nome *</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Input placeholder="Nome do Curso" {...field} />
+                <FormItem>
+                  <FormLabel>Nome do Curso *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: NR-35 Trabalho em Altura" {...field} />
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
-             <FormField
-              control={form.control}
-              name="provider"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel className="text-right">Fornecedor</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Input placeholder="Ex: Interno, Consultoria XYZ" {...field} value={field.value ?? ''}/>
-                  </FormControl>
-                   <FormMessage className="col-span-4 text-right" />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                    control={form.control}
-                    name="durationHours"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-2 items-center gap-4">
-                        <FormLabel className="text-right">Duração (h)</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="Ex: 8" {...field} value={field.value ?? ''} min="1" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
-                        </FormControl>
-                        <FormMessage className="col-span-2 text-right" />
-                        </FormItem>
-                    )}
-                    />
-                 <FormField
-                    control={form.control}
-                    name="frequencyMonths"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-2 items-center gap-4">
-                        <FormLabel className="text-right">Periodic. (m)</FormLabel>
-                         <FormControl>
-                           <Input type="number" placeholder="Ex: 12 (0=N/A)" {...field} value={field.value ?? ''} min="0" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
-                         </FormControl>
-                         <FormMessage className="col-span-2 text-right" />
-                        </FormItem>
-                    )}
-                    />
-            </div>
-             <FormField
+            <FormField
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-start gap-4 pt-2">
-                  <FormLabel className="text-right pt-2">Descrição</FormLabel>
-                  <FormControl className="col-span-3">
-                    <Textarea placeholder="Conteúdo ou objetivos do curso..." {...field} value={field.value ?? ''}/>
+                <FormItem>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Breve descrição do curso..." {...field} value={field.value ?? ''}/>
                   </FormControl>
-                  <FormMessage className="col-span-4 text-right" />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="provider"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Fornecedor</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Ex: Interno, Consultoria XYZ" {...field} value={field.value ?? ''}/>
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="durationHours"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Duração (horas)</FormLabel>
+                    <FormControl>
+                        <Input type="number" placeholder="Ex: 8" {...field} value={field.value ?? ''} min="1" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="frequencyMonths"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Periodicidade (meses)</FormLabel>
+                    <FormControl>
+                        <Input type="number" placeholder="Ex: 12 (0 para N/A)" {...field} value={field.value ?? ''} min="0" onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 <FormField
+                control={form.control}
+                name="targetAudience"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Público Alvo</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Ex: Todos os Colaboradores, Líderes" {...field} value={field.value ?? ''}/>
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+            <FormField
+              control={form.control}
+              name="contentOutline"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Conteúdo Programático</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Principais tópicos abordados no curso..." {...field} value={field.value ?? ''}/>
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>

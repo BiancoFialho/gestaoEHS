@@ -35,7 +35,12 @@ export async function getDbConnection(): Promise<Database> {
       name TEXT NOT NULL,
       role TEXT,
       department TEXT,
-      hire_date DATE,
+      hire_date DATE, -- Data de admissão
+      birth_date DATE, -- Data de nascimento
+      rg TEXT, -- RG
+      cpf TEXT UNIQUE, -- CPF (único)
+      phone TEXT, -- Telefone
+      address TEXT, -- Endereço
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -45,6 +50,8 @@ export async function getDbConnection(): Promise<Database> {
       name TEXT NOT NULL UNIQUE,
       description TEXT,
       type TEXT, -- e.g., 'Escritório', 'Fábrica', 'Armazém'
+      address TEXT, -- Endereço do local
+      contact_person TEXT, -- Pessoa de contato do local
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -55,8 +62,13 @@ export async function getDbConnection(): Promise<Database> {
       type TEXT,
       location_id INTEGER,
       serial_number TEXT UNIQUE,
+      brand TEXT, -- Marca
+      model TEXT, -- Modelo
+      acquisition_date DATE, -- Data de aquisição
+      status TEXT DEFAULT 'Operacional', -- e.g., 'Operacional', 'Em Manutenção', 'Fora de Uso'
       maintenance_schedule TEXT,
       last_maintenance_date DATE,
+      next_maintenance_date DATE, -- Próxima manutenção
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL -- Optionally set null if location is deleted
     );
@@ -69,6 +81,8 @@ export async function getDbConnection(): Promise<Database> {
       provider TEXT,
       duration_hours INTEGER,
       frequency_months INTEGER, -- Periodicidade para reciclagem
+      target_audience TEXT, -- Público alvo
+      content_outline TEXT, -- Conteúdo programático
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -80,7 +94,9 @@ export async function getDbConnection(): Promise<Database> {
       completion_date DATE NOT NULL,
       expiry_date DATE,
       score REAL,
+      status TEXT DEFAULT 'Concluído', -- e.g., 'Concluído', 'Pendente', 'Vencido'
       certificate_path TEXT,
+      instructor_name TEXT, -- Nome do instrutor
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE, -- Delete records if employee is deleted
       FOREIGN KEY (training_id) REFERENCES trainings(id) ON DELETE CASCADE -- Delete records if training is deleted
@@ -94,6 +110,7 @@ export async function getDbConnection(): Promise<Database> {
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT 'user', -- e.g., 'admin', 'manager', 'user'
       is_active BOOLEAN DEFAULT TRUE,
+      last_login DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -109,10 +126,13 @@ export async function getDbConnection(): Promise<Database> {
       status TEXT DEFAULT 'Rascunho', -- e.g., 'Rascunho', 'Ativo', 'Revisado', 'Obsoleto'
       creation_date DATE DEFAULT CURRENT_DATE,
       review_date DATE, -- Data da última revisão
+      approval_date DATE, -- Data de aprovação
+      approver_id INTEGER, -- Quem aprovou
       attachment_path TEXT, -- Caminho para o arquivo Excel anexado
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
-      FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL
+      FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- Tabela Geral: Documentos
@@ -127,8 +147,11 @@ export async function getDbConnection(): Promise<Database> {
       review_date DATE,
       status TEXT DEFAULT 'Ativo', -- e.g., 'Ativo', 'Obsoleto', 'Em Revisão'
       jsa_id INTEGER, -- Chave estrangeira opcional para JSA
+      author_id INTEGER, -- Autor do documento
+      owner_department TEXT, -- Departamento proprietário
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (jsa_id) REFERENCES jsa(id) ON DELETE SET NULL -- Se a JSA for deletada, o documento fica sem associação
+      FOREIGN KEY (jsa_id) REFERENCES jsa(id) ON DELETE SET NULL, -- Se a JSA for deletada, o documento fica sem associação
+      FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
 
@@ -138,6 +161,7 @@ export async function getDbConnection(): Promise<Database> {
       user_id INTEGER,
       action TEXT NOT NULL, -- e.g., 'CREATE_JSA', 'UPDATE_INCIDENT'
       details TEXT,
+      ip_address TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
@@ -153,6 +177,7 @@ export async function getDbConnection(): Promise<Database> {
       target REAL, -- Meta
       period TEXT, -- e.g., 'Mensal', 'Anual'
       data_date DATE, -- Data a que o KPI se refere
+      source TEXT, -- Fonte do dado
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -164,6 +189,8 @@ export async function getDbConnection(): Promise<Database> {
         description TEXT NOT NULL, -- Descrição do passo da tarefa
         hazards TEXT NOT NULL, -- Perigos identificados para o passo
         controls TEXT NOT NULL, -- Medidas de controle para os perigos
+        risk_level_before TEXT, -- Nível de risco antes dos controles
+        risk_level_after TEXT, -- Nível de risco após controles
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (jsa_id) REFERENCES jsa(id) ON DELETE CASCADE -- Exclui os passos se a JSA for excluída
     );
@@ -179,13 +206,17 @@ export async function getDbConnection(): Promise<Database> {
       involved_persons_ids TEXT, -- Storing IDs as comma-separated string or JSON
       root_cause TEXT,
       corrective_actions TEXT,
+      preventive_actions TEXT, -- Ações preventivas
+      investigation_responsible_id INTEGER, -- Responsável pela investigação
       lost_days INTEGER DEFAULT 0,
       cost REAL DEFAULT 0.0,
       reported_by_id INTEGER,
       status TEXT DEFAULT 'Aberto', -- e.g., 'Aberto', 'Em Investigação', 'Aguardando Ação', 'Fechado'
+      closure_date DATE, -- Data de fechamento
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
-      FOREIGN KEY (reported_by_id) REFERENCES users(id) ON DELETE SET NULL -- Ou employees(id)
+      FOREIGN KEY (reported_by_id) REFERENCES users(id) ON DELETE SET NULL, -- Ou employees(id)
+      FOREIGN KEY (investigation_responsible_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
      -- Tabela Segurança: Plano de Ação - Mover para antes de Audit Items
@@ -198,7 +229,10 @@ export async function getDbConnection(): Promise<Database> {
       priority TEXT DEFAULT 'Média', -- e.g., 'Alta', 'Média', 'Baixa'
       status TEXT DEFAULT 'Aberta', -- e.g., 'Aberta', 'Em Andamento', 'Concluída', 'Atrasada', 'Cancelada'
       completion_date DATE,
+      effectiveness_check_date DATE, -- Data de verificação da eficácia
+      effectiveness_notes TEXT, -- Notas sobre a eficácia
       evidence TEXT, -- Descrição ou link para evidência
+      cost REAL, -- Custo da ação
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE SET NULL -- Changed to SET NULL
     );
@@ -211,12 +245,14 @@ export async function getDbConnection(): Promise<Database> {
       scope TEXT NOT NULL, -- Área ou processo auditado
       audit_date DATE NOT NULL,
       auditor TEXT NOT NULL, -- Could link to users/employees if needed
+      lead_auditor_id INTEGER, -- Auditor líder
       findings TEXT, -- Resumo dos achados
       non_conformities_count INTEGER DEFAULT 0,
       observations_count INTEGER DEFAULT 0,
       status TEXT DEFAULT 'Planejada', -- e.g., 'Planejada', 'Em Andamento', 'Concluída', 'Cancelada'
       report_path TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (lead_auditor_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
      -- Tabela Segurança: Não Conformidades/Observações de Auditoria
@@ -229,6 +265,7 @@ export async function getDbConnection(): Promise<Database> {
       related_requirement TEXT, -- Norma ou requisito relacionado
       action_plan_id INTEGER, -- Link para plano de ação
       status TEXT DEFAULT 'Aberta', -- e.g., 'Aberta', 'Em Análise', 'Ação Definida', 'Concluída', 'Verificada'
+      closure_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE, -- Delete items if audit is deleted
       FOREIGN KEY (action_plan_id) REFERENCES action_plans(id) ON DELETE SET NULL -- Keep action plan even if audit item is deleted? Or CASCADE?
@@ -242,10 +279,13 @@ export async function getDbConnection(): Promise<Database> {
       description TEXT NOT NULL,
       requester_id INTEGER NOT NULL,
       approver_id INTEGER,
+      executor_team TEXT, -- Equipe executora
       start_datetime DATETIME NOT NULL,
       end_datetime DATETIME NOT NULL,
       precautions TEXT,
-      status TEXT DEFAULT 'Solicitada', -- e.g., 'Solicitada', 'Aprovada', 'Rejeitada', 'Em Andamento', 'Concluída', 'Expirada'
+      equipment_used TEXT, -- Equipamentos utilizados
+      status TEXT DEFAULT 'Solicitada', -- e.g., 'Solicitada', 'Aprovada', 'Rejeitada', 'Em Andamento', 'Concluída', 'Expirada', 'Cancelada'
+      closure_notes TEXT, -- Observações de fechamento
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT, -- Prevent deleting location if permits exist? Or SET NULL?
       FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE RESTRICT, -- Or employees(id)
@@ -257,7 +297,9 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE, -- e.g., 'Capacete', 'Luva Nitrílica', 'Óculos de Segurança'
       specification TEXT,
+      ca_number_default TEXT, -- CA padrão para o tipo
       lifespan_months INTEGER,
+      manufacturer TEXT, -- Fabricante
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -272,6 +314,7 @@ export async function getDbConnection(): Promise<Database> {
       receipt_signed BOOLEAN DEFAULT FALSE, -- Confirmação de recebimento
       return_date DATE,
       due_date DATE, -- Calculated or set manually based on lifespan
+      notes TEXT, -- Observações
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
       FOREIGN KEY (ppe_type_id) REFERENCES ppe_types(id) ON DELETE RESTRICT -- Prevent deleting type if records exist? Or CASCADE?
@@ -288,9 +331,12 @@ export async function getDbConnection(): Promise<Database> {
       filed_date DATE,
       court TEXT, -- Vara do trabalho
       company_lawyer TEXT,
+      opposing_lawyer TEXT, -- Advogado da outra parte
       estimated_cost REAL,
       final_cost REAL,
+      provision_value REAL, -- Valor provisionado
       details TEXT,
+      last_update_date DATE, -- Data da última atualização
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -307,6 +353,7 @@ export async function getDbConnection(): Promise<Database> {
       crm TEXT, -- CRM do médico
       clinic_name TEXT,
       next_exam_due_date DATE,
+      observations TEXT, -- Observações adicionais
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
@@ -320,8 +367,10 @@ export async function getDbConnection(): Promise<Database> {
       diagnosis_date DATE,
       related_activity TEXT, -- Atividade suspeita de causar a doença
       cat_issued BOOLEAN DEFAULT FALSE, -- Comunicação de Acidente de Trabalho emitida?
+      cat_number TEXT, -- Número da CAT
       status TEXT DEFAULT 'Suspeita', -- e.g., 'Suspeita', 'Confirmada', 'Afastado', 'Retornado'
       details TEXT,
+      treatment_info TEXT, -- Informações sobre o tratamento
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
@@ -335,6 +384,7 @@ export async function getDbConnection(): Promise<Database> {
       reason TEXT NOT NULL, -- e.g., 'Doença Comum', 'Doença Ocupacional', 'Acidente Trabalho', 'Licença Médica'
       medical_certificate_code TEXT, -- CID ou código do atestado
       lost_hours REAL,
+      notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
@@ -353,6 +403,7 @@ export async function getDbConnection(): Promise<Database> {
       action_level REAL, -- Nível de ação
       instrument TEXT, -- Equipamento usado
       responsible_technician_id INTEGER,
+      report_path TEXT, -- Caminho para o laudo/relatório
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
       FOREIGN KEY (responsible_technician_id) REFERENCES users(id) ON DELETE SET NULL
@@ -368,8 +419,10 @@ export async function getDbConnection(): Promise<Database> {
       overall_score REAL,
       key_findings TEXT, -- Principais pontos identificados (anonimizado se individual)
       recommendations TEXT,
+      responsible_id INTEGER, -- Responsável pela avaliação
       report_path TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- Tabela Saúde: Registros de Vacinação (Individual)
@@ -382,6 +435,7 @@ export async function getDbConnection(): Promise<Database> {
       batch_number TEXT,
       provider TEXT, -- Onde foi aplicada
       next_due_date DATE,
+      notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     );
@@ -397,6 +451,7 @@ export async function getDbConnection(): Promise<Database> {
       quantity REAL NOT NULL,
       unit TEXT NOT NULL, -- 'kg', 't', 'm³'
       destination TEXT, -- e.g., 'Aterro Sanitário', 'Reciclagem Co.', 'Incineração'
+      transporter_name TEXT, -- Nome do transportador
       mrf_number TEXT, -- Número do Manifesto de Transporte de Resíduos (se aplicável)
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -411,6 +466,7 @@ export async function getDbConnection(): Promise<Database> {
       reading REAL NOT NULL,
       unit TEXT DEFAULT 'm³',
       source TEXT DEFAULT 'Rede Pública', -- e.g., 'Rede Pública', 'Poço Artesiano'
+      meter_number TEXT, -- Número do hidrômetro
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -424,6 +480,7 @@ export async function getDbConnection(): Promise<Database> {
       reading REAL NOT NULL,
       unit TEXT DEFAULT 'kWh',
       source TEXT DEFAULT 'Rede Elétrica', -- e.g., 'Rede Elétrica', 'Solar Fotovoltaica', 'Gerador Diesel'
+      meter_number TEXT, -- Número do medidor
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -441,6 +498,7 @@ export async function getDbConnection(): Promise<Database> {
       co2e_emission REAL NOT NULL, -- Emissão calculada em CO₂ equivalente
       unit TEXT DEFAULT 'tCO₂e',
       scope INTEGER, -- 1, 2 ou 3
+      calculation_methodology TEXT, -- Metodologia de cálculo
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
@@ -460,6 +518,7 @@ export async function getDbConnection(): Promise<Database> {
       immediate_actions TEXT,
       cleanup_status TEXT DEFAULT 'Em Andamento',
       reporting_status TEXT, -- e.g., 'Reportado ao Órgão Ambiental'
+      environmental_impact TEXT, -- Impacto ambiental
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE SET NULL,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -477,7 +536,9 @@ export async function getDbConnection(): Promise<Database> {
       fine_amount REAL,
       status TEXT DEFAULT 'Em Análise', -- e.g., 'Em Análise', 'Recurso', 'Paga', 'Termo de Ajuste'
       defense_deadline DATE,
+      payment_due_date DATE, -- Data de vencimento da multa
       resolution TEXT, -- Como foi resolvida
+      resolution_date DATE, -- Data da resolução
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -492,6 +553,8 @@ export async function getDbConnection(): Promise<Database> {
       unit TEXT, -- 'L', 'kg', 'gal'
       hazard_class TEXT, -- GHS classification
       sds_path TEXT, -- Path to Safety Data Sheet (FDS)
+      supplier_name TEXT, -- Nome do fornecedor
+      acquisition_date DATE, -- Data de aquisição
       last_updated DATE DEFAULT CURRENT_DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL -- Changed to SET NULL
@@ -524,32 +587,35 @@ export async function getDbConnection(): Promise<Database> {
   await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 7, 'Oficina Manutenção', 'Manutenção Mecânica/Elétrica', 'Oficina');
 
   // Sample Employees
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 1, 'Alice Silva', 'Operadora', 'Produção', '2022-03-15');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 2, 'Bruno Costa', 'Técnico Manutenção', 'Manutenção', '2021-08-01');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 3, 'Carlos Dias', 'Almoxarife', 'Logística', '2023-01-10');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 4, 'Diana Souza', 'Analista RH', 'RH', '2020-11-20');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date) VALUES (?, ?, ?, ?, ?)', 5, 'Eduardo Lima', 'Químico', 'Laboratório', '2022-05-05');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Alice Silva', 'Operadora', 'Produção', '2022-03-15', '1990-05-20', '123456789', '111.222.333-44', '(11) 98765-4321', 'Rua das Flores, 123');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Bruno Costa', 'Técnico Manutenção', 'Manutenção', '2021-08-01', '1985-11-10', '987654321', '222.333.444-55', '(22) 91234-5678', 'Avenida Principal, 456');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Carlos Dias', 'Almoxarife', 'Logística', '2023-01-10', '1995-02-25', '456789123', '333.444.555-66', '(33) 99876-1234', 'Travessa da Paz, 789');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Diana Souza', 'Analista RH', 'RH', '2020-11-20', '1992-09-15', '321654987', '444.555.666-77', '(44) 98888-4444', 'Alameda dos Anjos, 101');
+  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 5, 'Eduardo Lima', 'Químico', 'Laboratório', '2022-05-05', '1988-07-30', '789123456', '555.666.777-88', '(55) 97777-5555', 'Praça Central, 202');
 
   // Sample Equipment
-  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Extintor CO2 #1', 'Extintor', 1, 'EXT-001', 'Inspeção Mensal, Recarga Anual');
-  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Prensa Hidráulica P-10', 'Máquina', 1, 'PH-10-SN123', 'Lubrificação Semanal, Inspeção Trimestral');
-  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Empilhadeira E-02', 'Veículo', 2, 'EMP-02-SN456', 'Checklist Diário, Revisão Semestral');
-  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, maintenance_schedule) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Capela Exaustão Lab', 'Equipamento Lab.', 4, 'CAP-LAB-SN789', 'Verificação Fluxo Mensal, Limpeza Semestral');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Extintor CO2 #1', 'Extintor', 1, 'EXT-001', 'Kidde', 'CO2 5kg', '2023-01-15', 'Operacional', 'Inspeção Mensal, Recarga Anual', '2024-07-01', '2024-08-01');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Prensa Hidráulica P-10', 'Máquina', 1, 'PH-10-SN123', 'Romi', 'P10-200T', '2020-05-20', 'Operacional', 'Lubrificação Semanal, Inspeção Trimestral', '2024-06-15', '2024-09-15');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Empilhadeira E-02', 'Veículo', 2, 'EMP-02-SN456', 'Toyota', '8FG25', '2021-02-10', 'Em Manutenção', 'Checklist Diário, Revisão Semestral', '2024-03-01', '2024-09-01');
+  await db.run('INSERT OR IGNORE INTO equipment (id, name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Capela Exaustão Lab', 'Equipamento Lab.', 4, 'CAP-LAB-SN789', 'Pramar', 'CH-1200', '2022-11-01', 'Operacional', 'Verificação Fluxo Mensal, Limpeza Semestral', '2024-07-10', '2024-08-10');
+
 
   // Sample Trainings (Courses)
-  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 1, 'NR-35 Trabalho em Altura', 'Capacitação para trabalhos acima de 2m', 'Consultoria Segura', 8, 24);
-  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 2, 'NR-33 Espaços Confinados (Vigia/Trabalhador)', 'Entrada e trabalho em espaços confinados', 'TreinaEHS', 16, 12);
-  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Primeiros Socorros Básico', 'Atendimento inicial em emergências', 'Interno - Téc. Enfermagem', 4, 12);
-  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Uso de EPIs Específicos', 'Treinamento sobre seleção e uso correto', 'Interno - Téc. Segurança', 2, 0);
-  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Operação de Empilhadeira', 'Treinamento para operar empilhadeiras', 'Centro Logístico Treinamentos', 20, 12);
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 1, 'NR-35 Trabalho em Altura', 'Capacitação para trabalhos acima de 2m', 'Consultoria Segura', 8, 24, 'Colaboradores que realizam trabalho em altura', 'Normas e regulamentos; Análise de Risco; Sistemas de proteção contra quedas; Primeiros socorros.');
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 2, 'NR-33 Espaços Confinados (Vigia/Trabalhador)', 'Entrada e trabalho em espaços confinados', 'TreinaEHS', 16, 12, 'Trabalhadores e vigias de espaços confinados', 'Definições; Reconhecimento, avaliação e controle de riscos; Funcionamento de equipamentos; Procedimentos e permissão de entrada e trabalho.');
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Primeiros Socorros Básico', 'Atendimento inicial em emergências', 'Interno - Téc. Enfermagem', 4, 12, 'Todos os colaboradores', 'Avaliação da cena; Suporte básico de vida; Hemorragias; Queimaduras.');
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Uso de EPIs Específicos', 'Treinamento sobre seleção e uso correto', 'Interno - Téc. Segurança', 2, 0, 'Colaboradores que utilizam EPIs específicos', 'Tipos de EPI; Seleção; Higienização e conservação; Limitações.');
+  await db.run('INSERT OR IGNORE INTO trainings (id, course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 5, 'Operação de Empilhadeira', 'Treinamento para operar empilhadeiras', 'Centro Logístico Treinamentos', 20, 12, 'Operadores de empilhadeira', 'Normas de segurança; Componentes da empilhadeira; Técnicas de operação; Manutenção preventiva.');
+
 
   // Sample Training Records
-  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 1, 1, '2023-10-15', '2025-10-15', 9.5);
-  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 2, 2, '2024-02-20', '2025-02-20', 8.0);
-  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 1, 3, '2024-05-01', '2025-05-01', 10.0);
-  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, score) VALUES (?, ?, ?, ?)', 3, 4, '2024-01-10', 8.8);
-  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 2, 1, '2022-11-01', '2024-11-01', 9.0); // Vencendo
-  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score) VALUES (?, ?, ?, ?, ?)', 3, 5, '2023-09-01', '2024-09-01', 9.2);
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 1, '2023-10-15', '2025-10-15', 9.5, 'Concluído', 'João Instrutor');
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 2, '2024-02-20', '2025-02-20', 8.0, 'Concluído', 'Maria Instrutora');
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 3, '2024-05-01', '2025-05-01', 10.0, 'Concluído', 'Carlos Enfermeiro');
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, score, status, instructor_name) VALUES (?, ?, ?, ?, ?, ?)', 3, 4, '2024-01-10', 8.8, 'Concluído', 'Ana Técnica');
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 1, '2022-11-01', '2024-11-01', 9.0, 'Vencendo', 'João Instrutor'); // Vencendo
+  await db.run('INSERT OR IGNORE INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?)', 3, 5, '2023-09-01', '2024-09-01', 9.2, 'Vencido', 'Pedro Log');
+
 
   // Sample JSAs
   await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, status, responsible_person_id, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Manutenção de Telhado', 6, 'Revisado', 2, '2024-05-10', '/uploads/jsa_telhado_v1.xlsx');
@@ -570,18 +636,17 @@ export async function getDbConnection(): Promise<Database> {
   await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description, jsa_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Procedimento Bloqueio e Etiquetagem', 'Procedimento', '3.0', 'Em Revisão', '/docs/proc_loto_v3.pdf', 'Procedimento LOTO', NULL);
   await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description, jsa_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Manual Operacional Prensa P-10', 'Manual', '1.0', 'Ativo', '/docs/manual_p10.pdf', 'Manual da prensa hidráulica', 2); // Associado à JSA 2
   await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description, jsa_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 5, 'PPRA (Histórico)', 'PGR/PPRA', '2021', 'Obsoleto', '/docs/ppra_2021.pdf', 'Programa de Prevenção de Riscos Ambientais 2021', NULL);
-  // Documento 6 removido pois agora o anexo é na própria JSA
-  // await db.run('INSERT OR IGNORE INTO documents (id, title, category, version, status, file_path, description, jsa_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 6, 'JSA - Manutenção Telhado', 'JSA', '1.0', 'Ativo', '/docs/jsa_telhado_v1.xlsx', 'Análise de Risco para Manutenção de Telhado', 1);
 
 
   // Sample KPIs
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Riscos Identificados', 18, 'Segurança - Riscos', 'número', 'Total');
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Riscos Críticos', 3, 'Segurança - Riscos', 'número', 'Total');
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Incidentes Abertos', 4, 'Segurança - Incidentes', 'número', 'Atual');
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Incidentes com Afastamento', 1, 'Segurança - Incidentes', 'número', 'Mês Atual');
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Auditorias Pendentes', 2, 'Segurança - Auditorias', 'número', 'Atual');
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Treinamentos Vencidos', 5, 'Geral - Treinamentos', 'número', 'Atual');
-  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period) VALUES (?, ?, ?, ?, ?)', 'Treinamentos Vencendo Próx. Semana', 2, 'Geral - Treinamentos', 'número', 'Atual');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Riscos Identificados', 18, 'Segurança - Riscos', 'número', 'Total', '2024-08-25');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Riscos Críticos', 3, 'Segurança - Riscos', 'número', 'Total', '2024-08-25');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Incidentes Abertos', 4, 'Segurança - Incidentes', 'número', 'Atual', '2024-08-25');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Incidentes com Afastamento', 1, 'Segurança - Incidentes', 'número', 'Mês Atual', '2024-08-25');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Auditorias Pendentes', 2, 'Segurança - Auditorias', 'número', 'Atual', '2024-08-25');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Treinamentos Vencidos', 5, 'Geral - Treinamentos', 'número', 'Atual', '2024-08-25');
+  await db.run('INSERT OR IGNORE INTO kpis (name, value, category, unit, period, data_date) VALUES (?, ?, ?, ?, ?, ?)', 'Treinamentos Vencendo Próx. Semana', 2, 'Geral - Treinamentos', 'número', 'Atual', '2024-08-25');
+
 
   // Sample Incidents
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0);
@@ -786,14 +851,29 @@ export async function getJsaSteps(jsaId: number) {
 
 
 // --- Employees ---
-export async function insertEmployee(name: string, role?: string | null, department?: string | null, hireDate?: string | null): Promise<number | undefined> {
+export async function insertEmployee(
+    name: string,
+    role?: string | null,
+    department?: string | null,
+    hireDate?: string | null, // YYYY-MM-DD
+    birthDate?: string | null, // YYYY-MM-DD
+    rg?: string | null,
+    cpf?: string | null,
+    phone?: string | null,
+    address?: string | null
+): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO employees (name, role, department, hire_date) VALUES (?, ?, ?, ?)',
+    'INSERT INTO employees (name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     name,
     role || null,
     department || null,
-    hireDate || null
+    hireDate || null,
+    birthDate || null,
+    rg || null,
+    cpf || null,
+    phone || null,
+    address || null
   );
   return result.lastID;
 }
@@ -806,13 +886,21 @@ export async function getAllEmployees() {
 }
 
 // --- Locations ---
-export async function insertLocation(name: string, description?: string | null, type?: string | null): Promise<number | undefined> {
+export async function insertLocation(
+    name: string,
+    description?: string | null,
+    type?: string | null,
+    address?: string | null,
+    contactPerson?: string | null
+): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO locations (name, description, type) VALUES (?, ?, ?)',
+    'INSERT INTO locations (name, description, type, address, contact_person) VALUES (?, ?, ?, ?, ?)',
     name,
     description || null,
-    type || null
+    type || null,
+    address || null,
+    contactPerson || null
   );
   return result.lastID;
 }
@@ -824,16 +912,33 @@ export async function getAllLocations() {
 }
 
 // --- Equipment ---
-export async function insertEquipment(name: string, type?: string | null, locationId?: number | null, serialNumber?: string | null, maintenanceSchedule?: string | null, lastMaintenanceDate?: string | null): Promise<number | undefined> {
+export async function insertEquipment(
+    name: string,
+    type?: string | null,
+    locationId?: number | null,
+    serialNumber?: string | null,
+    brand?: string | null,
+    model?: string | null,
+    acquisitionDate?: string | null, // YYYY-MM-DD
+    status?: string | null,
+    maintenanceSchedule?: string | null,
+    lastMaintenanceDate?: string | null, // YYYY-MM-DD
+    nextMaintenanceDate?: string | null // YYYY-MM-DD
+): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO equipment (name, type, location_id, serial_number, maintenance_schedule, last_maintenance_date) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO equipment (name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     name,
     type || null,
     locationId || null,
     serialNumber || null,
+    brand || null,
+    model || null,
+    acquisitionDate || null,
+    status || 'Operacional',
     maintenanceSchedule || null,
-    lastMaintenanceDate || null
+    lastMaintenanceDate || null,
+    nextMaintenanceDate || null
   );
   return result.lastID;
 }
@@ -851,15 +956,25 @@ export async function getAllEquipment() {
 
 
 // --- Trainings (Courses) ---
-export async function insertTraining(courseName: string, description?: string | null, provider?: string | null, durationHours?: number | null, frequencyMonths?: number | null): Promise<number | undefined> {
+export async function insertTraining(
+    courseName: string,
+    description?: string | null,
+    provider?: string | null,
+    durationHours?: number | null,
+    frequencyMonths?: number | null,
+    targetAudience?: string | null,
+    contentOutline?: string | null
+): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO trainings (course_name, description, provider, duration_hours, frequency_months) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO trainings (course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?)',
     courseName,
     description || null,
     provider || null,
     durationHours || null,
-    frequencyMonths === 0 ? 0 : (frequencyMonths || null) // Treat 0 as 0, otherwise null if empty/undefined
+    frequencyMonths === 0 ? 0 : (frequencyMonths || null), // Treat 0 as 0, otherwise null if empty/undefined
+    targetAudience || null,
+    contentOutline || null
   );
   return result.lastID;
 }
@@ -871,16 +986,27 @@ export async function getAllTrainings() {
 }
 
 // --- Training Records ---
-export async function insertTrainingRecord(employeeId: number, trainingId: number, completionDate: string, expiryDate?: string | null, score?: number | null, certificatePath?: string | null): Promise<number | undefined> {
+export async function insertTrainingRecord(
+    employeeId: number,
+    trainingId: number,
+    completionDate: string, // YYYY-MM-DD
+    expiryDate?: string | null, // YYYY-MM-DD
+    score?: number | null,
+    status?: string | null,
+    certificatePath?: string | null,
+    instructorName?: string | null
+): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO training_records (employee_id, training_id, completion_date, expiry_date, score, certificate_path) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, certificate_path, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     employeeId,
     trainingId,
-    completionDate, // Assuming 'YYYY-MM-DD'
-    expiryDate || null, // Assuming 'YYYY-MM-DD' or null
+    completionDate,
+    expiryDate || null,
     score ?? null, // Use ?? to handle 0 score correctly
-    certificatePath || null
+    status || 'Concluído',
+    certificatePath || null,
+    instructorName || null
   );
   return result.lastID;
 }
@@ -900,17 +1026,31 @@ export async function getAllTrainingRecords() {
 
 
 // --- Documents ---
-export async function insertDocument(title: string, description?: string | null, category?: string | null, filePath?: string | null, version?: string | null, reviewDate?: string | null, status?: string | null): Promise<number | undefined> {
+export async function insertDocument(
+    title: string,
+    description?: string | null,
+    category?: string | null,
+    filePath?: string | null,
+    version?: string | null,
+    reviewDate?: string | null, // YYYY-MM-DD
+    status?: string | null,
+    jsaId?: number | null,
+    authorId?: number | null,
+    ownerDepartment?: string | null
+): Promise<number | undefined> {
   const db = await getDbConnection();
   const result = await db.run(
-    'INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)',
+    'INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date, jsa_id, author_id, owner_department) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?)',
     title,
     description || null,
     category || null,
     filePath || null,
     version || null,
     reviewDate || null,
-    status || 'Ativo'
+    status || 'Ativo',
+    jsaId || null,
+    authorId || null,
+    ownerDepartment || null
   );
   return result.lastID;
 }
@@ -1066,4 +1206,3 @@ export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
 // --- CRUD for Chemical Inventory ---
 // export async function insertChemical(productName: string, locationId: number, quantity: number, unit: string, ...) { ... }
 // export async function getAllChemicals() { ... }
-

@@ -1,6 +1,6 @@
 'use server';
 
-import { getAllLocations as dbGetAllLocations, getAllUsers as dbGetAllUsers, getAllEmployees, getAllTrainings } from '@/lib/db';
+import { getAllLocations as dbGetAllLocations, getAllUsers as dbGetAllUsers, getAllEmployees, getAllTrainings, getAllJsas as dbGetAllJsas } from '@/lib/db';
 
 // Define common types for data fetching results
 // Ensure these types align with what the db functions actually return or cast appropriately
@@ -8,6 +8,7 @@ type Location = { id: number; name: string };
 type User = { id: number; name: string };
 type Employee = { id: number; name: string };
 type Training = { id: number; course_name: string };
+type Jsa = { id: number; task: string }; // Basic JSA type for dropdown
 
 type FetchResult<T> = {
     success: boolean;
@@ -61,5 +62,17 @@ export async function fetchTrainings(): Promise<FetchResult<Training>> {
         console.error('Error fetching trainings:', error);
         const message = error instanceof Error ? error.message : 'An unknown error occurred';
         return { success: false, error: `Erro ao buscar treinamentos: ${message}` };
+    }
+}
+
+export async function fetchJsas(): Promise<FetchResult<Jsa>> {
+    try {
+        const jsas = await dbGetAllJsas(); // Assuming this returns at least { id, task }
+        // Ensure the returned data matches the Jsa type or cast safely
+        return { success: true, data: jsas as Jsa[] };
+    } catch (error) {
+        console.error('Error fetching JSAs:', error);
+        const message = error instanceof Error ? error.message : 'An unknown error occurred';
+        return { success: false, error: `Erro ao buscar JSAs: ${message}` };
     }
 }

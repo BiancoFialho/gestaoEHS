@@ -8,10 +8,12 @@ import { revalidatePath } from 'next/cache';
 const recordSchema = z.object({
   employeeId: z.number().int().positive(),
   trainingId: z.number().int().positive(),
-  completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido (YYYY-MM-DD)"), // Expecting 'yyyy-MM-dd'
+  completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido (YYYY-MM-DD)"),
   expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido (YYYY-MM-DD)").optional().nullable(),
   score: z.number().optional().nullable(),
+  status: z.string().optional().nullable().default('Concluído'),
   // certificatePath: z.string().optional().nullable(), // Add later if needed
+  instructorName: z.string().optional().nullable(),
 });
 
 type RecordInput = z.infer<typeof recordSchema>;
@@ -26,7 +28,15 @@ export async function addTrainingRecord(data: RecordInput): Promise<{ success: b
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    const { employeeId, trainingId, completionDate, expiryDate, score } = validatedData.data;
+    const {
+        employeeId,
+        trainingId,
+        completionDate,
+        expiryDate,
+        score,
+        status,
+        instructorName
+    } = validatedData.data;
 
     // Insert into the database
     const newRecordId = await insertTrainingRecord(
@@ -34,8 +44,10 @@ export async function addTrainingRecord(data: RecordInput): Promise<{ success: b
         trainingId,
         completionDate,
         expiryDate,
-        score
-        // certificatePath // Add later
+        score,
+        status,
+        null, // certificatePath placeholder
+        instructorName
     );
 
      if (newRecordId === undefined || newRecordId === null) {
