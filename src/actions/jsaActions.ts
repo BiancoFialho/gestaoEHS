@@ -19,7 +19,6 @@ const jsaBaseSchema = z.object({
   status: z.string().optional().nullable(),
   reviewDate: z.string().optional().nullable(), // Expecting formatted date string or null
   attachmentPath: z.string().optional().nullable(), // Added for type consistency
-  // Attachment field is handled separately via FormData
 });
 
 // Schema for a single step (used internally)
@@ -39,7 +38,11 @@ const NONE_SELECT_VALUE = "__NONE__"; // Ensure this matches the client-side con
 
 // Updated function to accept FormData
 export async function addJsaWithAttachment(formData: FormData): Promise<{ success: boolean; error?: string; id?: number }> {
-    console.log("addJsaWithAttachment received FormData:", formData);
+    console.log("addJsaWithAttachment received FormData:");
+    for (let [key, value] of formData.entries()) {
+        console.log(`FormData Entry - ${key}: ${value instanceof File ? value.name : value}`);
+    }
+
     const file = formData.get('attachment') as File | null;
     let attachmentPath: string | null = null;
     let fileSaveError: string | null = null;
@@ -73,10 +76,9 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
     const teamMembers = formData.get('teamMembers') as string | null;
     const requiredPpe = formData.get('requiredPpe') as string | null;
     const status = formData.get('status') as string | null;
-    const reviewDate = formData.get('reviewDate') as string | null; // Already formatted by client or null
+    const reviewDate = formData.get('reviewDate') as string | null;
 
-    // Construct jsaDataForDb based on JsaInput type (derived from Zod schema)
-    const jsaDataForValidation: JsaInput = {
+    const jsaDataForValidation = {
         task: task,
         locationId: (locationIdString && locationIdString !== NONE_SELECT_VALUE && locationIdString !== "") ? parseInt(locationIdString, 10) : null,
         department: department || null,
@@ -86,26 +88,30 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
         status: status || 'Rascunho',
         reviewDate: reviewDate || null,
         attachmentPath: attachmentPath, // Use the determined attachmentPath
-        steps: [], // Assuming steps are not sent via this form for simplicity now
     };
 
-    console.log("Data for validation:", jsaDataForValidation);
+    console.log("Data for validation (jsaDataForValidation):", jsaDataForValidation);
 
     // Validate data using Zod schema on the server-side
-    const validatedData = jsaBaseSchema.safeParse(jsaDataForValidation);
-    if (!validatedData.success) {
-      console.error("Validation failed (addJsaWithAttachment):", validatedData.error.errors);
-      const errorMessages = validatedData.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    const validatedResult = jsaBaseSchema.safeParse(jsaDataForValidation);
+    if (!validatedResult.success) {
+      console.error("Validation failed (addJsaWithAttachment):", validatedResult.error.errors);
+      const errorMessages = validatedResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    console.log("Validated data:", validatedData.data);
+    const validatedData: JsaInput = {
+        ...validatedResult.data,
+        steps: [], // Assuming steps are not sent via this form for simplicity now
+    };
+
+    console.log("Validated data to be passed to dbInsertJsa:", validatedData);
 
     try {
         // Pass the validated data and steps to dbInsertJsa
         const newJsaId = await dbInsertJsa(
-            validatedData.data, // Pass the validated data object
-            validatedData.data.steps || [] // Ensure steps is an array (even if empty)
+            validatedData, // Pass the validated data object which includes attachmentPath
+            validatedData.steps || [] // Ensure steps is an array (even if empty)
         );
 
         if (newJsaId === undefined || newJsaId === null) {
@@ -120,13 +126,11 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
             ? `JSA adicionada (ID: ${newJsaId}), mas houve um erro ao salvar o anexo: ${fileSaveError}`
             : `JSA adicionada com sucesso (ID: ${newJsaId}).`;
 
-        return { success: true, id: newJsaId };
+        return { success: true, id: newJsaId, }; // Removido message da resposta de sucesso para consistência
 
     } catch (error) {
         console.error('Erro ao adicionar JSA no banco:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao salvar JSA.';
-        // Se o arquivo foi salvo mas o DB falhou, idealmente deveria haver lógica para remover o arquivo órfão.
-        // Por simplicidade, vamos apenas retornar o erro.
         return { success: false, error: `Erro ao adicionar JSA: ${errorMessage}${fileSaveError ? ` (Erro anexo: ${fileSaveError})` : ''}` };
     }
 }

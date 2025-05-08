@@ -13,6 +13,16 @@ let db: Database | null = null;
  * Abre e retorna a conexão com o banco de dados SQLite.
  * Cria o banco de dados e as tabelas se não existirem.
  * Popula com dados de exemplo se as tabelas estiverem vazias.
+ *
+ * !!! IMPORTANTE !!!
+ * Se você encontrar erros como "no such column" ou "table ... has no column named ...",
+ * pode ser que o schema do banco de dados tenha sido atualizado (neste arquivo)
+ * mas o arquivo ehs_database.sqlite no seu disco ainda está com o schema antigo.
+ * A maneira mais simples de resolver isso durante o desenvolvimento é:
+ * 1. Parar a aplicação.
+ * 2. Excluir o arquivo `ehs_database.sqlite` da raiz do seu projeto.
+ * 3. Reiniciar a aplicação. Isso forçará a recriação do banco de dados com o schema mais recente.
+ * !!! CUIDADO: ISSO APAGARÁ TODOS OS DADOS EXISTENTES NO BANCO DE DADOS LOCAL. !!!
  */
 export async function getDbConnection(): Promise<Database> {
   if (db) {
@@ -21,7 +31,7 @@ export async function getDbConnection(): Promise<Database> {
 
   console.log('Tentando abrir conexão com SQLite...');
   db = await open({
-    filename: './ehs_database.sqlite',
+    filename: './ehs_database.sqlite', // Este arquivo será criado na raiz do projeto
     driver: sqlite3.Database,
   });
 
@@ -36,7 +46,7 @@ export async function getDbConnection(): Promise<Database> {
       role TEXT,
       department TEXT,
       hire_date TEXT,
-      birth_date TEXT, -- Coluna adicionada/confirmada
+      birth_date TEXT, -- Confirmado: Coluna para data de nascimento
       rg TEXT,
       cpf TEXT UNIQUE,
       phone TEXT,
@@ -186,11 +196,11 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS incidents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       description TEXT NOT NULL,
-      date TEXT NOT NULL,
+      date TEXT NOT NULL, -- YYYY-MM-DD HH:MM:SS
       type TEXT NOT NULL,
       severity TEXT,
       location_id INTEGER,
-      involved_persons_ids TEXT,
+      involved_persons_ids TEXT, -- Store as JSON string or comma-separated IDs
       root_cause TEXT,
       corrective_actions TEXT,
       preventive_actions TEXT,
@@ -199,7 +209,7 @@ export async function getDbConnection(): Promise<Database> {
       cost REAL DEFAULT 0.0,
       reported_by_id INTEGER,
       status TEXT DEFAULT 'Aberto',
-      closure_date TEXT,
+      closure_date TEXT, -- YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
       FOREIGN KEY (reported_by_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -242,10 +252,10 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS audit_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       audit_id INTEGER NOT NULL,
-      type TEXT NOT NULL,
+      type TEXT NOT NULL, -- Ex: 'Não Conformidade Maior', 'Não Conformidade Menor', 'Observação', 'Oportunidade de Melhoria'
       description TEXT NOT NULL,
       severity TEXT,
-      related_requirement TEXT,
+      related_requirement TEXT, -- Ex: 'ISO 45001:2018 Cláusula 8.1.2'
       action_plan_id INTEGER,
       status TEXT DEFAULT 'Aberta',
       closure_date TEXT,
@@ -256,7 +266,7 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS work_permits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL,
+      type TEXT NOT NULL, -- Ex: 'Trabalho a Quente', 'Espaço Confinado', 'Trabalho em Altura'
       location_id INTEGER NOT NULL,
       description TEXT NOT NULL,
       requester_id INTEGER NOT NULL,
@@ -266,7 +276,7 @@ export async function getDbConnection(): Promise<Database> {
       end_datetime TEXT NOT NULL,
       precautions TEXT,
       equipment_used TEXT,
-      status TEXT DEFAULT 'Solicitada',
+      status TEXT DEFAULT 'Solicitada', -- Ex: 'Solicitada', 'Aprovada', 'Rejeitada', 'Em Andamento', 'Concluída', 'Expirada', 'Cancelada'
       closure_notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT,
@@ -291,9 +301,9 @@ export async function getDbConnection(): Promise<Database> {
       delivery_date TEXT NOT NULL,
       quantity INTEGER DEFAULT 1,
       ca_number TEXT,
-      receipt_signed INTEGER DEFAULT 0,
+      receipt_signed INTEGER DEFAULT 0, -- 0 for false, 1 for true
       return_date TEXT,
-      due_date TEXT,
+      due_date TEXT, -- Data de vencimento para troca
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
@@ -321,9 +331,9 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS asos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
-      type TEXT NOT NULL,
+      type TEXT NOT NULL, -- Ex: 'Admissional', 'Periódico', 'Demissional', 'Mudança de Função', 'Retorno ao Trabalho'
       exam_date TEXT NOT NULL,
-      result TEXT NOT NULL,
+      result TEXT NOT NULL, -- Ex: 'Apto', 'Inapto', 'Apto com Restrições'
       restrictions TEXT,
       doctor_name TEXT,
       crm TEXT,
@@ -341,9 +351,9 @@ export async function getDbConnection(): Promise<Database> {
       cid TEXT,
       diagnosis_date TEXT,
       related_activity TEXT,
-      cat_issued INTEGER DEFAULT 0,
+      cat_issued INTEGER DEFAULT 0, -- 0 for false, 1 for true (Comunicação de Acidente de Trabalho)
       cat_number TEXT,
-      status TEXT DEFAULT 'Suspeita',
+      status TEXT DEFAULT 'Suspeita', -- Ex: 'Suspeita', 'Confirmada', 'Afastado', 'Retornado com Restrições'
       details TEXT,
       treatment_info TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -355,8 +365,8 @@ export async function getDbConnection(): Promise<Database> {
       employee_id INTEGER NOT NULL,
       start_date TEXT NOT NULL,
       end_date TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      medical_certificate_code TEXT,
+      reason TEXT NOT NULL, -- Ex: 'Doença Comum', 'Acidente de Trabalho', 'Licença Médica'
+      medical_certificate_code TEXT, -- CID do atestado
       lost_hours REAL,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -366,14 +376,14 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS agent_monitoring (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id INTEGER,
-      ghe_id INTEGER,
-      agent_type TEXT NOT NULL,
+      ghe_id INTEGER, -- Grupo Homogêneo de Exposição (se aplicável)
+      agent_type TEXT NOT NULL, -- Ex: 'Ruído', 'Calor', 'Poeira Silica', 'Benzeno'
       measurement_date TEXT NOT NULL,
       measurement_value REAL NOT NULL,
       unit TEXT NOT NULL,
-      legal_limit REAL,
-      action_level REAL,
-      instrument TEXT,
+      legal_limit REAL, -- Limite de Tolerância
+      action_level REAL, -- Nível de Ação
+      instrument TEXT, -- Equipamento de medição utilizado
       responsible_technician_id INTEGER,
       report_path TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -384,8 +394,8 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS psychosocial_evaluations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       evaluation_date TEXT NOT NULL,
-      type TEXT,
-      target_group TEXT,
+      type TEXT, -- Ex: 'Pesquisa de Clima', 'Avaliação de Estresse'
+      target_group TEXT, -- Ex: 'Todos', 'Setor X', 'Liderança'
       overall_score REAL,
       key_findings TEXT,
       recommendations TEXT,
@@ -399,7 +409,7 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       vaccine_name TEXT NOT NULL,
-      dose TEXT,
+      dose TEXT, -- Ex: '1ª Dose', 'Reforço'
       vaccination_date TEXT NOT NULL,
       batch_number TEXT,
       provider TEXT,
@@ -413,13 +423,13 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL,
       location_id INTEGER,
-      waste_type TEXT NOT NULL,
-      classification TEXT,
+      waste_type TEXT NOT NULL, -- Ex: 'Papel', 'Plástico', 'Metal', 'Resíduo Perigoso Classe I'
+      classification TEXT, -- Ex: 'Reciclável', 'Não Reciclável', 'Perigoso'
       quantity REAL NOT NULL,
-      unit TEXT NOT NULL,
-      destination TEXT,
+      unit TEXT NOT NULL, -- Ex: 'kg', 'ton', 'L'
+      destination TEXT, -- Ex: 'Aterro Sanitário X', 'Reciclador Y', 'Co-processamento Z'
       transporter_name TEXT,
-      mrf_number TEXT,
+      mrf_number TEXT, -- Manifesto de Resíduos
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -455,13 +465,13 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL,
       location_id INTEGER,
-      source_type TEXT NOT NULL,
+      source_type TEXT NOT NULL, -- Ex: 'Combustão Estacionária', 'Transporte', 'Eletricidade'
       emission_factor REAL,
       activity_data REAL NOT NULL,
       activity_unit TEXT NOT NULL,
-      co2e_emission REAL NOT NULL,
+      co2e_emission REAL NOT NULL, -- Emissões em CO2 Equivalente
       unit TEXT DEFAULT 'tCO₂e',
-      scope INTEGER,
+      scope INTEGER, -- 1, 2 ou 3
       calculation_methodology TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -469,17 +479,17 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS environmental_incidents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      incident_id INTEGER UNIQUE,
+      incident_id INTEGER UNIQUE, -- Pode linkar com a tabela geral de incidentes
       date DATETIME NOT NULL,
       location_id INTEGER,
-      type TEXT NOT NULL,
+      type TEXT NOT NULL, -- Ex: 'Vazamento', 'Derrame', 'Emissão Fora do Padrão'
       substance TEXT NOT NULL,
       quantity REAL,
       unit TEXT,
-      affected_area TEXT,
+      affected_area TEXT, -- Ex: 'Solo', 'Água', 'Ar'
       immediate_actions TEXT,
       cleanup_status TEXT DEFAULT 'Em Andamento',
-      reporting_status TEXT,
+      reporting_status TEXT, -- Ex: 'Reportado ao Órgão Ambiental'
       environmental_impact TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE SET NULL,
@@ -489,12 +499,12 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS environmental_infractions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       infraction_number TEXT UNIQUE NOT NULL,
-      issuing_body TEXT NOT NULL,
+      issuing_body TEXT NOT NULL, -- Órgão emissor
       issue_date TEXT NOT NULL,
       description TEXT NOT NULL,
       legal_basis TEXT,
       fine_amount REAL,
-      status TEXT DEFAULT 'Em Análise',
+      status TEXT DEFAULT 'Em Análise', -- Ex: 'Em Análise', 'Em Defesa', 'Paga', 'Arquivada'
       defense_deadline TEXT,
       payment_due_date TEXT,
       resolution TEXT,
@@ -510,8 +520,8 @@ export async function getDbConnection(): Promise<Database> {
       storage_area TEXT,
       quantity REAL,
       unit TEXT,
-      hazard_class TEXT,
-      sds_path TEXT,
+      hazard_class TEXT, -- Ex: 'Inflamável', 'Corrosivo', 'Tóxico'
+      sds_path TEXT, -- Caminho para a FDS (FISPQ)
       supplier_name TEXT,
       acquisition_date TEXT,
       last_updated TEXT DEFAULT (strftime('%Y-%m-%d', 'now')),
@@ -669,9 +679,11 @@ export async function getAllIncidents() {
             i.date,
             i.type,
             i.severity,
+            i.location_id, -- Make sure location_id is selected for editing
             l.name as location_name,
             i.status,
             i.description,
+            i.reported_by_id, -- Make sure reported_by_id is selected for editing
             u_rep.name as reporter_name,
             i.involved_persons_ids,
             i.root_cause,
@@ -716,7 +728,7 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
             jsaData.requiredPpe ?? null,
             jsaData.status ?? 'Rascunho',
             jsaData.reviewDate ?? null,
-            jsaData.attachmentPath ?? null // Certifique-se de que este campo esteja presente no JsaInputTypeFromAction
+            jsaData.attachmentPath ?? null
         );
         jsaId = resultJsa.lastID;
         console.log("JSA inserted with ID:", jsaId);
@@ -896,3 +908,4 @@ export async function getAllKpis() {
   const kpis = await db.all('SELECT * FROM kpis ORDER BY category, name');
   return kpis;
 }
+

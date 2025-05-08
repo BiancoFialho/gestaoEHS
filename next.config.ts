@@ -20,20 +20,26 @@ const nextConfig: NextConfig = {
     ],
   },
    // Add webpack configuration
-  webpack: (config, { isServer, webpack }) => { // Ensure 'webpack' is destructured
+  webpack: (config, { isServer, webpack: Webpack }) => { // Renomeado para Webpack para clareza
     // For client-side bundle, provide fallbacks for Node.js core modules
+    // and prevent Node.js specific modules from being bundled.
     if (!isServer) {
       config.resolve.fallback = {
         ...(config.resolve.fallback || {}),
-        fs: false, // General fallback for 'fs'
-        path: false, // General fallback for 'path'
+        fs: false,
+        path: false,
+        // Outros módulos Node.js que podem precisar de fallback se causarem problemas:
+        // crypto: false,
+        // stream: false,
+        // util: false,
       };
 
-      // More forcefully prevent sqlite3, bindings, and sqlite from being included in the client bundle.
-      if (webpack) { // webpack instance should be available from Next.js context
+      // More forcefully prevent sqlite3 and its dependencies like 'bindings' from being included in the client bundle.
+      if (Webpack) { // Verifica se a instância do Webpack está disponível
         config.plugins.push(
-          new webpack.IgnorePlugin({
-            resourceRegExp: /^(sqlite3|bindings|sqlite)$/, // Added 'sqlite'
+          new Webpack.IgnorePlugin({
+            resourceRegExp: /^(sqlite3|bindings|sqlite)$/i, // Usar regex case-insensitive e cobrir variações
+            // contextRegExp: /.*/, // Opcional: para aplicar em todos os contextos
           })
         );
       }
@@ -43,3 +49,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

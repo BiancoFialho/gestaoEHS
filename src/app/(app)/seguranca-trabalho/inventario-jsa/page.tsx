@@ -56,11 +56,11 @@ export default function InventarioJsaPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Adicionado toast como dependência
+  }, [toast]);
 
   React.useEffect(() => {
     loadJsaData();
-  }, [loadJsaData]); // Removido isJsaDialogOpen da dependência para evitar recarregamento desnecessário
+  }, [loadJsaData]);
 
   const handleDialogClose = (open: boolean) => {
     setJsaDialogOpen(open);
@@ -72,8 +72,8 @@ export default function InventarioJsaPage() {
    const getStatusBadgeVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
        if (!status) return 'outline';
        if (status === 'Rascunho') return 'secondary';
-       if (status === 'Ativo') return 'default'; // Green by default theme
-       if (status === 'Revisado') return 'outline'; // Consider a blueish or different outline
+       if (status === 'Ativo') return 'default';
+       if (status === 'Revisado') return 'outline';
        if (status === 'Obsoleto') return 'destructive';
        return 'outline';
    }
@@ -85,10 +85,6 @@ export default function InventarioJsaPage() {
   const handleEdit = (id: number) => {
       console.log(`Edit JSA ${id}`);
       toast({ title: "Funcionalidade Pendente", description: "Editar JSA ainda não implementado."});
-      // const jsaToEdit = jsaEntries.find(jsa => jsa.id === id);
-      // if (jsaToEdit) {
-      // setJsaDialogOpen(true); // Need to pass data to dialog
-      // }
   };
 
 
@@ -158,9 +154,9 @@ export default function InventarioJsaPage() {
                     <TableCell className="text-center">
                         {jsa.attachment_path ? (
                              <a
-                                href={jsa.attachment_path}
-                                download // Let the browser handle the download name from the URL
-                                target="_blank" // Open in new tab for better UX with PDFs, etc.
+                                href={jsa.attachment_path} // O path já deve ser /uploads/filename.ext
+                                download
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center p-2 rounded-md hover:bg-accent"
                                 title={`Baixar ${jsa.attachment_path.split('/').pop() || 'anexo'}`}
@@ -195,3 +191,4 @@ export default function InventarioJsaPage() {
     </div>
   );
 }
+
