@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -5,6 +6,7 @@ import { insertEmployee } from '@/lib/db';
 import { revalidatePath } from 'next/cache'; // To refresh data on the page
 
 // Schema matching the form and database structure
+// Dates are now expected as strings 'yyyy-MM-dd' or null from the EmployeeDialog
 const employeeSchema = z.object({
   name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres." }),
   role: z.string().optional().nullable(),
@@ -20,17 +22,18 @@ const employeeSchema = z.object({
 type EmployeeInput = z.infer<typeof employeeSchema>;
 
 export async function addEmployee(data: EmployeeInput): Promise<{ success: boolean; error?: string; id?: number }> {
+  console.log("[Action:addEmployee] Recebido para adicionar:", data);
   try {
     // Validate data using Zod schema on the server-side
     const validatedData = employeeSchema.safeParse(data);
     if (!validatedData.success) {
-      console.error("Validation failed:", validatedData.error.errors);
-      // Flatten errors for a simpler message
+      console.error("[Action:addEmployee] Falha na validação:", validatedData.error.errors);
       const errorMessages = validatedData.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
     const { name, role, department, hireDate, birthDate, rg, cpf, phone, address } = validatedData.data;
+    console.log("[Action:addEmployee] Dados validados para inserção:", validatedData.data);
 
     // Insert into the database
     const newEmployeeId = await insertEmployee(
@@ -46,17 +49,17 @@ export async function addEmployee(data: EmployeeInput): Promise<{ success: boole
     );
 
      if (newEmployeeId === undefined || newEmployeeId === null) {
+        console.error("[Action:addEmployee] Falha ao inserir no DB, ID não retornado.");
         throw new Error('Failed to insert employee, ID not returned.');
      }
 
-    console.log(`Employee added with ID: ${newEmployeeId}`);
+    console.log(`[Action:addEmployee] Funcionário adicionado com ID: ${newEmployeeId}`);
 
-    // Revalidate the path where employees are listed to show the new data
-    revalidatePath('/geral/cadastros'); // Adjust the path if needed
+    revalidatePath('/geral/cadastros');
 
     return { success: true, id: newEmployeeId };
   } catch (error) {
-    console.error('Error adding employee:', error);
+    console.error('[Action:addEmployee] Erro ao adicionar funcionário:', error);
     if (error instanceof Error && error.message.includes('UNIQUE constraint failed: employees.cpf')) {
       return { success: false, error: 'Erro: Já existe um funcionário com este CPF.' };
     }

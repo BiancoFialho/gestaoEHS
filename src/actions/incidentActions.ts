@@ -29,28 +29,31 @@ const incidentActionSchema = z.object({
 export type IncidentInput = z.infer<typeof incidentActionSchema>;
 
 export async function addIncident(data: IncidentInput): Promise<{ success: boolean; error?: string; id?: number }> {
+  console.log("[Action:addIncident] Recebido para adicionar:", data);
   try {
     const validatedData = incidentActionSchema.safeParse(data);
     if (!validatedData.success) {
-      console.error("Validation failed (addIncident):", validatedData.error.errors);
+      console.error("[Action:addIncident] Falha na validação:", validatedData.error.errors);
       const errorMessages = validatedData.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
     const { id, ...incidentData } = validatedData.data; // Exclude id for insert
+    console.log("[Action:addIncident] Dados validados para inserção:", incidentData);
 
     const newIncidentId = await dbInsertIncident(incidentData);
 
     if (newIncidentId === undefined || newIncidentId === null) {
+        console.error("[Action:addIncident] Falha ao inserir no DB, ID não retornado.");
         throw new Error('Falha ao inserir incidente, ID não retornado.');
     }
 
-    console.log(`Incidente reportado com ID: ${newIncidentId}`);
+    console.log(`[Action:addIncident] Incidente reportado com ID: ${newIncidentId}`);
     revalidatePath('/seguranca-trabalho/incidentes');
     return { success: true, id: newIncidentId };
 
   } catch (error) {
-    console.error('Erro ao adicionar incidente:', error);
+    console.error('[Action:addIncident] Erro ao adicionar incidente:', error);
     const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
     return { success: false, error: `Erro ao reportar incidente: ${errorMessage}` };
   }
@@ -58,47 +61,54 @@ export async function addIncident(data: IncidentInput): Promise<{ success: boole
 
 
 export async function updateIncident(data: IncidentInput): Promise<{ success: boolean; error?: string; id?: number }> {
+  console.log("[Action:updateIncident] Recebido para atualizar:", data);
   try {
     const validatedData = incidentActionSchema.safeParse(data);
     if (!validatedData.success) {
-      console.error("Validation failed (updateIncident):", validatedData.error.errors);
+      console.error("[Action:updateIncident] Falha na validação:", validatedData.error.errors);
       const errorMessages = validatedData.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
     if (!validatedData.data.id) {
+      console.error("[Action:updateIncident] ID do incidente ausente para atualização.");
       return { success: false, error: 'ID do incidente é obrigatório para atualização.' };
     }
     
     const { id, ...incidentDataToUpdate } = validatedData.data;
+    console.log("[Action:updateIncident] Dados validados para atualização (ID:", id, "):", incidentDataToUpdate);
 
     const success = await updateIncidentInDb(id!, incidentDataToUpdate); // id is asserted as it's checked
 
     if (!success) {
+      console.error("[Action:updateIncident] Falha ao atualizar no DB para ID:", id);
       throw new Error('Falha ao atualizar o incidente no banco de dados.');
     }
 
-    console.log(`Incidente atualizado com ID: ${id}`);
+    console.log(`[Action:updateIncident] Incidente atualizado com ID: ${id}`);
     revalidatePath('/seguranca-trabalho/incidentes');
     return { success: true, id: id };
 
   } catch (error) {
-    console.error('Erro ao atualizar incidente:', error);
+    console.error('[Action:updateIncident] Erro ao atualizar incidente:', error);
     const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
     return { success: false, error: `Erro ao atualizar incidente: ${errorMessage}` };
   }
 }
 
 export async function getIncidentById(id: number): Promise<{ success: boolean; data?: IncidentInput; error?: string }> {
+    console.log("[Action:getIncidentById] Buscando incidente com ID:", id);
     try {
         const incident = await dbGetIncidentById(id);
         if (incident) {
+            console.log("[Action:getIncidentById] Incidente encontrado:", incident);
             return { success: true, data: incident as IncidentInput }; // Type assertion
         } else {
+            console.warn("[Action:getIncidentById] Incidente não encontrado para ID:", id);
             return { success: false, error: 'Incidente não encontrado.' };
         }
     } catch (error) {
-        console.error('Erro ao buscar incidente por ID:', error);
+        console.error('[Action:getIncidentById] Erro ao buscar incidente por ID:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
         return { success: false, error: `Erro ao buscar incidente: ${errorMessage}` };
     }

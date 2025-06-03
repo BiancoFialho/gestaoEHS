@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import IncidentDialog from '@/components/incidentes/IncidentDialog';
 import IncidentDetailsDialog from '@/components/incidentes/IncidentDetailsDialog';
 import { useToast } from '@/hooks/use-toast';
-import { getAllIncidents } from '@/lib/db'; // Assuming getAllIncidents is updated to fetch all fields
+import { fetchAllIncidentsAction } from '@/actions/dataFetchingActions'; // Importar a nova server action
 
 interface IncidentEntry {
   id: number;
@@ -47,19 +47,33 @@ export default function IncidentesPage() {
 
   const fetchIncidents = React.useCallback(async () => {
     setIsLoading(true);
+    console.log("IncidentesPage: Iniciando fetchIncidents via action.");
     try {
-      const fetchedIncidents = await getAllIncidents(); // This function should return data consistent with IncidentEntry
-      setIncidents(fetchedIncidents as IncidentEntry[]);
+      // Usar a server action para buscar os incidentes
+      const result = await fetchAllIncidentsAction();
+      if (result.success && result.data) {
+        console.log(`IncidentesPage: ${result.data.length} incidentes recebidos da action.`);
+        setIncidents(result.data);
+      } else {
+        console.error("IncidentesPage: Falha ao buscar incidentes da action:", result.error);
+        toast({
+          title: "Erro ao Carregar Incidentes",
+          description: result.error || "Não foi possível buscar os incidentes.",
+          variant: "destructive",
+        });
+        setIncidents([]);
+      }
     } catch (error) {
-      console.error("Failed to fetch incidents:", error);
+      console.error("IncidentesPage: Exceção ao buscar incidentes:", error);
       toast({
-        title: "Erro ao Carregar Incidentes",
+        title: "Erro Crítico ao Carregar Incidentes",
         description: error instanceof Error ? error.message : "Não foi possível buscar os incidentes.",
         variant: "destructive",
       });
       setIncidents([]);
     } finally {
       setIsLoading(false);
+      console.log("IncidentesPage: fetchIncidents finalizado.");
     }
   }, [toast]);
 

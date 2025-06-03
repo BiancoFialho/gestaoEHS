@@ -1,14 +1,13 @@
+
 "use client";
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -29,29 +28,32 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { addEmployee } from '@/actions/employeeActions';
 
 interface EmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // TODO: initialData for editing
 }
 
-// Zod schema for validation
+const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
+const DATE_FORMAT_DB = "yyyy-MM-dd";
+
 const formSchema = z.object({
   name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres." }),
   role: z.string().optional(),
   department: z.string().optional(),
-  hireDate: z.date().optional().nullable(),
-  birthDate: z.date().optional().nullable(),
+  hireDateString: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
+  birthDateString: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   rg: z.string().optional(),
-  cpf: z.string().optional(), // Consider adding CPF validation regex
+  cpf: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
 });
@@ -66,8 +68,8 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
       name: "",
       role: "",
       department: "",
-      hireDate: null,
-      birthDate: null,
+      hireDateString: null,
+      birthDateString: null,
       rg: "",
       cpf: "",
       phone: "",
@@ -75,29 +77,53 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isHireDateCalendarOpen, setIsHireDateCalendarOpen] = useState(false);
-  const [isBirthDateCalendarOpen, setIsBirthDateCalendarOpen] = useState(false);
-
 
   const onSubmit = async (values: EmployeeFormValues) => {
     setIsSubmitting(true);
+    let formattedHireDate: string | null = null;
+    if (values.hireDateString) {
+        try {
+            const parsed = parse(values.hireDateString, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsed)) throw new Error("Data de admissão inválida.");
+            formattedHireDate = format(parsed, DATE_FORMAT_DB);
+        } catch(e) {
+            toast({ title: "Erro de Formato", description: (e as Error).message, variant: "destructive"});
+            setIsSubmitting(false);
+            return;
+        }
+    }
+
+    let formattedBirthDate: string | null = null;
+    if (values.birthDateString) {
+        try {
+            const parsed = parse(values.birthDateString, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsed)) throw new Error("Data de nascimento inválida.");
+            formattedBirthDate = format(parsed, DATE_FORMAT_DB);
+        } catch(e) {
+            toast({ title: "Erro de Formato", description: (e as Error).message, variant: "destructive"});
+            setIsSubmitting(false);
+            return;
+        }
+    }
+
     try {
       const dataToSend = {
-        ...values,
-        hireDate: values.hireDate ? format(values.hireDate, 'yyyy-MM-dd') : null,
-        birthDate: values.birthDate ? format(values.birthDate, 'yyyy-MM-dd') : null,
+        name: values.name,
         role: values.role || null,
         department: values.department || null,
+        hireDate: formattedHireDate,
+        birthDate: formattedBirthDate,
         rg: values.rg || null,
         cpf: values.cpf || null,
         phone: values.phone || null,
         address: values.address || null,
       };
+      console.log("Submitting Employee Data:", dataToSend);
       const result = await addEmployee(dataToSend);
       if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "Funcionário adicionado com sucesso.",
+          description: `Funcionário adicionado com sucesso. ID: ${result.id}`,
         });
         form.reset();
         onOpenChange(false);
@@ -111,7 +137,7 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
     } catch (error) {
       console.error("Error adding employee:", error);
       toast({
-        title: "Erro",
+        title: "Erro Inesperado",
         description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
@@ -124,9 +150,8 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
     if (!open) {
       form.reset();
       setIsSubmitting(false);
-      setIsHireDateCalendarOpen(false);
-      setIsBirthDateCalendarOpen(false);
     }
+    // TODO: Populate form if initialData is provided for editing
   }, [open, form]);
 
 
@@ -186,72 +211,26 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
-                name="hireDate"
+                name="hireDateString"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Data Admissão</FormLabel>
-                    <Popover open={isHireDateCalendarOpen} onOpenChange={setIsHireDateCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={(date) => { field.onChange(date); setIsHireDateCalendarOpen(false);}}
-                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                            initialFocus
-                            locale={ptBR}
-                        />
-                        </PopoverContent>
-                    </Popover>
+                    <FormItem>
+                    <FormLabel>Data Admissão (dd/mm/aaaa)</FormLabel>
+                    <FormControl>
+                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
                 <FormField
                 control={form.control}
-                name="birthDate"
+                name="birthDateString"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Data Nascimento</FormLabel>
-                     <Popover open={isBirthDateCalendarOpen} onOpenChange={setIsBirthDateCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={(date) => { field.onChange(date); setIsBirthDateCalendarOpen(false); }}
-                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                            initialFocus
-                            locale={ptBR}
-                        />
-                        </PopoverContent>
-                    </Popover>
+                    <FormItem>
+                    <FormLabel>Data Nascimento (dd/mm/aaaa)</FormLabel>
+                    <FormControl>
+                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}

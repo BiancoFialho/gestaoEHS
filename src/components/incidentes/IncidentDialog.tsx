@@ -5,9 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO } from "date-fns";
+import { format, parse, isValid, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -37,62 +36,65 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { addIncident, updateIncident } from '@/actions/incidentActions';
-import type { IncidentInput as IncidentActionInputType } from '@/actions/incidentActions'; // Use the type from server action
+import type { IncidentInput as IncidentActionInputType } from '@/actions/incidentActions';
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
 
-// Interface para os dados iniciais (para edição) - pode ser mais flexível
 interface IncidentInitialData {
   id?: number;
   description: string;
-  date: string; // Espera-se string da base de dados no formato ISO
+  date: string;
   type: string;
   severity?: string | null;
-  locationId?: number | null; // Campo como número
-  reportedById?: number | null; // Campo como número
+  locationId?: number | null;
+  reportedById?: number | null;
   status?: string | null;
   root_cause?: string | null;
   corrective_actions?: string | null;
   preventive_actions?: string | null;
   involved_persons_ids?: string | null;
-  investigation_responsible_id?: number | null; // Campo como número
+  investigation_responsible_id?: number | null;
   lost_days?: number | null;
   cost?: number | null;
-  closure_date?: string | null; // Espera-se string da base de dados no formato ISO
+  closure_date?: string | null;
 }
-
 
 interface IncidentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialData?: IncidentInitialData | null; // Para edição
-  onIncidentAddedOrUpdated?: () => void; // Callback para atualizar lista
+  initialData?: IncidentInitialData | null;
+  onIncidentAddedOrUpdated?: () => void;
 }
 
-// Zod schema para validação do formulário
+const DATE_TIME_FORMAT_DISPLAY = "dd/MM/yyyy HH:mm";
+const DATE_TIME_FORMAT_DB = "yyyy-MM-dd HH:mm:ss";
+const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
+const DATE_FORMAT_DB = "yyyy-MM-dd";
+
 const formSchema = z.object({
-  date: z.date({ required_error: "Data do incidente é obrigatória." }),
+  dateString: z.string().refine((val) => {
+    const parsed = parse(val, DATE_TIME_FORMAT_DISPLAY, new Date());
+    return isValid(parsed);
+  }, { message: `Data/Hora inválida. Use o formato ${DATE_TIME_FORMAT_DISPLAY}` }),
   type: z.string({ required_error: "Tipo de incidente é obrigatório." }).min(1, "Selecione o tipo."),
   description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
-  locationId: z.string().optional(), // ID como string vindo do Select
+  locationId: z.string().optional(),
   severity: z.string().optional(),
-  reportedById: z.string().optional(), // ID como string vindo do Select
+  reportedById: z.string().optional(),
   status: z.string().optional().default('Aberto'),
   root_cause: z.string().optional().nullable(),
   corrective_actions: z.string().optional().nullable(),
   preventive_actions: z.string().optional().nullable(),
   involved_persons_ids: z.string().optional().nullable(),
-  investigation_responsible_id: z.string().optional().nullable(), // ID como string vindo do Select
+  investigation_responsible_id: z.string().optional().nullable(),
   lost_days: z.coerce.number().int().nonnegative().optional().nullable(),
   cost: z.coerce.number().nonnegative().optional().nullable(),
-  closure_date: z.date().optional().nullable(),
+  closureDateString: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    const parsed = parse(val, DATE_FORMAT_DISPLAY, new Date());
+    return isValid(parsed);
+  }, { message: `Data inválida. Use o formato ${DATE_FORMAT_DISPLAY}` }),
 });
 
 type IncidentFormValues = z.infer<typeof formSchema>;
@@ -106,15 +108,13 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isClosureCalendarOpen, setIsClosureCalendarOpen] = useState(false);
 
   const isEditMode = !!initialData?.id;
 
   const form = useForm<IncidentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: new Date(),
+      dateString: format(new Date(), DATE_TIME_FORMAT_DISPLAY),
       type: "",
       description: "",
       locationId: "",
@@ -128,7 +128,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
       investigation_responsible_id: null,
       lost_days: null,
       cost: null,
-      closure_date: null,
+      closureDateString: null,
     },
   });
 
@@ -173,54 +173,72 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
 
     if (open) {
       fetchData();
-
       if (isEditMode && initialData) {
-        console.log("Populating form with initialData:", initialData);
         form.reset({
-          ...initialData, // Spread initial data
-          date: initialData.date ? parseISO(initialData.date) : new Date(), // Parse ISO string to Date
+          dateString: initialData.date ? format(parseISO(initialData.date), DATE_TIME_FORMAT_DISPLAY) : format(new Date(), DATE_TIME_FORMAT_DISPLAY),
+          type: initialData.type || "",
+          description: initialData.description || "",
           locationId: initialData.locationId?.toString() || "",
-          reportedById: initialData.reportedById?.toString() || "",
-          investigation_responsible_id: initialData.investigation_responsible_id?.toString() || "",
           severity: initialData.severity || "",
+          reportedById: initialData.reportedById?.toString() || "",
           status: initialData.status || "Aberto",
-          closure_date: initialData.closure_date ? parseISO(initialData.closure_date) : null, // Parse ISO string to Date
-          lost_days: initialData.lost_days ?? null, // Use ?? for nullish coalescing
-          cost: initialData.cost ?? null,
-          // Ensure other fields are also reset or populated
           root_cause: initialData.root_cause ?? null,
           corrective_actions: initialData.corrective_actions ?? null,
           preventive_actions: initialData.preventive_actions ?? null,
           involved_persons_ids: initialData.involved_persons_ids ?? null,
+          investigation_responsible_id: initialData.investigation_responsible_id?.toString() || "",
+          lost_days: initialData.lost_days ?? null,
+          cost: initialData.cost ?? null,
+          closureDateString: initialData.closure_date ? format(parseISO(initialData.closure_date), DATE_FORMAT_DISPLAY) : null,
         });
       } else {
-        form.reset({ // Reset for new incident
-            date: new Date(), type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto",
+        form.reset({
+            dateString: format(new Date(), DATE_TIME_FORMAT_DISPLAY),
+            type: "", description: "", locationId: "", severity: "", reportedById: "", status: "Aberto",
             root_cause: null, corrective_actions: null, preventive_actions: null, involved_persons_ids: null,
-            investigation_responsible_id: null, lost_days: null, cost: null, closure_date: null,
+            investigation_responsible_id: "", lost_days: null, cost: null, closureDateString: null,
         });
       }
     } else {
        setIsSubmitting(false);
        setIsLoading(false);
-       setIsCalendarOpen(false);
-       setIsClosureCalendarOpen(false);
     }
      return () => { isMounted = false; };
-   }, [open, form, toast, initialData, isEditMode]); // Added isEditMode to dependencies
+   }, [open, form, toast, initialData, isEditMode]);
 
 
   const onSubmit = async (values: IncidentFormValues) => {
-     if (!values.date) {
-        toast({ title: "Erro de Validação", description: "Data do incidente é obrigatória.", variant: "destructive" });
-        return;
-     }
-
     setIsSubmitting(true);
+    console.log("IncidentDialog onSubmit values:", values);
+
+    let formattedDate: string;
+    try {
+        const parsedDate = parse(values.dateString, DATE_TIME_FORMAT_DISPLAY, new Date());
+        if (!isValid(parsedDate)) throw new Error("Data/Hora do incidente inválida.");
+        formattedDate = format(parsedDate, DATE_TIME_FORMAT_DB);
+    } catch (e) {
+        toast({ title: "Erro de Formato", description: (e as Error).message, variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+
+    let formattedClosureDate: string | null = null;
+    if (values.closureDateString) {
+        try {
+            const parsedClosureDate = parse(values.closureDateString, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsedClosureDate)) throw new Error("Data de fechamento inválida.");
+            formattedClosureDate = format(parsedClosureDate, DATE_FORMAT_DB);
+        } catch (e) {
+            toast({ title: "Erro de Formato", description: (e as Error).message, variant: "destructive" });
+            setIsSubmitting(false);
+            return;
+        }
+    }
+
     const dataToSend: IncidentActionInputType = {
       id: isEditMode ? initialData?.id : undefined,
       description: values.description,
-      date: format(values.date, 'yyyy-MM-dd HH:mm:ss'), // Format Date to string for server
+      date: formattedDate,
       type: values.type,
       severity: values.severity === 'none' || values.severity === "" ? null : values.severity,
       locationId: values.locationId ? parseInt(values.locationId, 10) : null,
@@ -233,19 +251,19 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
       investigation_responsible_id: values.investigation_responsible_id ? parseInt(values.investigation_responsible_id, 10) : null,
       lost_days: values.lost_days ?? null,
       cost: values.cost ?? null,
-      closure_date: values.closure_date ? format(values.closure_date, 'yyyy-MM-dd') : null, // Format Date to string
+      closure_date: formattedClosureDate,
     };
-    console.log("Submitting Incident Data:", dataToSend);
+    console.log("Submitting Incident Data to Action:", dataToSend);
 
     try {
        const result = isEditMode && dataToSend.id
-         ? await updateIncident(dataToSend as Required<IncidentActionInputType>) // Cast if ID is present
+         ? await updateIncident(dataToSend as Required<IncidentActionInputType>)
          : await addIncident(dataToSend);
 
        if (result.success) {
         toast({
           title: "Sucesso!",
-          description: `Incidente ${isEditMode ? 'atualizado' : 'reportado'} com sucesso.`,
+          description: `Incidente ${isEditMode ? 'atualizado' : 'reportado'} com sucesso. ID: ${result.id}`,
         });
         onIncidentAddedOrUpdated?.();
         onOpenChange(false);
@@ -259,8 +277,8 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'reporting'} incident:`, error);
       toast({
-        title: "Erro",
-        description: "Ocorreu um erro inesperado.",
+        title: "Erro Inesperado",
+        description: "Ocorreu um erro inesperado ao processar a solicitação.",
         variant: "destructive",
       });
     } finally {
@@ -274,7 +292,6 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
   ];
   const severities = [ "N/A", "Insignificante", "Leve", "Moderado", "Grave", "Fatalidade" ];
   const statuses = [ "Aberto", "Em Investigação", "Aguardando Ação", "Fechado", "Cancelado" ];
-
   const NONE_SELECT_VALUE = "__NONE__";
 
   return (
@@ -288,28 +305,9 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-            {/* Basic Info Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="date" render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                        <FormLabel>Data/Hora *</FormLabel>
-                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                            <PopoverTrigger asChild><FormControl>
-                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? format(field.value, "dd/MM/yyyy HH:mm", { locale: ptBR }) : <span>Selecione</span>}
-                                </Button>
-                            </FormControl></PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar mode="single" selected={field.value} onSelect={(date) => { if (date) { const currentTime = field.value || new Date(); date.setHours(currentTime.getHours()); date.setMinutes(currentTime.getMinutes()); field.onChange(date); } else { field.onChange(new Date()); } }} disabled={(date) => date > new Date() } initialFocus locale={ptBR} />
-                                <div className="p-2 border-t border-border">
-                                    <Input type="time" defaultValue={field.value ? format(field.value, "HH:mm") : ""} onChange={(e) => { const time = e.target.value; const [hours, minutes] = time.split(':').map(Number); const newDate = field.value ? new Date(field.value) : new Date(); newDate.setHours(hours); newDate.setMinutes(minutes); field.onChange(newDate); }} className="w-full" />
-                                </div>
-                                <div className="p-2 flex justify-end"><Button size="sm" onClick={() => setIsCalendarOpen(false)}>Fechar</Button></div>
-                            </PopoverContent>
-                        </Popover>
-                        <FormMessage/>
-                    </FormItem>
+                <FormField control={form.control} name="dateString" render={({ field }) => (
+                    <FormItem><FormLabel>Data/Hora * (dd/mm/aaaa HH:mm)</FormLabel><FormControl><Input placeholder={DATE_TIME_FORMAT_DISPLAY} {...field} /></FormControl><FormMessage/></FormItem>
                 )}/>
                 <FormField control={form.control} name="type" render={({ field }) => (
                     <FormItem><FormLabel>Tipo *</FormLabel>
@@ -340,7 +338,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                 <FormItem><FormLabel>Descrição *</FormLabel><FormControl><Textarea placeholder="Descreva o ocorrido..." {...field} rows={3} /></FormControl><FormMessage/></FormItem>
             )}/>
 
-             {(isEditMode || form.watch('status') !== 'Aberto') && (
+            {(isEditMode || form.watch('status') !== 'Aberto') && (
               <>
                 <h3 className="text-md font-semibold mt-4 pt-2 border-t">Detalhes da Investigação</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -358,20 +356,8 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
                     )}/>
                     <FormField control={form.control} name="lost_days" render={({ field }) => (<FormItem><FormLabel>Dias Perdidos</FormLabel><FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/></FormControl><FormMessage/></FormItem>)}/>
                     <FormField control={form.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Custo Estimado (R$)</FormLabel><FormControl><Input type="number" placeholder="0.00" step="0.01" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}/></FormControl><FormMessage/></FormItem>)}/>
-                    <FormField control={form.control} name="closure_date" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel>Data Fechamento</FormLabel>
-                             <Popover open={isClosureCalendarOpen} onOpenChange={setIsClosureCalendarOpen}>
-                                <PopoverTrigger asChild><FormControl>
-                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                                    </Button>
-                                </FormControl></PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsClosureCalendarOpen(false); }} initialFocus locale={ptBR} />
-                                </PopoverContent>
-                            </Popover>
-                        <FormMessage/></FormItem>
+                    <FormField control={form.control} name="closureDateString" render={({ field }) => (
+                        <FormItem><FormLabel>Data Fechamento (dd/mm/aaaa)</FormLabel><FormControl><Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} /></FormControl><FormMessage/></FormItem>
                     )}/>
                 </div>
               </>
