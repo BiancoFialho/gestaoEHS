@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parse, isValid } from "date-fns";
+import { format, parse, isValid, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 
 import {
@@ -34,7 +34,20 @@ import { addEmployee } from '@/actions/employeeActions';
 interface EmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // TODO: initialData for editing
+  initialData?: EmployeeInitialData | null; // For editing
+}
+
+interface EmployeeInitialData {
+    id?: number;
+    name: string;
+    role?: string | null;
+    department?: string | null;
+    hireDate?: string | null; // Expect YYYY-MM-DD from DB
+    birthDate?: string | null; // Expect YYYY-MM-DD from DB
+    rg?: string | null;
+    cpf?: string | null;
+    phone?: string | null;
+    address?: string | null;
 }
 
 const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
@@ -45,11 +58,11 @@ const formSchema = z.object({
   role: z.string().optional(),
   department: z.string().optional(),
   hireDateString: z.string().optional().nullable().refine((val) => {
-    if (!val) return true;
+    if (!val || val.trim() === "") return true;
     return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
   }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   birthDateString: z.string().optional().nullable().refine((val) => {
-    if (!val) return true;
+    if (!val || val.trim() === "") return true;
     return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
   }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   rg: z.string().optional(),
@@ -60,7 +73,7 @@ const formSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof formSchema>;
 
-const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) => {
+const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, initialData }) => {
   const { toast } = useToast();
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(formSchema),
@@ -77,11 +90,14 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditMode = !!initialData?.id;
 
   const onSubmit = async (values: EmployeeFormValues) => {
     setIsSubmitting(true);
+    console.log("[EmployeeDialog] onSubmit values:", values);
+
     let formattedHireDate: string | null = null;
-    if (values.hireDateString) {
+    if (values.hireDateString && values.hireDateString.trim() !== "") {
         try {
             const parsed = parse(values.hireDateString, DATE_FORMAT_DISPLAY, new Date());
             if (!isValid(parsed)) throw new Error("Data de admissão inválida.");
@@ -94,7 +110,7 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
     }
 
     let formattedBirthDate: string | null = null;
-    if (values.birthDateString) {
+    if (values.birthDateString && values.birthDateString.trim() !== "") {
         try {
             const parsed = parse(values.birthDateString, DATE_FORMAT_DISPLAY, new Date());
             if (!isValid(parsed)) throw new Error("Data de nascimento inválida.");
@@ -118,24 +134,28 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
         phone: values.phone || null,
         address: values.address || null,
       };
-      console.log("Submitting Employee Data:", dataToSend);
+      console.log("[EmployeeDialog] Submitting Employee Data to Action:", dataToSend);
+
+      // TODO: Implement updateEmployee action and use it here if isEditMode
+      // For now, only addEmployee is used.
       const result = await addEmployee(dataToSend);
+
       if (result.success) {
         toast({
           title: "Sucesso!",
-          description: `Funcionário adicionado com sucesso. ID: ${result.id}`,
+          description: `Funcionário ${isEditMode ? 'atualizado' : 'adicionado'} com sucesso. ID: ${result.id}`,
         });
         form.reset();
         onOpenChange(false);
       } else {
          toast({
             title: "Erro",
-            description: result.error || "Falha ao adicionar funcionário.",
+            description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} funcionário.`,
             variant: "destructive",
          });
       }
     } catch (error) {
-      console.error("Error adding employee:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} employee:`, error);
       toast({
         title: "Erro Inesperado",
         description: "Ocorreu um erro inesperado.",
@@ -147,21 +167,39 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
   };
 
   React.useEffect(() => {
-    if (!open) {
-      form.reset();
+    if (open) {
+        if (isEditMode && initialData) {
+            form.reset({
+                name: initialData.name || "",
+                role: initialData.role || "",
+                department: initialData.department || "",
+                hireDateString: initialData.hireDate ? format(parseISO(initialData.hireDate), DATE_FORMAT_DISPLAY) : null,
+                birthDateString: initialData.birthDate ? format(parseISO(initialData.birthDate), DATE_FORMAT_DISPLAY) : null,
+                rg: initialData.rg || "",
+                cpf: initialData.cpf || "",
+                phone: initialData.phone || "",
+                address: initialData.address || "",
+            });
+        } else {
+            form.reset({
+                name: "", role: "", department: "",
+                hireDateString: null, birthDateString: null,
+                rg: "", cpf: "", phone: "", address: "",
+            });
+        }
+    } else {
       setIsSubmitting(false);
     }
-    // TODO: Populate form if initialData is provided for editing
-  }, [open, form]);
+  }, [open, form, initialData, isEditMode]);
 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Funcionário</DialogTitle>
+          <DialogTitle>{isEditMode ? "Editar Funcionário" : "Adicionar Novo Funcionário"}</DialogTitle>
           <DialogDescription>
-            Insira os dados do novo funcionário.
+            {isEditMode ? "Altere os dados do funcionário." : "Insira os dados do novo funcionário."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -214,7 +252,7 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
                 name="hireDateString"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Data Admissão (dd/mm/aaaa)</FormLabel>
+                    <FormLabel>Data Admissão ({DATE_FORMAT_DISPLAY})</FormLabel>
                     <FormControl>
                         <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -227,7 +265,7 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
                 name="birthDateString"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Data Nascimento (dd/mm/aaaa)</FormLabel>
+                    <FormLabel>Data Nascimento ({DATE_FORMAT_DISPLAY})</FormLabel>
                     <FormControl>
                         <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -297,7 +335,7 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
                 <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Salvando..." : "Salvar"}
+                {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
                 </Button>
             </DialogFooter>
           </form>
@@ -308,3 +346,5 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange }) =
 };
 
 export default EmployeeDialog;
+
+    

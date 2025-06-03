@@ -1,14 +1,13 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from "date-fns";
+import { format, parse, isValid, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -36,12 +35,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { addEquipment } from '@/actions/equipmentActions';
 import { fetchLocations } from '@/actions/dataFetchingActions';
@@ -49,7 +42,26 @@ import { fetchLocations } from '@/actions/dataFetchingActions';
 interface EquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialData?: EquipmentInitialData | null; // For editing
 }
+
+interface EquipmentInitialData {
+    id?: number;
+    name: string;
+    type?: string | null;
+    locationId?: number | null;
+    serialNumber?: string | null;
+    brand?: string | null;
+    model?: string | null;
+    acquisitionDate?: string | null; // Expect YYYY-MM-DD
+    status?: string | null;
+    maintenanceSchedule?: string | null;
+    lastMaintenanceDate?: string | null; // Expect YYYY-MM-DD
+    nextMaintenanceDate?: string | null; // Expect YYYY-MM-DD
+}
+
+const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
+const DATE_FORMAT_DB = "yyyy-MM-dd";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Nome do equipamento deve ter pelo menos 2 caracteres." }),
@@ -58,11 +70,20 @@ const formSchema = z.object({
   serialNumber: z.string().optional(),
   brand: z.string().optional(),
   model: z.string().optional(),
-  acquisitionDate: z.date().optional().nullable(),
+  acquisitionDateString: z.string().optional().nullable().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   status: z.string().optional().default('Operacional'),
   maintenanceSchedule: z.string().optional(),
-  lastMaintenanceDate: z.date().optional().nullable(),
-  nextMaintenanceDate: z.date().optional().nullable(),
+  lastMaintenanceDateString: z.string().optional().nullable().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
+  nextMaintenanceDateString: z.string().optional().nullable().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
 });
 
 type EquipmentFormValues = z.infer<typeof formSchema>;
@@ -72,30 +93,19 @@ interface Location {
     name: string;
 }
 
-const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange }) => {
+const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, initialData }) => {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAcquisitionCalendarOpen, setIsAcquisitionCalendarOpen] = useState(false);
-  const [isLastMaintenanceCalendarOpen, setIsLastMaintenanceCalendarOpen] = useState(false);
-  const [isNextMaintenanceCalendarOpen, setIsNextMaintenanceCalendarOpen] = useState(false);
-
+  const isEditMode = !!initialData?.id;
 
   const form = useForm<EquipmentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      type: "",
-      locationId: "",
-      serialNumber: "",
-      brand: "",
-      model: "",
-      acquisitionDate: null,
-      status: "Operacional",
-      maintenanceSchedule: "",
-      lastMaintenanceDate: null,
-      nextMaintenanceDate: null,
+      name: "", type: "", locationId: "", serialNumber: "", brand: "", model: "",
+      acquisitionDateString: null, status: "Operacional", maintenanceSchedule: "",
+      lastMaintenanceDateString: null, nextMaintenanceDateString: null,
     },
   });
 
@@ -103,6 +113,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
     let isMounted = true;
     if (open) {
       const loadLocations = async () => {
+        if (!isMounted) return;
         setIsLoadingLocations(true);
         try {
            const result = await fetchLocations();
@@ -122,62 +133,105 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
               setLocations([]);
            }
         } finally {
-          if (isMounted) {
-             setIsLoadingLocations(false);
-          }
+          if (isMounted) setIsLoadingLocations(false);
         }
       };
       loadLocations();
+
+      if (isEditMode && initialData) {
+        form.reset({
+            name: initialData.name || "",
+            type: initialData.type || "",
+            locationId: initialData.locationId?.toString() || "",
+            serialNumber: initialData.serialNumber || "",
+            brand: initialData.brand || "",
+            model: initialData.model || "",
+            acquisitionDateString: initialData.acquisitionDate ? format(parseISO(initialData.acquisitionDate), DATE_FORMAT_DISPLAY) : null,
+            status: initialData.status || "Operacional",
+            maintenanceSchedule: initialData.maintenanceSchedule || "",
+            lastMaintenanceDateString: initialData.lastMaintenanceDate ? format(parseISO(initialData.lastMaintenanceDate), DATE_FORMAT_DISPLAY) : null,
+            nextMaintenanceDateString: initialData.nextMaintenanceDate ? format(parseISO(initialData.nextMaintenanceDate), DATE_FORMAT_DISPLAY) : null,
+        });
+      } else {
+        form.reset({
+            name: "", type: "", locationId: "", serialNumber: "", brand: "", model: "",
+            acquisitionDateString: null, status: "Operacional", maintenanceSchedule: "",
+            lastMaintenanceDateString: null, nextMaintenanceDateString: null,
+        });
+      }
     } else {
-      form.reset();
       setLocations([]);
       setIsSubmitting(false);
       setIsLoadingLocations(false);
-      setIsAcquisitionCalendarOpen(false);
-      setIsLastMaintenanceCalendarOpen(false);
-      setIsNextMaintenanceCalendarOpen(false);
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [open, form, toast]);
+    return () => { isMounted = false; };
+  }, [open, form, toast, initialData, isEditMode]);
 
   const onSubmit = async (values: EquipmentFormValues) => {
     setIsSubmitting(true);
-    const dataToSend = {
-        ...values,
-        locationId: values.locationId ? parseInt(values.locationId, 10) : null,
-        serialNumber: values.serialNumber || null,
-        type: values.type || null,
-        brand: values.brand || null,
-        model: values.model || null,
-        acquisitionDate: values.acquisitionDate ? format(values.acquisitionDate, 'yyyy-MM-dd') : null,
-        status: values.status || 'Operacional',
-        maintenanceSchedule: values.maintenanceSchedule || null,
-        lastMaintenanceDate: values.lastMaintenanceDate ? format(values.lastMaintenanceDate, 'yyyy-MM-dd') : null,
-        nextMaintenanceDate: values.nextMaintenanceDate ? format(values.nextMaintenanceDate, 'yyyy-MM-dd') : null,
+    console.log("[EquipmentDialog] onSubmit values:", values);
+
+    const parseDateString = (dateStr: string | null | undefined): string | null => {
+        if (!dateStr || dateStr.trim() === "") return null;
+        try {
+            const parsed = parse(dateStr, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsed)) throw new Error(`Data inválida: ${dateStr}`);
+            return format(parsed, DATE_FORMAT_DB);
+        } catch (e) {
+            throw e; // Re-throw to be caught by the main try-catch
+        }
     };
 
+    let formattedAcquisitionDate: string | null = null;
+    let formattedLastMaintenanceDate: string | null = null;
+    let formattedNextMaintenanceDate: string | null = null;
+
+    try {
+        formattedAcquisitionDate = parseDateString(values.acquisitionDateString);
+        formattedLastMaintenanceDate = parseDateString(values.lastMaintenanceDateString);
+        formattedNextMaintenanceDate = parseDateString(values.nextMaintenanceDateString);
+    } catch (e) {
+        toast({ title: "Erro de Formato de Data", description: (e as Error).message, variant: "destructive"});
+        setIsSubmitting(false);
+        return;
+    }
+
+    const dataToSend = {
+        name: values.name,
+        type: values.type || null,
+        locationId: values.locationId ? parseInt(values.locationId, 10) : null,
+        serialNumber: values.serialNumber || null,
+        brand: values.brand || null,
+        model: values.model || null,
+        acquisitionDate: formattedAcquisitionDate,
+        status: values.status || 'Operacional',
+        maintenanceSchedule: values.maintenanceSchedule || null,
+        lastMaintenanceDate: formattedLastMaintenanceDate,
+        nextMaintenanceDate: formattedNextMaintenanceDate,
+    };
+    console.log("[EquipmentDialog] Submitting Equipment Data to Action:", dataToSend);
+
+    // TODO: Implement updateEquipment action
     try {
       const result = await addEquipment(dataToSend);
       if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "Equipamento adicionado com sucesso.",
+          description: `Equipamento ${isEditMode ? 'atualizado' : 'adicionado'} com sucesso.`,
         });
         form.reset();
         onOpenChange(false);
       } else {
          toast({
             title: "Erro",
-            description: result.error || "Falha ao adicionar equipamento.",
+            description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} equipamento.`,
             variant: "destructive",
          });
       }
     } catch (error) {
-      console.error("Error adding equipment:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} equipment:`, error);
       toast({
-        title: "Erro",
+        title: "Erro Inesperado",
         description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
@@ -187,14 +241,15 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
   };
 
   const equipmentStatusOptions = ["Operacional", "Em Manutenção", "Fora de Uso", "Aguardando Peças", "Descartado"];
+  const NONE_SELECT_VALUE = "__NONE__";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Equipamento</DialogTitle>
+          <DialogTitle>{isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento"}</DialogTitle>
           <DialogDescription>
-            Insira os dados do novo equipamento.
+            {isEditMode ? "Altere os dados do equipamento." : "Insira os dados do novo equipamento."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -220,7 +275,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                     <FormItem>
                     <FormLabel>Tipo</FormLabel>
                     <FormControl>
-                        <Input placeholder="Ex: Extintor, Máquina, Ferramenta" {...field} value={field.value ?? ''} />
+                        <Input placeholder="Ex: Extintor, Máquina" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -276,8 +331,8 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                 <FormItem>
                   <FormLabel>Local</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                    value={field.value || undefined}
+                    onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)}
+                    value={field.value || ""}
                     disabled={isLoadingLocations}
                   >
                     <FormControl>
@@ -286,7 +341,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       <SelectItem value="none">Nenhum</SelectItem>
+                       <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
                        {locations.map((loc) => (
                         <SelectItem key={loc.id} value={loc.id.toString()}>
                           {loc.name}
@@ -305,30 +360,13 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
-                name="acquisitionDate"
+                name="acquisitionDateString"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Data Aquisição</FormLabel>
-                    <Popover open={isAcquisitionCalendarOpen} onOpenChange={setIsAcquisitionCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn("w-full justify-start text-left font-normal",!field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single" selected={field.value}
-                            onSelect={(date) => { field.onChange(date); setIsAcquisitionCalendarOpen(false); }}
-                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                            initialFocus locale={ptBR}
-                        />
-                        </PopoverContent>
-                    </Popover>
+                    <FormItem>
+                    <FormLabel>Data Aquisição ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
@@ -339,7 +377,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value ?? 'Operacional'}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Selecione o status" />
@@ -362,7 +400,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
                 <FormItem>
                   <FormLabel>Plano de Manutenção</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Descreva a frequência ou plano (Ex: Inspeção mensal, lubrificação semestral)" {...field} value={field.value ?? ''}/>
+                    <Textarea placeholder="Descreva a frequência ou plano..." {...field} value={field.value ?? ''}/>
                   </FormControl>
                    <FormMessage />
                 </FormItem>
@@ -371,59 +409,38 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
-                name="lastMaintenanceDate"
+                name="lastMaintenanceDateString"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Última Manutenção</FormLabel>
-                     <Popover open={isLastMaintenanceCalendarOpen} onOpenChange={setIsLastMaintenanceCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsLastMaintenanceCalendarOpen(false); }} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus locale={ptBR}/>
-                        </PopoverContent>
-                    </Popover>
+                    <FormItem>
+                    <FormLabel>Última Manutenção ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
                 <FormField
                 control={form.control}
-                name="nextMaintenanceDate"
+                name="nextMaintenanceDateString"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Próxima Manutenção</FormLabel>
-                    <Popover open={isNextMaintenanceCalendarOpen} onOpenChange={setIsNextMaintenanceCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal",!field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsNextMaintenanceCalendarOpen(false); }} initialFocus locale={ptBR}/>
-                        </PopoverContent>
-                    </Popover>
+                    <FormItem>
+                    <FormLabel>Próxima Manutenção ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
             </div>
 
-
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
                  <Button type="submit" disabled={isSubmitting || isLoadingLocations}>
-                    {isSubmitting ? "Salvando..." : "Salvar"}
+                    {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
                 </Button>
             </DialogFooter>
           </form>
@@ -434,3 +451,5 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange })
 };
 
 export default EquipmentDialog;
+
+    

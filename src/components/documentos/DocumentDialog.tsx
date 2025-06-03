@@ -1,14 +1,13 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from "date-fns";
+import { format, parse, isValid, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -36,21 +35,33 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { addDocument } from '@/actions/documentActions';
-import { fetchUsers, fetchJsas } from '@/actions/dataFetchingActions'; // Assuming fetchJsas exists
+import { fetchUsers, fetchJsas } from '@/actions/dataFetchingActions';
 
 interface DocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialData?: DocumentInitialData | null; // For editing
 }
+
+interface DocumentInitialData {
+    id?: number;
+    title: string;
+    category?: string | null;
+    version?: string | null;
+    status?: string | null;
+    description?: string | null;
+    filePath?: string | null;
+    reviewDate?: string | null; // Expect YYYY-MM-DD
+    authorId?: number | null;
+    ownerDepartment?: string | null;
+    jsaId?: number | null;
+}
+
+const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
+const DATE_FORMAT_DB = "yyyy-MM-dd";
 
 const formSchema = z.object({
   title: z.string().min(3, { message: "Título deve ter pelo menos 3 caracteres." }),
@@ -58,44 +69,39 @@ const formSchema = z.object({
   version: z.string().optional(),
   status: z.string().optional().default('Ativo'),
   description: z.string().optional(),
-  filePath: z.string().optional(),
-  reviewDate: z.date().optional().nullable(),
+  filePath: z.string().optional(), // Path or URL to existing file for now
+  reviewDateString: z.string().optional().nullable().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   authorId: z.string().optional(), // string for select value
   ownerDepartment: z.string().optional(),
   jsaId: z.string().optional(), // string for select value
+  // attachment: z.any().optional(), // For actual file upload later
 });
 
 type DocumentFormValues = z.infer<typeof formSchema>;
 
 interface User { id: number; name: string; }
-interface Jsa { id: number; task: string; } // Basic JSA type
+interface Jsa { id: number; task: string; }
 
 const documentStatusOptions = ["Ativo", "Em Revisão", "Obsoleto", "Rascunho"];
 const documentCategories = ["Política", "Procedimento", "Manual", "FDS", "Relatório", "PGR/PPRA", "Plano", "Outro"];
+const NONE_SELECT_VALUE = "__NONE__";
 
-
-const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) => {
+const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange, initialData }) => {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
-  const [jsas, setJsas] = useState<Jsa[]>([]); // State for JSAs
+  const [jsas, setJsas] = useState<Jsa[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isReviewDateCalendarOpen, setIsReviewDateCalendarOpen] = useState(false);
-
+  const isEditMode = !!initialData?.id;
 
   const form = useForm<DocumentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      category: "",
-      version: "",
-      status: "Ativo",
-      description: "",
-      filePath: "",
-      reviewDate: null,
-      authorId: "",
-      ownerDepartment: "",
-      jsaId: "",
+      title: "", category: "", version: "", status: "Ativo", description: "",
+      filePath: "", reviewDateString: null, authorId: "", ownerDepartment: "", jsaId: "",
     },
   });
 
@@ -103,70 +109,97 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
     let isMounted = true;
     if (open) {
       const fetchData = async () => {
+        if (!isMounted) return;
         setIsLoading(true);
         try {
-          const [usersResult, jsasResult] = await Promise.all([
-            fetchUsers(),
-            fetchJsas() // Assuming fetchJsas exists and returns { success: boolean, data?: Jsa[], error?: string }
-          ]);
+          const [usersResult, jsasResult] = await Promise.all([ fetchUsers(), fetchJsas() ]);
           if (isMounted) {
-            if (usersResult.success && usersResult.data) {
-              setUsers(usersResult.data);
-            } else {
-              toast({ title: "Erro", description: usersResult.error || "Não foi possível carregar usuários.", variant: "destructive" });
-            }
-            if (jsasResult.success && jsasResult.data) {
-              setJsas(jsasResult.data);
-            } else {
-              toast({ title: "Erro", description: jsasResult.error || "Não foi possível carregar JSAs.", variant: "destructive" });
-            }
+            if (usersResult.success && usersResult.data) setUsers(usersResult.data);
+            else { console.error("Error fetching users:", usersResult.error); toast({ title: "Erro", description: usersResult.error || "Não foi possível carregar usuários.", variant: "destructive" }); }
+            if (jsasResult.success && jsasResult.data) setJsas(jsasResult.data);
+            else { console.error("Error fetching JSAs:", jsasResult.error); toast({ title: "Erro", description: jsasResult.error || "Não foi possível carregar JSAs.", variant: "destructive" });}
           }
         } catch (error) {
-          if (isMounted) {
-            toast({ title: "Erro", description: "Falha ao carregar dados para o formulário.", variant: "destructive" });
-          }
+          if (isMounted) toast({ title: "Erro", description: "Falha ao carregar dados para o formulário.", variant: "destructive" });
         } finally {
           if (isMounted) setIsLoading(false);
         }
       };
       fetchData();
+
+      if (isEditMode && initialData) {
+        form.reset({
+            title: initialData.title || "",
+            category: initialData.category || "",
+            version: initialData.version || "",
+            status: initialData.status || "Ativo",
+            description: initialData.description || "",
+            filePath: initialData.filePath || "",
+            reviewDateString: initialData.reviewDate ? format(parseISO(initialData.reviewDate), DATE_FORMAT_DISPLAY) : null,
+            authorId: initialData.authorId?.toString() || "",
+            ownerDepartment: initialData.ownerDepartment || "",
+            jsaId: initialData.jsaId?.toString() || "",
+        });
+      } else {
+        form.reset({
+            title: "", category: "", version: "", status: "Ativo", description: "",
+            filePath: "", reviewDateString: null, authorId: "", ownerDepartment: "", jsaId: "",
+        });
+      }
     } else {
-      form.reset();
-      setUsers([]);
-      setJsas([]);
-      setIsSubmitting(false);
-      setIsLoading(false);
-      setIsReviewDateCalendarOpen(false);
+      setUsers([]); setJsas([]); setIsSubmitting(false); setIsLoading(false);
     }
     return () => { isMounted = false; };
-  }, [open, form, toast]);
+  }, [open, form, toast, initialData, isEditMode]);
 
 
   const onSubmit = async (values: DocumentFormValues) => {
     setIsSubmitting(true);
+    console.log("[DocumentDialog] onSubmit values:", values);
+
+    let formattedReviewDate: string | null = null;
+    if (values.reviewDateString && values.reviewDateString.trim() !== "") {
+        try {
+            const parsed = parse(values.reviewDateString, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsed)) throw new Error("Data de revisão inválida.");
+            formattedReviewDate = format(parsed, DATE_FORMAT_DB);
+        } catch(e) {
+            toast({ title: "Erro de Formato de Data", description: (e as Error).message, variant: "destructive"});
+            setIsSubmitting(false);
+            return;
+        }
+    }
+
     try {
+      // TODO: Handle actual file upload here if `values.attachment` is present.
+      // For now, we assume filePath is a manually entered URL or path.
       const dataToSend = {
-        ...values,
-        category: values.category || null,
-        version: values.version || null,
+        title: values.title,
         description: values.description || null,
-        filePath: values.filePath || null,
-        reviewDate: values.reviewDate ? format(values.reviewDate, 'yyyy-MM-dd') : null,
+        category: values.category || null,
+        filePath: values.filePath || null, // This would be the result of file upload
+        version: values.version || null,
+        reviewDate: formattedReviewDate,
+        status: values.status || 'Ativo',
+        jsaId: values.jsaId ? parseInt(values.jsaId, 10) : null,
         authorId: values.authorId ? parseInt(values.authorId, 10) : null,
         ownerDepartment: values.ownerDepartment || null,
-        jsaId: values.jsaId ? parseInt(values.jsaId, 10) : null,
       };
+      console.log("[DocumentDialog] Submitting Document Data to Action:", dataToSend);
+
+      // TODO: Implement updateDocument action
       const result = await addDocument(dataToSend);
+
       if (result.success) {
-        toast({ title: "Sucesso!", description: "Documento adicionado com sucesso." });
+        toast({ title: "Sucesso!", description: `Documento ${isEditMode ? 'atualizado' : 'adicionado'} com sucesso.` });
         form.reset();
         onOpenChange(false);
       } else {
-        toast({ title: "Erro", description: result.error || "Falha ao adicionar documento.", variant: "destructive" });
+        toast({ title: "Erro", description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} documento.`, variant: "destructive" });
       }
     } catch (error) {
-      console.error("Error adding document:", error);
-      toast({ title: "Erro", description: "Ocorreu um erro inesperado.", variant: "destructive" });
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} document:`, error);
+      toast({ title: "Erro Inesperado", description: "Ocorreu um erro inesperado.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -176,9 +209,9 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Documento</DialogTitle>
+          <DialogTitle>{isEditMode ? "Editar Documento" : "Adicionar Novo Documento"}</DialogTitle>
           <DialogDescription>
-            Insira as informações do documento. O upload do arquivo será implementado.
+            Insira as informações do documento. O upload de arquivo será implementado.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -203,11 +236,12 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? "" : value)} value={field.value || ""}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                            <SelectItem value={NONE_SELECT_VALUE}>Nenhuma</SelectItem>
                             {documentCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -236,7 +270,7 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value ?? 'Ativo'}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                         </FormControl>
@@ -250,23 +284,13 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 />
                 <FormField
                 control={form.control}
-                name="reviewDate"
+                name="reviewDateString"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Data Próxima Revisão</FormLabel>
-                    <Popover open={isReviewDateCalendarOpen} onOpenChange={setIsReviewDateCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsReviewDateCalendarOpen(false); }} initialFocus locale={ptBR}/>
-                        </PopoverContent>
-                    </Popover>
+                    <FormItem>
+                    <FormLabel>Data Próxima Revisão ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={`${DATE_FORMAT_DISPLAY} (opcional)`} {...field} value={field.value ?? ''}/>
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
@@ -279,7 +303,7 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 <FormItem>
                   <FormLabel>Descrição</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Breve descrição do conteúdo do documento..." {...field} value={field.value ?? ''}/>
+                    <Textarea placeholder="Breve descrição do conteúdo..." {...field} value={field.value ?? ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -292,12 +316,12 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Autor</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || undefined} disabled={isLoading}>
+                    <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoading}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o autor"} /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            <SelectItem value="none">Nenhum</SelectItem>
+                            <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
                             {users.map(user => <SelectItem key={user.id} value={user.id.toString()}>{user.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -325,12 +349,12 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>JSA Associada (Opcional)</FormLabel>
-                     <Select onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} value={field.value || undefined} disabled={isLoading}>
+                     <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoading}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione a JSA"} /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            <SelectItem value="none">Nenhuma</SelectItem>
+                            <SelectItem value={NONE_SELECT_VALUE}>Nenhuma</SelectItem>
                             {jsas.map(jsa => <SelectItem key={jsa.id} value={jsa.id.toString()}>{jsa.task}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -349,7 +373,7 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                 name="filePath"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>URL/Caminho do Arquivo (Temporário)</FormLabel>
+                    <FormLabel>URL/Caminho do Arquivo (Entrada Manual)</FormLabel>
                     <FormControl>
                         <Input placeholder="Cole a URL ou caminho do arquivo aqui" {...field} value={field.value ?? ''}/>
                     </FormControl>
@@ -362,7 +386,7 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
                 <Button type="submit" disabled={isSubmitting || isLoading}>
-                    {isSubmitting ? "Salvando..." : "Salvar"}
+                    {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
                 </Button>
             </DialogFooter>
           </form>
@@ -373,3 +397,5 @@ const DocumentDialog: React.FC<DocumentDialogProps> = ({ open, onOpenChange }) =
 };
 
 export default DocumentDialog;
+
+    

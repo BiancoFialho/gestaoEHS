@@ -1,14 +1,13 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from "date-fns";
+import { format, parse, isValid, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -35,12 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { addTrainingRecord } from '@/actions/trainingRecordActions';
 import { fetchEmployees, fetchTrainings } from '@/actions/dataFetchingActions';
@@ -48,52 +41,60 @@ import { fetchEmployees, fetchTrainings } from '@/actions/dataFetchingActions';
 interface TrainingRecordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialData?: TrainingRecordInitialData | null; // For editing
 }
+
+interface TrainingRecordInitialData {
+    id?: number;
+    employeeId: number;
+    trainingId: number;
+    completionDate: string; // Expect YYYY-MM-DD
+    expiryDate?: string | null; // Expect YYYY-MM-DD
+    score?: number | null;
+    status?: string | null;
+    instructorName?: string | null;
+}
+
+const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
+const DATE_FORMAT_DB = "yyyy-MM-dd";
 
 const formSchema = z.object({
   employeeId: z.string({ required_error: "Selecione um funcionário." }).min(1, "Selecione um funcionário."),
   trainingId: z.string({ required_error: "Selecione um curso." }).min(1, "Selecione um curso."),
-  completionDate: z.date({ required_error: "Data de conclusão é obrigatória." }),
-  expiryDate: z.date().optional().nullable(),
+  completionDateString: z.string({required_error: "Data de conclusão é obrigatória."}).refine((val) => {
+    if (!val || val.trim() === "") return false; // Obrigatório
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
+  expiryDateString: z.string().optional().nullable().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   score: z.coerce.number().optional().nullable(),
   status: z.string().optional().default('Concluído'),
   instructorName: z.string().optional(),
-  // certificatePath: z.string().optional(),
 });
 
 type RecordFormValues = z.infer<typeof formSchema>;
 
-interface Employee {
-    id: number;
-    name: string;
-}
-interface Training {
-    id: number;
-    course_name: string;
-}
+interface Employee { id: number; name: string; }
+interface Training { id: number; course_name: string; }
 
 const trainingStatusOptions = ["Concluído", "Pendente", "Vencido", "Agendado", "Cancelado"];
+const NONE_SELECT_VALUE = "__NONE__";
 
-const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpenChange }) => {
+const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpenChange, initialData }) => {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCompletionCalendarOpen, setIsCompletionCalendarOpen] = useState(false);
-  const [isExpiryCalendarOpen, setIsExpiryCalendarOpen] = useState(false);
-
+  const isEditMode = !!initialData?.id;
 
   const form = useForm<RecordFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      employeeId: "",
-      trainingId: "",
-      completionDate: undefined,
-      expiryDate: null,
-      score: null,
-      status: "Concluído",
-      instructorName: "",
+      employeeId: "", trainingId: "", completionDateString: "",
+      expiryDateString: null, score: null, status: "Concluído", instructorName: "",
     },
   });
 
@@ -101,6 +102,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
     let isMounted = true;
     if (open) {
       const fetchData = async () => {
+        if (!isMounted) return;
         setIsLoading(true);
         try {
           const [employeesResult, trainingsResult] = await Promise.all([
@@ -108,81 +110,88 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
             fetchTrainings(),
           ]);
            if (isMounted) {
-              if (employeesResult.success && employeesResult.data) {
-                setEmployees(employeesResult.data);
-              } else {
-                 console.error("Error fetching employees:", employeesResult.error);
-                 toast({ title: "Erro", description: employeesResult.error || "Não foi possível carregar funcionários.", variant: "destructive" });
-                 setEmployees([]);
-              }
-              if (trainingsResult.success && trainingsResult.data) {
-                setTrainings(trainingsResult.data);
-              } else {
-                 console.error("Error fetching trainings:", trainingsResult.error);
-                 toast({ title: "Erro", description: trainingsResult.error || "Não foi possível carregar cursos.", variant: "destructive" });
-                 setTrainings([]);
-              }
+              if (employeesResult.success && employeesResult.data) setEmployees(employeesResult.data);
+              else { console.error("Error fetching employees:", employeesResult.error); toast({ title: "Erro", description: employeesResult.error || "Não foi possível carregar funcionários.", variant: "destructive" }); setEmployees([]); }
+              if (trainingsResult.success && trainingsResult.data) setTrainings(trainingsResult.data);
+              else { console.error("Error fetching trainings:", trainingsResult.error); toast({ title: "Erro", description: trainingsResult.error || "Não foi possível carregar cursos.", variant: "destructive" }); setTrainings([]); }
            }
         } catch (error) {
-          if (isMounted) {
-             console.error("Error fetching data:", error);
-             toast({ title: "Erro", description: "Não foi possível carregar funcionários ou cursos.", variant: "destructive" });
-             setEmployees([]);
-             setTrainings([]);
-          }
+          if (isMounted) { console.error("Error fetching data:", error); toast({ title: "Erro", description: "Não foi possível carregar funcionários ou cursos.", variant: "destructive" }); setEmployees([]); setTrainings([]);}
         } finally {
-          if (isMounted) {
-            setIsLoading(false);
-          }
+          if (isMounted) setIsLoading(false);
         }
       };
       fetchData();
+
+      if (isEditMode && initialData) {
+        form.reset({
+            employeeId: initialData.employeeId?.toString() || "",
+            trainingId: initialData.trainingId?.toString() || "",
+            completionDateString: initialData.completionDate ? format(parseISO(initialData.completionDate), DATE_FORMAT_DISPLAY) : "",
+            expiryDateString: initialData.expiryDate ? format(parseISO(initialData.expiryDate), DATE_FORMAT_DISPLAY) : null,
+            score: initialData.score ?? null,
+            status: initialData.status || "Concluído",
+            instructorName: initialData.instructorName || "",
+        });
+      } else {
+        form.reset({
+            employeeId: "", trainingId: "", completionDateString: "",
+            expiryDateString: null, score: null, status: "Concluído", instructorName: ""
+        });
+      }
     } else {
-      form.reset({
-          employeeId: "", trainingId: "", completionDate: undefined, expiryDate: null, score: null, status: "Concluído", instructorName: ""
-      });
-      setEmployees([]);
-      setTrainings([]);
-      setIsSubmitting(false);
-      setIsLoading(false);
-      setIsCompletionCalendarOpen(false);
-      setIsExpiryCalendarOpen(false);
+      setEmployees([]); setTrainings([]); setIsSubmitting(false); setIsLoading(false);
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [open, form, toast]);
+    return () => { isMounted = false; };
+  }, [open, form, toast, initialData, isEditMode]);
 
   const onSubmit = async (values: RecordFormValues) => {
-    if (!values.completionDate) {
-        toast({ title: "Erro de Validação", description: "Data de conclusão é obrigatória.", variant: "destructive"});
+    setIsSubmitting(true);
+    console.log("[TrainingRecordDialog] onSubmit values:", values);
+
+    let formattedCompletionDate: string;
+    let formattedExpiryDate: string | null = null;
+
+    try {
+        const parsedCompletion = parse(values.completionDateString, DATE_FORMAT_DISPLAY, new Date());
+        if (!isValid(parsedCompletion)) throw new Error("Data de conclusão inválida.");
+        formattedCompletionDate = format(parsedCompletion, DATE_FORMAT_DB);
+
+        if (values.expiryDateString && values.expiryDateString.trim() !== "") {
+            const parsedExpiry = parse(values.expiryDateString, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsedExpiry)) throw new Error("Data de vencimento inválida.");
+            formattedExpiryDate = format(parsedExpiry, DATE_FORMAT_DB);
+        }
+    } catch(e) {
+        toast({ title: "Erro de Formato de Data", description: (e as Error).message, variant: "destructive"});
+        setIsSubmitting(false);
         return;
     }
-    setIsSubmitting(true);
+
     const dataToSend = {
-        ...values,
         employeeId: parseInt(values.employeeId, 10),
         trainingId: parseInt(values.trainingId, 10),
-        completionDate: format(values.completionDate, 'yyyy-MM-dd'),
-        expiryDate: values.expiryDate ? format(values.expiryDate, 'yyyy-MM-dd') : null,
+        completionDate: formattedCompletionDate,
+        expiryDate: formattedExpiryDate,
         score: values.score ?? null,
         status: values.status || 'Concluído',
         instructorName: values.instructorName || null,
     };
-    console.log("Submitting Record Data:", dataToSend);
+    console.log("[TrainingRecordDialog] Submitting Record Data to Action:", dataToSend);
 
+    // TODO: Implement updateTrainingRecord action
     try {
       const result = await addTrainingRecord(dataToSend);
       if (result.success) {
-        toast({ title: "Sucesso!", description: "Registro de treinamento adicionado com sucesso."});
-        form.reset({ employeeId: "", trainingId: "", completionDate: undefined, expiryDate: null, score: null, status: "Concluído", instructorName: "" });
+        toast({ title: "Sucesso!", description: `Registro de treinamento ${isEditMode ? 'atualizado' : 'adicionado'} com sucesso.`});
+        form.reset();
         onOpenChange(false);
       } else {
-         toast({ title: "Erro", description: result.error || "Falha ao adicionar registro.", variant: "destructive" });
+         toast({ title: "Erro", description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} registro.`, variant: "destructive" });
       }
     } catch (error) {
-      console.error("Error adding training record:", error);
-      toast({ title: "Erro", description: "Ocorreu um erro inesperado.", variant: "destructive"});
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} training record:`, error);
+      toast({ title: "Erro Inesperado", description: "Ocorreu um erro inesperado.", variant: "destructive"});
     } finally {
        setIsSubmitting(false);
     }
@@ -192,7 +201,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar Registro de Treinamento</DialogTitle>
+          <DialogTitle>{isEditMode ? "Editar Registro" : "Adicionar Registro de Treinamento"}</DialogTitle>
           <DialogDescription>
             Selecione o funcionário, curso e insira os detalhes.
           </DialogDescription>
@@ -205,13 +214,14 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Funcionário *</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? "" : value)} value={field.value || ""} disabled={isLoading}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione..."} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                        <SelectItem value={NONE_SELECT_VALUE} disabled>Selecione um funcionário</SelectItem>
                         {employees.map((emp) => (
                             <SelectItem key={emp.id} value={emp.id.toString()}>
                             {emp.name}
@@ -230,13 +240,14 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Curso *</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading} value={field.value || undefined}>
+                   <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? "" : value)} value={field.value || ""} disabled={isLoading}>
                         <FormControl>
                         <SelectTrigger>
                              <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione..."} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                        <SelectItem value={NONE_SELECT_VALUE} disabled>Selecione um curso</SelectItem>
                         {trainings.map((trn) => (
                             <SelectItem key={trn.id} value={trn.id.toString()}>
                             {trn.course_name}
@@ -251,46 +262,26 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
             />
              <FormField
               control={form.control}
-              name="completionDate"
+              name="completionDateString"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                    <FormLabel>Data Conclusão *</FormLabel>
-                    <Popover open={isCompletionCalendarOpen} onOpenChange={setIsCompletionCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsCompletionCalendarOpen(false); }} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus locale={ptBR}/>
-                        </PopoverContent>
-                    </Popover>
+                <FormItem>
+                    <FormLabel>Data Conclusão * ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                 </FormItem>
               )}
             />
              <FormField
               control={form.control}
-              name="expiryDate"
+              name="expiryDateString"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                    <FormLabel>Data Vencimento</FormLabel>
-                     <Popover open={isExpiryCalendarOpen} onOpenChange={setIsExpiryCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione (opcional)</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsExpiryCalendarOpen(false); }} initialFocus locale={ptBR}/>
-                        </PopoverContent>
-                    </Popover>
+                <FormItem>
+                    <FormLabel>Data Vencimento ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={`${DATE_FORMAT_DISPLAY} (opcional)`} {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                 </FormItem>
               )}
@@ -315,7 +306,7 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value ?? 'Concluído'}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Selecione o status" />
@@ -343,14 +334,13 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
                 </FormItem>
               )}
             />
-             {/* TODO: Add certificate upload field */}
 
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
                  <Button type="submit" disabled={isLoading || isSubmitting}>
-                    {isSubmitting ? "Salvando..." : "Salvar"}
+                    {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
                  </Button>
             </DialogFooter>
           </form>
@@ -361,3 +351,5 @@ const TrainingRecordDialog: React.FC<TrainingRecordDialogProps> = ({ open, onOpe
 };
 
 export default TrainingRecordDialog;
+
+    

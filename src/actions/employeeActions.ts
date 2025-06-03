@@ -11,10 +11,10 @@ const employeeSchema = z.object({
   name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres." }),
   role: z.string().optional().nullable(),
   department: z.string().optional().nullable(),
-  hireDate: z.string().optional().nullable(), // Expecting 'YYYY-MM-DD' or null
-  birthDate: z.string().optional().nullable(), // Expecting 'YYYY-MM-DD' or null
+  hireDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data de admissão inválido (YYYY-MM-DD)").optional().nullable(),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data de nascimento inválido (YYYY-MM-DD)").optional().nullable(),
   rg: z.string().optional().nullable(),
-  cpf: z.string().optional().nullable(), // Add CPF validation if needed (e.g., regex)
+  cpf: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
 });
@@ -33,19 +33,19 @@ export async function addEmployee(data: EmployeeInput): Promise<{ success: boole
     }
 
     const { name, role, department, hireDate, birthDate, rg, cpf, phone, address } = validatedData.data;
-    console.log("[Action:addEmployee] Dados validados para inserção:", validatedData.data);
+    console.log("[Action:addEmployee] Dados validados para inserção no DB:", { name, role, department, hireDate, birthDate, rg, cpf, phone, address });
 
     // Insert into the database
     const newEmployeeId = await insertEmployee(
         name,
-        role,
-        department,
-        hireDate, // Pass as string or null
-        birthDate, // Pass as string or null
-        rg,
-        cpf,
-        phone,
-        address
+        role, // Already string or null
+        department, // Already string or null
+        hireDate, // Pass as string YYYY-MM-DD or null
+        birthDate, // Pass as string YYYY-MM-DD or null
+        rg, // Already string or null
+        cpf, // Already string or null
+        phone, // Already string or null
+        address // Already string or null
     );
 
      if (newEmployeeId === undefined || newEmployeeId === null) {
@@ -67,3 +67,5 @@ export async function addEmployee(data: EmployeeInput): Promise<{ success: boole
     return { success: false, error: `Erro ao adicionar funcionário: ${errorMessage}` };
   }
 }
+
+    

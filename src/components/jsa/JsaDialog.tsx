@@ -1,15 +1,13 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from "date-fns";
-import { ptBR } from 'date-fns/locale'; // Import locale pt-BR
-import { Calendar as CalendarIcon, Paperclip } from "lucide-react"; // Added Paperclip
+import { format, parse, isValid, parseISO } from "date-fns";
+import { ptBR } from 'date-fns/locale';
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -37,36 +35,46 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-// Import the actual server action that handles FormData
 import { addJsaWithAttachment } from '@/actions/jsaActions';
 import { fetchLocations, fetchUsers } from '@/actions/dataFetchingActions';
-import { Label } from '@/components/ui/label'; // Import Label
 
 interface JsaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // TODO: Add 'initialData' prop for editing
+  initialData?: JsaInitialData | null; // For editing
 }
 
-// Zod schema for validation - Keep basic client-side validation
-// File validation is better handled on the server or with custom client logic
+interface JsaInitialData {
+    id?: number;
+    task: string;
+    locationId?: number | null;
+    department?: string | null;
+    responsiblePersonId?: number | null;
+    teamMembers?: string | null;
+    requiredPpe?: string | null;
+    status?: string | null;
+    reviewDate?: string | null; // Expect YYYY-MM-DD
+    attachmentPath?: string | null;
+    // steps are not handled here for basic info editing
+}
+
+const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
+const DATE_FORMAT_DB = "yyyy-MM-dd";
+
 const formSchema = z.object({
   task: z.string().min(5, { message: "Tarefa deve ter pelo menos 5 caracteres." }),
   locationId: z.string().optional(),
-  department: z.string().optional(), // Could be useful
+  department: z.string().optional(),
   responsiblePersonId: z.string().optional(),
-  teamMembers: z.string().optional(), // Text area for members
+  teamMembers: z.string().optional(),
   requiredPpe: z.string().optional(),
   status: z.string().optional().default('Rascunho'),
-  reviewDate: z.date().optional().nullable(),
-  attachment: z.any().optional(), // For file input type checking if needed client-side
+  reviewDateString: z.string().optional().nullable().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
+  }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
+  attachment: z.any().optional(), // For file input
 });
 
 type JsaFormValues = z.infer<typeof formSchema>;
@@ -74,151 +82,141 @@ type JsaFormValues = z.infer<typeof formSchema>;
 interface Location { id: number; name: string; }
 interface User { id: number; name: string; }
 
-const NONE_SELECT_VALUE = "__NONE__"; // Constant for "Nenhum" option
+const NONE_SELECT_VALUE = "__NONE__";
 
-
-const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
+const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }) => {
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null); // Ref for the form element
+  const formRef = useRef<HTMLFormElement>(null);
+  const isEditMode = !!initialData?.id;
 
 
   const form = useForm<JsaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      task: "",
-      locationId: "",
-      department: "",
-      responsiblePersonId: "",
-      teamMembers: "",
-      requiredPpe: "",
-      status: "Rascunho",
-      reviewDate: null,
+      task: "", locationId: "", department: "", responsiblePersonId: "",
+      teamMembers: "", requiredPpe: "", status: "Rascunho", reviewDateString: null,
       attachment: undefined,
     },
   });
 
-   // Fetch locations and users
   useEffect(() => {
      let isMounted = true;
-
     if (open) {
       const fetchData = async () => {
+        if (!isMounted) return;
         setIsLoading(true);
-        console.log("Fetching locations and users...");
         try {
-           const [locationsResult, usersResult] = await Promise.all([
-            fetchLocations(),
-            fetchUsers(),
-          ]);
-
+           const [locationsResult, usersResult] = await Promise.all([ fetchLocations(), fetchUsers() ]);
            if (isMounted) {
-              if (locationsResult.success && locationsResult.data) {
-                 console.log("Locations fetched:", locationsResult.data);
-                 setLocations(locationsResult.data);
-              } else {
-                console.error("Error fetching locations:", locationsResult.error);
-                toast({ title: "Erro ao Carregar", description: locationsResult.error || "Não foi possível carregar os locais.", variant: "destructive" });
-                setLocations([]);
-              }
-
-              if (usersResult.success && usersResult.data) {
-                 console.log("Users fetched:", usersResult.data);
-                 setUsers(usersResult.data);
-              } else {
-                 console.error("Error fetching users:", usersResult.error);
-                 toast({ title: "Erro ao Carregar", description: usersResult.error || "Não foi possível carregar os usuários.", variant: "destructive" });
-                 setUsers([]);
-              }
+              if (locationsResult.success && locationsResult.data) setLocations(locationsResult.data);
+              else { console.error("Error fetching locations:", locationsResult.error); toast({ title: "Erro ao Carregar", description: locationsResult.error || "Não foi possível carregar os locais.", variant: "destructive" }); }
+              if (usersResult.success && usersResult.data) setUsers(usersResult.data);
+              else { console.error("Error fetching users:", usersResult.error); toast({ title: "Erro ao Carregar", description: usersResult.error || "Não foi possível carregar os usuários.", variant: "destructive" }); }
            }
         } catch (error) {
-          if (isMounted) {
-             console.error("Error fetching data:", error);
-             toast({ title: "Erro ao Carregar", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" });
-             setLocations([]);
-             setUsers([]);
-          }
+          if (isMounted) { console.error("Error fetching data:", error); toast({ title: "Erro ao Carregar", description: "Não foi possível carregar locais ou usuários.", variant: "destructive" }); }
         } finally {
-          if (isMounted) {
-             console.log("Finished fetching data.");
-             setIsLoading(false);
-          }
+          if (isMounted) setIsLoading(false);
         }
       };
       fetchData();
+
+      if (isEditMode && initialData) {
+        form.reset({
+            task: initialData.task || "",
+            locationId: initialData.locationId?.toString() || "",
+            department: initialData.department || "",
+            responsiblePersonId: initialData.responsiblePersonId?.toString() || "",
+            teamMembers: initialData.teamMembers || "",
+            requiredPpe: initialData.requiredPpe || "",
+            status: initialData.status || "Rascunho",
+            reviewDateString: initialData.reviewDate ? format(parseISO(initialData.reviewDate), DATE_FORMAT_DISPLAY) : null,
+            attachment: undefined, // Attachment is not directly editable, only re-uploadable
+        });
+      } else {
+        form.reset({
+            task: "", locationId: "", department: "", responsiblePersonId: "",
+            teamMembers: "", requiredPpe: "", status: "Rascunho", reviewDateString: null,
+            attachment: undefined,
+        });
+      }
     } else {
-       form.reset();
-       setLocations([]);
-       setUsers([]);
-       setIsSubmitting(false);
-       setIsLoading(false);
-       setIsCalendarOpen(false);
+       setLocations([]); setUsers([]); setIsSubmitting(false); setIsLoading(false);
     }
+    return () => { isMounted = false; };
+  }, [open, form, toast, initialData, isEditMode]);
 
-    return () => {
-        isMounted = false;
-    };
-  }, [open, form, toast]);
-
-
-  // Updated onSubmit to handle FormData
   const onSubmit = async (values: JsaFormValues) => {
      setIsSubmitting(true);
-     if (!formRef.current) return; // Ensure form ref is available
+     if (!formRef.current) { setIsSubmitting(false); return; }
 
-     const formData = new FormData(formRef.current); // Create FormData from form element
+     const formData = new FormData(formRef.current);
+     console.log("[JsaDialog] FormData before modification values:", Object.fromEntries(formData.entries()));
 
-     // Format the reviewDate if it exists before appending
-     if (values.reviewDate) {
-        formData.set('reviewDate', format(values.reviewDate, 'yyyy-MM-dd'));
+
+     if (values.reviewDateString && values.reviewDateString.trim() !== "") {
+        try {
+            const parsed = parse(values.reviewDateString, DATE_FORMAT_DISPLAY, new Date());
+            if (!isValid(parsed)) throw new Error("Data de revisão inválida.");
+            formData.set('reviewDate', format(parsed, DATE_FORMAT_DB));
+        } catch (e) {
+            toast({ title: "Erro de Formato de Data", description: (e as Error).message, variant: "destructive"});
+            setIsSubmitting(false);
+            return;
+        }
      } else {
-        formData.delete('reviewDate'); // Remove if null/undefined
+        formData.delete('reviewDateString'); // Remove if empty/null from react-hook-form
+        formData.delete('reviewDate'); // Also remove the target field if it was set by react-hook-form
+     }
+     
+     // Ensure correct name for attachment if submitted by RHF, or it's already correct if from native input
+     const fileInput = formRef.current.querySelector('input[type="file"]') as HTMLInputElement;
+     if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        formData.set('attachment', fileInput.files[0]);
+     } else {
+        formData.delete('attachment');
      }
 
-     // Ensure locationId and responsiblePersonId are correctly handled if empty
-     // If they are the NONE_SELECT_VALUE, they should not be submitted or converted to null server-side
-     const locationIdValue = formData.get('locationId');
-     if (locationIdValue === NONE_SELECT_VALUE || !locationIdValue) {
-         formData.delete('locationId');
-     }
+    // Handle NONE_SELECT_VALUE for dropdowns
+    const locationIdValue = formData.get('locationId') as string;
+    if (locationIdValue === NONE_SELECT_VALUE || !locationIdValue) {
+        formData.delete('locationId');
+    }
+    const responsiblePersonIdValue = formData.get('responsiblePersonId') as string;
+    if (responsiblePersonIdValue === NONE_SELECT_VALUE || !responsiblePersonIdValue) {
+        formData.delete('responsiblePersonId');
+    }
 
-     const responsiblePersonIdValue = formData.get('responsiblePersonId');
-     if (responsiblePersonIdValue === NONE_SELECT_VALUE || !responsiblePersonIdValue) {
-         formData.delete('responsiblePersonId');
-     }
-
-
-     console.log("Submitting JSA FormData:");
-     for (let [key, value] of formData.entries()) {
+    console.log("[JsaDialog] Submitting JSA FormData to Action:");
+    for (let [key, value] of formData.entries()) {
         console.log(`${key}: ${value instanceof File ? value.name : value}`);
-     }
-
-
+    }
+    
+    // TODO: Implement updateJsaWithAttachment action
     try {
-      // Call the server action that accepts FormData
       const result = await addJsaWithAttachment(formData);
        if (result.success) {
         toast({
           title: "Sucesso!",
-          description: "JSA adicionada com sucesso. Edição e visualização de passos pendente.",
+          description: `JSA ${isEditMode ? 'atualizada' : 'adicionada'} com sucesso.`,
         });
         form.reset();
         onOpenChange(false);
       } else {
         toast({
           title: "Erro",
-          description: result.error || "Falha ao adicionar JSA.",
+          description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} JSA.`,
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error adding JSA:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} JSA:`, error);
       toast({
-        title: "Erro",
+        title: "Erro Inesperado",
         description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
@@ -231,13 +229,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar Nova JSA</DialogTitle>
+          <DialogTitle>{isEditMode ? "Editar JSA" : "Adicionar Nova JSA"}</DialogTitle>
           <DialogDescription>
-            Insira as informações básicas e anexe o arquivo Excel (opcional).
+            {isEditMode ? "Altere as informações da JSA." : "Insira as informações básicas e anexe o arquivo (opcional)."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          {/* Use a form element ref */}
           <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
              <FormField
               control={form.control}
@@ -259,9 +256,9 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                 <FormItem>
                   <FormLabel>Local</FormLabel>
                    <Select
-                      name={field.name} // Add name attribute for FormData
+                      name={field.name}
                       onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)}
-                      value={field.value || ''} // Use empty string for controlled component when no value
+                      value={field.value || ''}
                       disabled={isLoading}
                     >
                         <FormControl>
@@ -272,11 +269,9 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                         <SelectContent>
                         <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
                         {locations.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id.toString()}>
-                            {loc.name}
-                            </SelectItem>
+                            <SelectItem key={loc.id} value={loc.id.toString()}> {loc.name} </SelectItem>
                         ))}
-                        {!isLoading && locations.length === 0 && <SelectItem value="no-loc-disabled" disabled>Nenhum local cadastrado</SelectItem>}
+                        {!isLoading && locations.length === 0 && <SelectItem value="no-loc-disabled" disabled>Nenhum local</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage />
@@ -290,7 +285,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                 <FormItem>
                   <FormLabel>Departamento</FormLabel>
                   <FormControl>
-                    <Input placeholder="Departamento envolvido (opcional)" {...field} value={field.value ?? ''}/>
+                    <Input placeholder="Departamento (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
                    <FormMessage />
                 </FormItem>
@@ -303,24 +298,22 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
                    <Select
-                       name={field.name} // Add name attribute for FormData
+                       name={field.name}
                        onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)}
-                       value={field.value || ''} // Use empty string for controlled component when no value
+                       value={field.value || ''}
                        disabled={isLoading}
                     >
                         <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o responsável (opcional)"} />
+                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione (opcional)"} />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                         <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
                         {users.map((user) => (
-                            <SelectItem key={user.id} value={user.id.toString()}>
-                            {user.name}
-                            </SelectItem>
+                            <SelectItem key={user.id} value={user.id.toString()}> {user.name} </SelectItem>
                         ))}
-                         {!isLoading && users.length === 0 && <SelectItem value="no-user-disabled" disabled>Nenhum usuário cadastrado</SelectItem>}
+                         {!isLoading && users.length === 0 && <SelectItem value="no-user-disabled" disabled>Nenhum usuário</SelectItem>}
                         </SelectContent>
                     </Select>
                   <FormMessage />
@@ -334,13 +327,12 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                 <FormItem>
                   <FormLabel>Equipe</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Membros da equipe envolvidos (opcional)" {...field} value={field.value ?? ''}/>
+                    <Textarea placeholder="Membros da equipe (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
              <FormField
               control={form.control}
               name="requiredPpe"
@@ -348,56 +340,46 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
                 <FormItem>
                   <FormLabel>EPIs Necessários</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Liste os EPIs requeridos (opcional)" {...field} value={field.value ?? ''}/>
+                    <Textarea placeholder="Liste os EPIs (opcional)" {...field} value={field.value ?? ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {/* File Attachment Input */}
              <FormField
                 control={form.control}
                 name="attachment"
-                render={({ field: { onChange, value, ...restField }}) => ( // Destructure field to handle FileList
+                render={({ field: { onChange, value, ...restField }}) => (
                     <FormItem>
                         <FormLabel>Anexar JSA (Excel, PDF)</FormLabel>
                         <FormControl>
                              <Input
                                 type="file"
                                 accept=".xlsx, .xls, .pdf"
-                                onChange={(e) => onChange(e.target.files)} // RHF expects FileList
+                                onChange={(e) => onChange(e.target.files)}
                                 {...restField}
-                                name="attachment" // Ensure name attribute for FormData
+                                name="attachment"
                              />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
              />
-
-
              <FormField
               control={form.control}
               name="status"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status Inicial</FormLabel>
-                  <Select
-                    name={field.name} // Add name attribute for FormData
-                    onValueChange={field.onChange}
-                    value={field.value} // RHF manages default value
-                   >
+                  <Select name={field.name} onValueChange={field.onChange} value={field.value ?? 'Rascunho'}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="Rascunho">Rascunho</SelectItem>
                       <SelectItem value="Ativo">Ativo</SelectItem>
                       <SelectItem value="Revisado">Revisado</SelectItem>
-                       <SelectItem value="Obsoleto">Obsoleto</SelectItem>
+                      <SelectItem value="Obsoleto">Obsoleto</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -406,54 +388,23 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
             />
              <FormField
               control={form.control}
-              name="reviewDate"
+              name="reviewDateString"
               render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Data Próxima Revisão</FormLabel>
-                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione data (opcional)</span>}
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                             onSelect={(date) => {
-                                field.onChange(date || null);
-                                setIsCalendarOpen(false); // Close calendar on date select
-                            }}
-                            initialFocus
-                            locale={ptBR}
-                        />
-                         <div className="p-2 flex justify-end">
-                            <Button size="sm" onClick={() => {field.onChange(null); setIsCalendarOpen(false);}}>Limpar</Button>
-                            <Button size="sm" onClick={() => setIsCalendarOpen(false)} className="ml-2">Fechar</Button>
-                         </div>
-                        </PopoverContent>
-                    </Popover>
+                    <FormLabel>Data Próxima Revisão ({DATE_FORMAT_DISPLAY})</FormLabel>
+                    <FormControl>
+                        <Input placeholder={`${DATE_FORMAT_DISPLAY} (opcional)`} {...field} value={field.value ?? ''}/>
+                    </FormControl>
                     <FormMessage />
                 </FormItem>
               )}
             />
-
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild>
                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
-                 {/* Change button type to submit to trigger form submission */}
                 <Button type="submit" disabled={isLoading || isSubmitting}>
-                 {isSubmitting ? "Salvando..." : "Salvar"}
+                 {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
                 </Button>
             </DialogFooter>
           </form>
@@ -465,3 +416,4 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange }) => {
 
 export default JsaDialog;
 
+    

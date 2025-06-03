@@ -2,14 +2,13 @@
 'use server';
 
 import { z } from 'zod';
-import { insertJsa as dbInsertJsa } from '@/lib/db'; // Assuming db function is named dbInsertJsa
+import { insertJsa as dbInsertJsa } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import path from 'path';
-import fs from 'fs/promises'; // Use promises API for fs operations
+import fs from 'fs/promises';
 
-// Schema matching the JSA data (without steps for initial creation)
-// This schema is for the data extracted from FormData, not directly for the form component.
-const jsaBaseSchema = z.object({
+// Schema for data extracted from FormData. reviewDate is handled on server from FormData.
+const jsaBaseSchemaServer = z.object({
   task: z.string().min(5, "A tarefa deve ter pelo menos 5 caracteres."),
   locationId: z.coerce.number().int().positive().optional().nullable(),
   department: z.string().optional().nullable(),
@@ -17,11 +16,10 @@ const jsaBaseSchema = z.object({
   teamMembers: z.string().optional().nullable(),
   requiredPpe: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
-  reviewDate: z.string().optional().nullable(), // Expecting formatted date string or null
-  attachmentPath: z.string().optional().nullable(), // Added for type consistency
+  reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data de revisão inválido (YYYY-MM-DD)").optional().nullable(), // Expects YYYY-MM-DD
+  attachmentPath: z.string().optional().nullable(),
 });
 
-// Schema for a single step (used internally)
 const jsaStepSchema = z.object({
     step_order: z.number().int().positive(),
     description: z.string().min(3),
@@ -29,27 +27,22 @@ const jsaStepSchema = z.object({
     controls: z.string().min(3),
 });
 
-// Input type for the server action (includes steps, although they might be empty initially)
-// This is the type expected by dbInsertJsa
-export type JsaInput = z.infer<typeof jsaBaseSchema> & { steps?: JsaStepInput[] };
+export type JsaInput = z.infer<typeof jsaBaseSchemaServer> & { steps?: JsaStepInput[] };
 type JsaStepInput = z.infer<typeof jsaStepSchema>;
 
-const NONE_SELECT_VALUE = "__NONE__"; // Ensure this matches the client-side constant
+const NONE_SELECT_VALUE = "__NONE__";
 
-// Updated function to accept FormData
 export async function addJsaWithAttachment(formData: FormData): Promise<{ success: boolean; error?: string; id?: number }> {
-    console.log("addJsaWithAttachment received FormData:");
-    for (let [key, value] of formData.entries()) {
-        console.log(`FormData Entry - ${key}: ${value instanceof File ? value.name : value}`);
-    }
+    console.log("[Action:addJsaWithAttachment] FormData recebido:");
+    formData.forEach((value, key) => {
+        console.log(`  ${key}: ${value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value}`);
+    });
 
     const file = formData.get('attachment') as File | null;
     let attachmentPath: string | null = null;
     let fileSaveError: string | null = null;
 
-    // --- File Handling ---
     if (file && file.size > 0) {
-        console.log("Attachment found:", file.name, file.size, "bytes");
         const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
         try {
             await fs.mkdir(uploadsDir, { recursive: true });
@@ -58,79 +51,60 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
             const filePath = path.join(uploadsDir, safeFilename);
             const buffer = Buffer.from(await file.arrayBuffer());
             await fs.writeFile(filePath, buffer);
-            attachmentPath = `/uploads/${safeFilename}`; // Relative path for serving
-            console.log(`File saved successfully: ${attachmentPath}`);
+            attachmentPath = `/uploads/${safeFilename}`;
+            console.log(`[Action:addJsaWithAttachment] Arquivo salvo: ${attachmentPath}`);
         } catch (uploadError) {
-            console.error('Error saving file:', uploadError);
+            console.error('[Action:addJsaWithAttachment] Erro ao salvar arquivo:', uploadError);
             fileSaveError = `Erro ao salvar o anexo: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`;
         }
-    } else {
-        console.log("No attachment provided or file is empty.");
     }
 
-    // --- JSA Data Handling ---
-    const task = formData.get('task') as string;
-    const locationIdString = formData.get('locationId') as string | null;
-    const department = formData.get('department') as string | null;
-    const responsiblePersonIdString = formData.get('responsiblePersonId') as string | null;
-    const teamMembers = formData.get('teamMembers') as string | null;
-    const requiredPpe = formData.get('requiredPpe') as string | null;
-    const status = formData.get('status') as string | null;
-    const reviewDate = formData.get('reviewDate') as string | null;
+    const reviewDateFromForm = formData.get('reviewDate') as string | null; // This comes from the hidden input, already YYYY-MM-DD
 
     const jsaDataForValidation = {
-        task: task,
-        locationId: (locationIdString && locationIdString !== NONE_SELECT_VALUE && locationIdString !== "") ? parseInt(locationIdString, 10) : null,
-        department: department || null,
-        responsiblePersonId: (responsiblePersonIdString && responsiblePersonIdString !== NONE_SELECT_VALUE && responsiblePersonIdString !== "") ? parseInt(responsiblePersonIdString, 10) : null,
-        teamMembers: teamMembers || null,
-        requiredPpe: requiredPpe || null,
-        status: status || 'Rascunho',
-        reviewDate: reviewDate || null,
-        attachmentPath: attachmentPath, // Use the determined attachmentPath
+        task: formData.get('task') as string,
+        locationId: (formData.get('locationId') && formData.get('locationId') !== NONE_SELECT_VALUE && formData.get('locationId') !== "") ? parseInt(formData.get('locationId') as string, 10) : null,
+        department: (formData.get('department') as string) || null,
+        responsiblePersonId: (formData.get('responsiblePersonId') && formData.get('responsiblePersonId') !== NONE_SELECT_VALUE && formData.get('responsiblePersonId') !== "") ? parseInt(formData.get('responsiblePersonId') as string, 10) : null,
+        teamMembers: (formData.get('teamMembers') as string) || null,
+        requiredPpe: (formData.get('requiredPpe') as string) || null,
+        status: (formData.get('status') as string) || 'Rascunho',
+        reviewDate: reviewDateFromForm && reviewDateFromForm.trim() !== "" ? reviewDateFromForm : null, // Use directly if not empty
+        attachmentPath: attachmentPath,
     };
 
-    console.log("Data for validation (jsaDataForValidation):", jsaDataForValidation);
+    console.log("[Action:addJsaWithAttachment] Dados para validação Zod:", jsaDataForValidation);
 
-    // Validate data using Zod schema on the server-side
-    const validatedResult = jsaBaseSchema.safeParse(jsaDataForValidation);
+    const validatedResult = jsaBaseSchemaServer.safeParse(jsaDataForValidation);
     if (!validatedResult.success) {
-      console.error("Validation failed (addJsaWithAttachment):", validatedResult.error.errors);
+      console.error("[Action:addJsaWithAttachment] Falha na validação Zod:", validatedResult.error.format());
       const errorMessages = validatedResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
-      return { success: false, error: `Dados inválidos: ${errorMessages}` };
+      return { success: false, error: `Dados inválidos: ${errorMessages}${fileSaveError ? ` (Erro anexo: ${fileSaveError})` : ''}` };
     }
 
-    const validatedData: JsaInput = {
-        ...validatedResult.data,
-        steps: [], // Assuming steps are not sent via this form for simplicity now
-    };
-
-    console.log("Validated data to be passed to dbInsertJsa:", validatedData);
+    const validatedData: JsaInput = { ...validatedResult.data, steps: [] };
+    console.log("[Action:addJsaWithAttachment] Dados validados para inserção no DB:", validatedData);
 
     try {
-        // Pass the validated data and steps to dbInsertJsa
-        const newJsaId = await dbInsertJsa(
-            validatedData, // Pass the validated data object which includes attachmentPath
-            validatedData.steps || [] // Ensure steps is an array (even if empty)
-        );
-
+        const newJsaId = await dbInsertJsa(validatedData, validatedData.steps || []);
         if (newJsaId === undefined || newJsaId === null) {
             throw new Error('Falha ao inserir JSA, ID não retornado.');
         }
-
-        console.log(`JSA adicionada com ID: ${newJsaId}`);
-
+        console.log(`[Action:addJsaWithAttachment] JSA adicionada com ID: ${newJsaId}`);
         revalidatePath('/seguranca-trabalho/inventario-jsa');
 
         const successMessage = fileSaveError
-            ? `JSA adicionada (ID: ${newJsaId}), mas houve um erro ao salvar o anexo: ${fileSaveError}`
+            ? `JSA adicionada (ID: ${newJsaId}), mas houve um erro com o anexo: ${fileSaveError}`
             : `JSA adicionada com sucesso (ID: ${newJsaId}).`;
-
-        return { success: true, id: newJsaId, }; // Removido message da resposta de sucesso para consistência
+        
+        // Return only success and id, toast message handled client-side or here if preferred
+        return { success: true, id: newJsaId, error: fileSaveError ? fileSaveError : undefined };
 
     } catch (error) {
-        console.error('Erro ao adicionar JSA no banco:', error);
+        console.error('[Action:addJsaWithAttachment] Erro ao adicionar JSA no banco:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao salvar JSA.';
         return { success: false, error: `Erro ao adicionar JSA: ${errorMessage}${fileSaveError ? ` (Erro anexo: ${fileSaveError})` : ''}` };
     }
 }
+
+    

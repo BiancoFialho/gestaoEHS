@@ -29,15 +29,15 @@ export async function getDbConnection(): Promise<Database> {
     return db;
   }
 
-  console.log('Tentando abrir conexão com SQLite...');
+  console.log('[DB] Tentando abrir conexão com SQLite...');
   db = await open({
     filename: './ehs_database.sqlite', // Este arquivo será criado na raiz do projeto
     driver: sqlite3.Database,
   });
 
-  console.log('Conexão com SQLite estabelecida.');
+  console.log('[DB] Conexão com SQLite estabelecida.');
   await db.run('PRAGMA foreign_keys = ON');
-  console.log('PRAGMA foreign_keys habilitado.');
+  console.log('[DB] PRAGMA foreign_keys habilitado.');
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS employees (
@@ -45,8 +45,8 @@ export async function getDbConnection(): Promise<Database> {
       name TEXT NOT NULL,
       role TEXT,
       department TEXT,
-      hire_date TEXT,
-      birth_date TEXT, -- Confirmado: Coluna para data de nascimento
+      hire_date TEXT, -- YYYY-MM-DD
+      birth_date TEXT, -- YYYY-MM-DD
       rg TEXT,
       cpf TEXT UNIQUE,
       phone TEXT,
@@ -72,11 +72,11 @@ export async function getDbConnection(): Promise<Database> {
       serial_number TEXT UNIQUE,
       brand TEXT,
       model TEXT,
-      acquisition_date TEXT,
+      acquisition_date TEXT, -- YYYY-MM-DD
       status TEXT DEFAULT 'Operacional',
       maintenance_schedule TEXT,
-      last_maintenance_date TEXT,
-      next_maintenance_date TEXT,
+      last_maintenance_date TEXT, -- YYYY-MM-DD
+      next_maintenance_date TEXT, -- YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
@@ -97,8 +97,8 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       training_id INTEGER NOT NULL,
-      completion_date TEXT NOT NULL,
-      expiry_date TEXT,
+      completion_date TEXT NOT NULL, -- YYYY-MM-DD
+      expiry_date TEXT, -- YYYY-MM-DD
       score REAL,
       status TEXT DEFAULT 'Concluído',
       certificate_path TEXT,
@@ -129,10 +129,10 @@ export async function getDbConnection(): Promise<Database> {
       required_ppe TEXT,
       status TEXT DEFAULT 'Rascunho',
       creation_date TEXT DEFAULT (strftime('%Y-%m-%d', 'now')),
-      review_date TEXT,
-      approval_date TEXT,
+      review_date TEXT, -- YYYY-MM-DD
+      approval_date TEXT, -- YYYY-MM-DD
       approver_id INTEGER,
-      attachment_path TEXT, -- Caminho para o anexo da JSA
+      attachment_path TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
       FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -147,7 +147,7 @@ export async function getDbConnection(): Promise<Database> {
       file_path TEXT,
       version TEXT,
       upload_date TEXT DEFAULT (strftime('%Y-%m-%d', 'now')),
-      review_date TEXT,
+      review_date TEXT, -- YYYY-MM-DD
       status TEXT DEFAULT 'Ativo',
       jsa_id INTEGER,
       author_id INTEGER,
@@ -175,7 +175,7 @@ export async function getDbConnection(): Promise<Database> {
       unit TEXT,
       target REAL,
       period TEXT,
-      data_date TEXT,
+      data_date TEXT, -- YYYY-MM-DD
       source TEXT,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -200,7 +200,7 @@ export async function getDbConnection(): Promise<Database> {
       type TEXT NOT NULL,
       severity TEXT,
       location_id INTEGER,
-      involved_persons_ids TEXT, -- Store as JSON string or comma-separated IDs
+      involved_persons_ids TEXT,
       root_cause TEXT,
       corrective_actions TEXT,
       preventive_actions TEXT,
@@ -221,11 +221,11 @@ export async function getDbConnection(): Promise<Database> {
       description TEXT NOT NULL,
       origin TEXT,
       responsible_id INTEGER,
-      due_date TEXT,
+      due_date TEXT, -- YYYY-MM-DD
       priority TEXT DEFAULT 'Média',
       status TEXT DEFAULT 'Aberta',
-      completion_date TEXT,
-      effectiveness_check_date TEXT,
+      completion_date TEXT, -- YYYY-MM-DD
+      effectiveness_check_date TEXT, -- YYYY-MM-DD
       effectiveness_notes TEXT,
       evidence TEXT,
       cost REAL,
@@ -233,11 +233,13 @@ export async function getDbConnection(): Promise<Database> {
       FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
+    -- Outras tabelas como audits, work_permits, ppe_types, etc.
+    -- ... (restante das definições de tabela) ...
     CREATE TABLE IF NOT EXISTS audits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL,
       scope TEXT NOT NULL,
-      audit_date TEXT NOT NULL,
+      audit_date TEXT NOT NULL, -- YYYY-MM-DD
       auditor TEXT NOT NULL,
       lead_auditor_id INTEGER,
       findings TEXT,
@@ -252,13 +254,13 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS audit_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       audit_id INTEGER NOT NULL,
-      type TEXT NOT NULL, -- Ex: 'Não Conformidade Maior', 'Não Conformidade Menor', 'Observação', 'Oportunidade de Melhoria'
+      type TEXT NOT NULL,
       description TEXT NOT NULL,
       severity TEXT,
-      related_requirement TEXT, -- Ex: 'ISO 45001:2018 Cláusula 8.1.2'
+      related_requirement TEXT,
       action_plan_id INTEGER,
       status TEXT DEFAULT 'Aberta',
-      closure_date TEXT,
+      closure_date TEXT, -- YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE,
       FOREIGN KEY (action_plan_id) REFERENCES action_plans(id) ON DELETE SET NULL
@@ -266,17 +268,17 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS work_permits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL, -- Ex: 'Trabalho a Quente', 'Espaço Confinado', 'Trabalho em Altura'
+      type TEXT NOT NULL,
       location_id INTEGER NOT NULL,
       description TEXT NOT NULL,
       requester_id INTEGER NOT NULL,
       approver_id INTEGER,
       executor_team TEXT,
-      start_datetime TEXT NOT NULL,
-      end_datetime TEXT NOT NULL,
+      start_datetime TEXT NOT NULL, -- YYYY-MM-DD HH:MM:SS
+      end_datetime TEXT NOT NULL, -- YYYY-MM-DD HH:MM:SS
       precautions TEXT,
       equipment_used TEXT,
-      status TEXT DEFAULT 'Solicitada', -- Ex: 'Solicitada', 'Aprovada', 'Rejeitada', 'Em Andamento', 'Concluída', 'Expirada', 'Cancelada'
+      status TEXT DEFAULT 'Solicitada',
       closure_notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT,
@@ -298,12 +300,12 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       ppe_type_id INTEGER NOT NULL,
-      delivery_date TEXT NOT NULL,
+      delivery_date TEXT NOT NULL, -- YYYY-MM-DD
       quantity INTEGER DEFAULT 1,
       ca_number TEXT,
-      receipt_signed INTEGER DEFAULT 0, -- 0 for false, 1 for true
-      return_date TEXT,
-      due_date TEXT, -- Data de vencimento para troca
+      receipt_signed INTEGER DEFAULT 0,
+      return_date TEXT, -- YYYY-MM-DD
+      due_date TEXT, -- YYYY-MM-DD
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
@@ -316,7 +318,7 @@ export async function getDbConnection(): Promise<Database> {
       claimant_name TEXT,
       subject TEXT,
       status TEXT DEFAULT 'Em Andamento',
-      filed_date TEXT,
+      filed_date TEXT, -- YYYY-MM-DD
       court TEXT,
       company_lawyer TEXT,
       opposing_lawyer TEXT,
@@ -324,21 +326,21 @@ export async function getDbConnection(): Promise<Database> {
       final_cost REAL,
       provision_value REAL,
       details TEXT,
-      last_update_date TEXT,
+      last_update_date TEXT, -- YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS asos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
-      type TEXT NOT NULL, -- Ex: 'Admissional', 'Periódico', 'Demissional', 'Mudança de Função', 'Retorno ao Trabalho'
-      exam_date TEXT NOT NULL,
-      result TEXT NOT NULL, -- Ex: 'Apto', 'Inapto', 'Apto com Restrições'
+      type TEXT NOT NULL,
+      exam_date TEXT NOT NULL, -- YYYY-MM-DD
+      result TEXT NOT NULL,
       restrictions TEXT,
       doctor_name TEXT,
       crm TEXT,
       clinic_name TEXT,
-      next_exam_due_date TEXT,
+      next_exam_due_date TEXT, -- YYYY-MM-DD
       observations TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
@@ -349,11 +351,11 @@ export async function getDbConnection(): Promise<Database> {
       employee_id INTEGER NOT NULL,
       disease_name TEXT NOT NULL,
       cid TEXT,
-      diagnosis_date TEXT,
+      diagnosis_date TEXT, -- YYYY-MM-DD
       related_activity TEXT,
-      cat_issued INTEGER DEFAULT 0, -- 0 for false, 1 for true (Comunicação de Acidente de Trabalho)
+      cat_issued INTEGER DEFAULT 0,
       cat_number TEXT,
-      status TEXT DEFAULT 'Suspeita', -- Ex: 'Suspeita', 'Confirmada', 'Afastado', 'Retornado com Restrições'
+      status TEXT DEFAULT 'Suspeita',
       details TEXT,
       treatment_info TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -363,10 +365,10 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS absenteeism_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT NOT NULL,
-      reason TEXT NOT NULL, -- Ex: 'Doença Comum', 'Acidente de Trabalho', 'Licença Médica'
-      medical_certificate_code TEXT, -- CID do atestado
+      start_date TEXT NOT NULL, -- YYYY-MM-DD
+      end_date TEXT NOT NULL, -- YYYY-MM-DD
+      reason TEXT NOT NULL,
+      medical_certificate_code TEXT,
       lost_hours REAL,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -376,14 +378,14 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS agent_monitoring (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id INTEGER,
-      ghe_id INTEGER, -- Grupo Homogêneo de Exposição (se aplicável)
-      agent_type TEXT NOT NULL, -- Ex: 'Ruído', 'Calor', 'Poeira Silica', 'Benzeno'
-      measurement_date TEXT NOT NULL,
+      ghe_id INTEGER,
+      agent_type TEXT NOT NULL,
+      measurement_date TEXT NOT NULL, -- YYYY-MM-DD
       measurement_value REAL NOT NULL,
       unit TEXT NOT NULL,
-      legal_limit REAL, -- Limite de Tolerância
-      action_level REAL, -- Nível de Ação
-      instrument TEXT, -- Equipamento de medição utilizado
+      legal_limit REAL,
+      action_level REAL,
+      instrument TEXT,
       responsible_technician_id INTEGER,
       report_path TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -393,9 +395,9 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS psychosocial_evaluations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      evaluation_date TEXT NOT NULL,
-      type TEXT, -- Ex: 'Pesquisa de Clima', 'Avaliação de Estresse'
-      target_group TEXT, -- Ex: 'Todos', 'Setor X', 'Liderança'
+      evaluation_date TEXT NOT NULL, -- YYYY-MM-DD
+      type TEXT,
+      target_group TEXT,
       overall_score REAL,
       key_findings TEXT,
       recommendations TEXT,
@@ -409,11 +411,11 @@ export async function getDbConnection(): Promise<Database> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER NOT NULL,
       vaccine_name TEXT NOT NULL,
-      dose TEXT, -- Ex: '1ª Dose', 'Reforço'
-      vaccination_date TEXT NOT NULL,
+      dose TEXT,
+      vaccination_date TEXT NOT NULL, -- YYYY-MM-DD
       batch_number TEXT,
       provider TEXT,
-      next_due_date TEXT,
+      next_due_date TEXT, -- YYYY-MM-DD
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
@@ -421,15 +423,15 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS waste_generation (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT NOT NULL,
+      date TEXT NOT NULL, -- YYYY-MM-DD
       location_id INTEGER,
-      waste_type TEXT NOT NULL, -- Ex: 'Papel', 'Plástico', 'Metal', 'Resíduo Perigoso Classe I'
-      classification TEXT, -- Ex: 'Reciclável', 'Não Reciclável', 'Perigoso'
+      waste_type TEXT NOT NULL,
+      classification TEXT,
       quantity REAL NOT NULL,
-      unit TEXT NOT NULL, -- Ex: 'kg', 'ton', 'L'
-      destination TEXT, -- Ex: 'Aterro Sanitário X', 'Reciclador Y', 'Co-processamento Z'
+      unit TEXT NOT NULL,
+      destination TEXT,
       transporter_name TEXT,
-      mrf_number TEXT, -- Manifesto de Resíduos
+      mrf_number TEXT,
       cost REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -437,7 +439,7 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS water_consumption (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT NOT NULL,
+      date TEXT NOT NULL, -- YYYY-MM-DD
       location_id INTEGER,
       reading REAL NOT NULL,
       unit TEXT DEFAULT 'm³',
@@ -450,7 +452,7 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS energy_consumption (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT NOT NULL,
+      date TEXT NOT NULL, -- YYYY-MM-DD
       location_id INTEGER,
       reading REAL NOT NULL,
       unit TEXT DEFAULT 'kWh',
@@ -463,15 +465,15 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS ghg_emissions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT NOT NULL,
+      date TEXT NOT NULL, -- YYYY-MM-DD
       location_id INTEGER,
-      source_type TEXT NOT NULL, -- Ex: 'Combustão Estacionária', 'Transporte', 'Eletricidade'
+      source_type TEXT NOT NULL,
       emission_factor REAL,
       activity_data REAL NOT NULL,
       activity_unit TEXT NOT NULL,
-      co2e_emission REAL NOT NULL, -- Emissões em CO2 Equivalente
+      co2e_emission REAL NOT NULL,
       unit TEXT DEFAULT 'tCO₂e',
-      scope INTEGER, -- 1, 2 ou 3
+      scope INTEGER,
       calculation_methodology TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
@@ -479,17 +481,17 @@ export async function getDbConnection(): Promise<Database> {
 
     CREATE TABLE IF NOT EXISTS environmental_incidents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      incident_id INTEGER UNIQUE, -- Pode linkar com a tabela geral de incidentes
-      date DATETIME NOT NULL,
+      incident_id INTEGER UNIQUE,
+      date DATETIME NOT NULL, -- YYYY-MM-DD HH:MM:SS
       location_id INTEGER,
-      type TEXT NOT NULL, -- Ex: 'Vazamento', 'Derrame', 'Emissão Fora do Padrão'
+      type TEXT NOT NULL,
       substance TEXT NOT NULL,
       quantity REAL,
       unit TEXT,
-      affected_area TEXT, -- Ex: 'Solo', 'Água', 'Ar'
+      affected_area TEXT,
       immediate_actions TEXT,
       cleanup_status TEXT DEFAULT 'Em Andamento',
-      reporting_status TEXT, -- Ex: 'Reportado ao Órgão Ambiental'
+      reporting_status TEXT,
       environmental_impact TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE SET NULL,
@@ -499,16 +501,16 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS environmental_infractions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       infraction_number TEXT UNIQUE NOT NULL,
-      issuing_body TEXT NOT NULL, -- Órgão emissor
-      issue_date TEXT NOT NULL,
+      issuing_body TEXT NOT NULL,
+      issue_date TEXT NOT NULL, -- YYYY-MM-DD
       description TEXT NOT NULL,
       legal_basis TEXT,
       fine_amount REAL,
-      status TEXT DEFAULT 'Em Análise', -- Ex: 'Em Análise', 'Em Defesa', 'Paga', 'Arquivada'
-      defense_deadline TEXT,
-      payment_due_date TEXT,
+      status TEXT DEFAULT 'Em Análise',
+      defense_deadline TEXT, -- YYYY-MM-DD
+      payment_due_date TEXT, -- YYYY-MM-DD
       resolution TEXT,
-      resolution_date TEXT,
+      resolution_date TEXT, -- YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -520,23 +522,23 @@ export async function getDbConnection(): Promise<Database> {
       storage_area TEXT,
       quantity REAL,
       unit TEXT,
-      hazard_class TEXT, -- Ex: 'Inflamável', 'Corrosivo', 'Tóxico'
-      sds_path TEXT, -- Caminho para a FDS (FISPQ)
+      hazard_class TEXT,
+      sds_path TEXT,
       supplier_name TEXT,
-      acquisition_date TEXT,
-      last_updated TEXT DEFAULT (strftime('%Y-%m-%d', 'now')),
+      acquisition_date TEXT, -- YYYY-MM-DD
+      last_updated TEXT DEFAULT (strftime('%Y-%m-%d', 'now')), -- YYYY-MM-DD
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
     );
   `);
 
-  console.log('Tabelas SQLite verificadas/criadas com sucesso.');
-  await populateSampleData(db); // Call function to populate data
+  console.log('[DB] Tabelas SQLite verificadas/criadas com sucesso.');
+  await populateSampleData(db);
   return db;
 }
 
 async function populateSampleData(db: Database) {
-  console.log('Iniciando população de dados de exemplo...');
+  console.log('[DB] Iniciando população de dados de exemplo...');
   // Sample Users
   await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', 1);
   await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', 1);
@@ -555,28 +557,28 @@ async function populateSampleData(db: Database) {
   await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 6, 'Fábrica - Telhado', 'Telhado do bloco principal', 'Fábrica');
   await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 7, 'Oficina Manutenção', 'Manutenção Mecânica/Elétrica', 'Oficina');
 
-  // Sample Employees with birth_date
+  // Sample Employees
   await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Alice Silva', 'Operadora', 'Produção', '2022-03-15', '1990-05-20', '123456789', '111.222.333-44', '(11) 98765-4321', 'Rua das Flores, 123');
   await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Bruno Costa', 'Técnico Manutenção', 'Manutenção', '2021-08-01', '1985-11-10', '987654321', '222.333.444-55', '(22) 91234-5678', 'Avenida Principal, 456');
   await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Carlos Dias', 'Almoxarife', 'Logística', '2023-01-10', '1995-02-25', '456789123', '333.444.555-66', '(33) 99876-1234', 'Travessa da Paz, 789');
   await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Diana Souza', 'Analista RH', 'RH', '2020-11-20', '1992-09-15', '321654987', '444.555.666-77', '(44) 98888-4444', 'Alameda dos Anjos, 101');
   await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 5, 'Eduardo Lima', 'Químico', 'Laboratório', '2022-05-05', '1988-07-30', '789123456', '555.666.777-88', '(55) 97777-5555', 'Praça Central, 202');
 
-  // Sample Incidents (Ensure all fields match the table definition)
+  // Sample Incidents
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0, 'Falta de atenção ao manusear ferramenta cortante.', 'Fornecer luvas de proteção adequadas. Realizar DDS sobre manuseio seguro de ferramentas.', 'Revisar JSA da tarefa para incluir uso obrigatório de luvas.', 3, 50.00, '2024-08-20', '1'); // employee_id 1 (Alice)
+    1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0, 'Falta de atenção ao manusear ferramenta cortante.', 'Fornecer luvas de proteção adequadas. Realizar DDS sobre manuseio seguro de ferramentas.', 'Revisar JSA da tarefa para incluir uso obrigatório de luvas.', 3, 50.00, '2024-08-20', '1');
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    2, '2024-08-18 14:00:00', 'Acidente com Afastamento', 'Moderado', 1, 'Em Investigação', 'Entorse no tornozelo ao descer escada da máquina.', 3, 5, null, null, null, 2, 350.00, null, '2'); // employee_id 2 (Bruno)
+    2, '2024-08-18 14:00:00', 'Acidente com Afastamento', 'Moderado', 1, 'Em Investigação', 'Entorse no tornozelo ao descer escada da máquina.', 3, 5, null, null, null, 2, 350.00, null, '2');
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    3, '2024-08-19 09:15:00', 'Quase Acidente', 'N/A', 2, 'Fechado', 'Caixa caiu de prateleira próxima ao funcionário Carlos.', 1, 0, 'Armazenamento inadequado de caixas.', 'Reorganizar prateleiras, instalar anteparos.', 'Treinamento sobre empilhamento seguro.', 2, 0.00, '2024-08-21', '3'); // employee_id 3 (Carlos)
+    3, '2024-08-19 09:15:00', 'Quase Acidente', 'N/A', 2, 'Fechado', 'Caixa caiu de prateleira próxima ao funcionário Carlos.', 1, 0, 'Armazenamento inadequado de caixas.', 'Reorganizar prateleiras, instalar anteparos.', 'Treinamento sobre empilhamento seguro.', 2, 0.00, '2024-08-21', '3');
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     4, '2024-08-22 11:00:00', 'Incidente Ambiental', 'Insignificante', 5, 'Aberto', 'Pequeno vazamento de óleo contido na área de descarte.', 2, 0, 'Falha na vedação de tambor.', 'Substituir vedação do tambor.', 'Inspeção periódica de tambores.', null, 20.00, null, null);
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    5, '2024-08-23 16:45:00', 'Quase Acidente', 'N/A', 1, 'Aguardando Ação', 'Piso escorregadio devido a vazamento de óleo na máquina Y.', 6, 0, 'Vazamento na máquina Y.', 'Limpar área, sinalizar e solicitar reparo da máquina Y.', 'Manutenção preventiva na máquina Y.', null, 0.00, null, null); // user_id 6 (Alice)
+    5, '2024-08-23 16:45:00', 'Quase Acidente', 'N/A', 1, 'Aguardando Ação', 'Piso escorregadio devido a vazamento de óleo na máquina Y.', 6, 0, 'Vazamento na máquina Y.', 'Limpar área, sinalizar e solicitar reparo da máquina Y.', 'Manutenção preventiva na máquina Y.', null, 0.00, null, null);
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    6, '2024-08-24 08:00:00', 'Acidente sem Afastamento', 'Leve', 3, 'Aberto', 'Colisão com mobília, resultando em hematoma.', 4, 0, null, null, null, null, 0.00, null, '4'); // employee_id 4 (Diana)
+    6, '2024-08-24 08:00:00', 'Acidente sem Afastamento', 'Leve', 3, 'Aberto', 'Colisão com mobília, resultando em hematoma.', 4, 0, null, null, null, null, 0.00, null, '4');
   await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    7, '2024-07-10 15:20:00', 'Acidente com Afastamento', 'Grave', 7, 'Fechado', 'Queda de escada durante reparo em altura.', 2, 30, 'Uso de escada inadequada/instável.', 'Fornecer treinamento de trabalho em altura, substituir escada por plataforma elevatória quando possível.', 'Inspeção regular de escadas e equipamentos de acesso.', 2, 2500.00, '2024-08-10', '2,5'); // employee_ids 2 e 5
+    7, '2024-07-10 15:20:00', 'Acidente com Afastamento', 'Grave', 7, 'Fechado', 'Queda de escada durante reparo em altura.', 2, 30, 'Uso de escada inadequada/instável.', 'Fornecer treinamento de trabalho em altura, substituir escada por plataforma elevatória quando possível.', 'Inspeção regular de escadas e equipamentos de acesso.', 2, 2500.00, '2024-08-10', '2,5');
 
   // Sample JSA
   await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -586,7 +588,6 @@ async function populateSampleData(db: Database) {
   await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, department, responsible_person_id, status) VALUES (?, ?, ?, ?, ?, ?)',
     3, 'Trabalho em Altura - Telhado Bloco B', 6, 'Manutenção', 2, 'Rascunho');
 
-
   // Sample Action Plans
   await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Instalar guarda-corpo na plataforma P-102', 'Inspeção de Segurança ID 12', 2, '2024-09-15', 'Alta', 'Aberta');
   await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 'Revisar procedimento de bloqueio e etiquetagem', 'Auditoria Interna ID 5 (NC-003)', 3, '2024-08-30', 'Alta', 'Em Andamento');
@@ -594,8 +595,7 @@ async function populateSampleData(db: Database) {
   await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 4, 'Adquirir novos protetores auriculares tipo concha', 'Monitoramento de Ruído (Setor A)', 2, '2024-08-20', 'Baixa', 'Atrasada');
   await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 5, 'Treinamento sobre uso de extintores para Brigada', 'Plano Anual de Treinamentos', 3, '2024-10-15', 'Média', 'Aberta');
 
-
-  console.log('Dados de exemplo SQLite verificados/inseridos com sucesso.');
+  console.log('[DB] Dados de exemplo SQLite verificados/inseridos com sucesso.');
 }
 
 
@@ -603,40 +603,35 @@ export async function closeDbConnection(): Promise<void> {
   if (db) {
     await db.close();
     db = null;
-    console.log('Conexão com SQLite fechada.');
+    console.log('[DB] Conexão com SQLite fechada.');
   }
 }
 
 // --- Incidents ---
 export async function insertIncident(incidentData: Omit<IncidentInputType, 'id'>): Promise<number | undefined> {
     const db = await getDbConnection();
+    console.log('[DB:insertIncident] Dados recebidos:', incidentData);
     const result = await db.run(
         `INSERT INTO incidents (
             description, date, type, severity, location_id, reported_by_id, status,
             root_cause, corrective_actions, preventive_actions, involved_persons_ids,
             investigation_responsible_id, lost_days, cost, closure_date
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        incidentData.description,
-        incidentData.date,
-        incidentData.type,
-        incidentData.severity ?? null,
-        incidentData.locationId ?? null,
-        incidentData.reportedById ?? null,
-        incidentData.status ?? 'Aberto',
-        incidentData.root_cause ?? null,
-        incidentData.corrective_actions ?? null,
-        incidentData.preventive_actions ?? null,
-        incidentData.involved_persons_ids ?? null,
-        incidentData.investigation_responsible_id ?? null,
-        incidentData.lost_days ?? null,
-        incidentData.cost ?? null,
-        incidentData.closure_date ?? null
+        incidentData.description, incidentData.date, incidentData.type,
+        incidentData.severity ?? null, incidentData.locationId ?? null,
+        incidentData.reportedById ?? null, incidentData.status ?? 'Aberto',
+        incidentData.root_cause ?? null, incidentData.corrective_actions ?? null,
+        incidentData.preventive_actions ?? null, incidentData.involved_persons_ids ?? null,
+        incidentData.investigation_responsible_id ?? null, incidentData.lost_days ?? null,
+        incidentData.cost ?? null, incidentData.closure_date ?? null
     );
+    console.log('[DB:insertIncident] Resultado:', result);
     return result.lastID;
 }
 
 export async function updateIncidentInDb(id: number, incidentData: Omit<IncidentInputType, 'id'>): Promise<boolean> {
     const db = await getDbConnection();
+    console.log(`[DB:updateIncidentInDb] Atualizando ID ${id} com dados:`, incidentData);
     const result = await db.run(
         `UPDATE incidents SET
             description = ?, date = ?, type = ?, severity = ?, location_id = ?,
@@ -652,9 +647,9 @@ export async function updateIncidentInDb(id: number, incidentData: Omit<Incident
         incidentData.cost ?? null, incidentData.closure_date ?? null,
         id
     );
+    console.log('[DB:updateIncidentInDb] Resultado:', result);
     return (result.changes ?? 0) > 0;
 }
-
 
 export async function getIncidentById(id: number) {
     const db = await getDbConnection();
@@ -669,31 +664,15 @@ export async function getIncidentById(id: number) {
     return incident;
 }
 
-
 export async function getAllIncidents() {
     const db = await getDbConnection();
-    // Ensure all fields needed by the page are selected here
     const incidents = await db.all(`
         SELECT
-            i.id,
-            i.date,
-            i.type,
-            i.severity,
-            i.location_id, -- Make sure location_id is selected for editing
-            l.name as location_name,
-            i.status,
-            i.description,
-            i.reported_by_id, -- Make sure reported_by_id is selected for editing
-            u_rep.name as reporter_name,
-            i.involved_persons_ids,
-            i.root_cause,
-            i.corrective_actions,
-            i.preventive_actions,
-            i.investigation_responsible_id,
-            u_inv.name as investigation_responsible_name,
-            i.lost_days,
-            i.cost,
-            i.closure_date
+            i.id, i.date, i.type, i.severity, i.location_id, l.name as location_name,
+            i.status, i.description, i.reported_by_id, u_rep.name as reporter_name,
+            i.involved_persons_ids, i.root_cause, i.corrective_actions, i.preventive_actions,
+            i.investigation_responsible_id, u_inv.name as investigation_responsible_name,
+            i.lost_days, i.cost, i.closure_date
         FROM incidents i
         LEFT JOIN locations l ON i.location_id = l.id
         LEFT JOIN users u_rep ON i.reported_by_id = u_rep.id
@@ -704,36 +683,22 @@ export async function getAllIncidents() {
 }
 
 // --- JSA (Job Safety Analysis) ---
-interface JsaStepInput {
-    step_order: number;
-    description: string;
-    hazards: string;
-    controls: string;
-}
+interface JsaStepInput { step_order: number; description: string; hazards: string; controls: string; }
 
 export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaStepInput[]): Promise<number | undefined> {
     const db = await getDbConnection();
     let jsaId: number | undefined;
-
+    console.log("[DB:insertJsa] Dados recebidos:", jsaData);
     try {
         await db.run('BEGIN TRANSACTION');
-        console.log("Inserting JSA with data:", jsaData);
         const resultJsa = await db.run(
             'INSERT INTO jsa (task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            jsaData.task,
-            jsaData.locationId ?? null,
-            jsaData.department ?? null,
-            jsaData.responsiblePersonId ?? null,
-            jsaData.teamMembers ?? null,
-            jsaData.requiredPpe ?? null,
-            jsaData.status ?? 'Rascunho',
-            jsaData.reviewDate ?? null,
-            jsaData.attachmentPath ?? null
+            jsaData.task, jsaData.locationId ?? null, jsaData.department ?? null,
+            jsaData.responsiblePersonId ?? null, jsaData.teamMembers ?? null, jsaData.requiredPpe ?? null,
+            jsaData.status ?? 'Rascunho', jsaData.reviewDate ?? null, jsaData.attachmentPath ?? null
         );
         jsaId = resultJsa.lastID;
-        console.log("JSA inserted with ID:", jsaId);
-
-
+        console.log("[DB:insertJsa] JSA inserida com ID:", jsaId, "Resultado:", resultJsa);
         if (!jsaId) throw new Error("Falha ao obter ID da JSA inserida.");
 
         if (stepsData && stepsData.length > 0) {
@@ -742,12 +707,11 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
                 await stmtStep.run(jsaId, step.step_order, step.description, step.hazards, step.controls);
             }
             await stmtStep.finalize();
-            console.log("JSA steps inserted for JSA ID:", jsaId);
         }
         await db.run('COMMIT');
         return jsaId;
     } catch (error) {
-        console.error("Erro ao inserir JSA (rollback):", error);
+        console.error("[DB:insertJsa] Erro (rollback):", error);
         await db.run('ROLLBACK');
         throw error;
     }
@@ -755,14 +719,13 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
 
 export async function getAllJsas() {
   const db = await getDbConnection();
-  const jsas = await db.all(`
+  return db.all(`
     SELECT j.*, l.name as location_name, u.name as responsible_person_name
     FROM jsa j
     LEFT JOIN locations l ON j.location_id = l.id
     LEFT JOIN users u ON j.responsible_person_id = u.id
     ORDER BY j.id DESC
   `);
-  return jsas;
 }
 
 export async function getJsaSteps(jsaId: number) {
@@ -773,7 +736,9 @@ export async function getJsaSteps(jsaId: number) {
 // --- Employees ---
 export async function insertEmployee(name: string, role?: string | null, department?: string | null, hireDate?: string | null, birthDate?: string | null, rg?: string | null, cpf?: string | null, phone?: string | null, address?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertEmployee] Dados:", { name, role, department, hireDate, birthDate, rg, cpf, phone, address });
   const result = await db.run('INSERT INTO employees (name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', name, role ?? null, department ?? null, hireDate ?? null, birthDate ?? null, rg ?? null, cpf ?? null, phone ?? null, address ?? null);
+  console.log("[DB:insertEmployee] Resultado:", result);
   return result.lastID;
 }
 
@@ -785,7 +750,9 @@ export async function getAllEmployees() {
 // --- Locations ---
 export async function insertLocation(name: string, description?: string | null, type?: string | null, address?: string | null, contactPerson?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertLocation] Dados:", { name, description, type, address, contactPerson });
   const result = await db.run('INSERT INTO locations (name, description, type, address, contact_person) VALUES (?, ?, ?, ?, ?)', name, description ?? null, type ?? null, address ?? null, contactPerson ?? null);
+  console.log("[DB:insertLocation] Resultado:", result);
   return result.lastID;
 }
 
@@ -797,7 +764,9 @@ export async function getAllLocations() {
 // --- Equipment ---
 export async function insertEquipment(name: string, type?: string | null, locationId?: number | null, serialNumber?: string | null, brand?: string | null, model?: string | null, acquisitionDate?: string | null, status?: string | null, maintenanceSchedule?: string | null, lastMaintenanceDate?: string | null, nextMaintenanceDate?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertEquipment] Dados:", { name, type, locationId, serialNumber, brand, model, acquisitionDate, status, maintenanceSchedule, lastMaintenanceDate, nextMaintenanceDate });
   const result = await db.run('INSERT INTO equipment (name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', name, type ?? null, locationId ?? null, serialNumber ?? null, brand ?? null, model ?? null, acquisitionDate ?? null, status ?? 'Operacional', maintenanceSchedule ?? null, lastMaintenanceDate ?? null, nextMaintenanceDate ?? null);
+  console.log("[DB:insertEquipment] Resultado:", result);
   return result.lastID;
 }
 
@@ -809,7 +778,9 @@ export async function getAllEquipment() {
 // --- Trainings (Courses) ---
 export async function insertTraining(courseName: string, description?: string | null, provider?: string | null, durationHours?: number | null, frequencyMonths?: number | null, targetAudience?: string | null, contentOutline?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertTraining] Dados:", { courseName, description, provider, durationHours, frequencyMonths, targetAudience, contentOutline });
   const result = await db.run('INSERT INTO trainings (course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?)', courseName, description ?? null, provider ?? null, durationHours ?? null, frequencyMonths === 0 ? 0 : (frequencyMonths ?? null), targetAudience ?? null, contentOutline ?? null);
+  console.log("[DB:insertTraining] Resultado:", result);
   return result.lastID;
 }
 
@@ -821,7 +792,9 @@ export async function getAllTrainings() {
 // --- Training Records ---
 export async function insertTrainingRecord(employeeId: number, trainingId: number, completionDate: string, expiryDate?: string | null, score?: number | null, status?: string | null, certificatePath?: string | null, instructorName?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertTrainingRecord] Dados:", { employeeId, trainingId, completionDate, expiryDate, score, status, certificatePath, instructorName });
   const result = await db.run('INSERT INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, certificate_path, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', employeeId, trainingId, completionDate, expiryDate ?? null, score ?? null, status ?? 'Concluído', certificatePath ?? null, instructorName ?? null);
+  console.log("[DB:insertTrainingRecord] Resultado:", result);
   return result.lastID;
 }
 
@@ -833,7 +806,9 @@ export async function getAllTrainingRecords() {
 // --- Documents ---
 export async function insertDocument(title: string, description?: string | null, category?: string | null, filePath?: string | null, version?: string | null, reviewDate?: string | null, status?: string | null, jsaId?: number | null, authorId?: number | null, ownerDepartment?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertDocument] Dados:", { title, description, category, filePath, version, reviewDate, status, jsaId, authorId, ownerDepartment });
   const result = await db.run('INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date, jsa_id, author_id, owner_department) VALUES (?, ?, ?, ?, ?, ?, ?, strftime(\'%Y-%m-%d\', \'now\'), ?, ?, ?)', title, description ?? null, category ?? null, filePath ?? null, version ?? null, reviewDate ?? null, status ?? 'Ativo', jsaId ?? null, authorId ?? null, ownerDepartment ?? null);
+  console.log("[DB:insertDocument] Resultado:", result);
   return result.lastID;
 }
 
@@ -845,7 +820,9 @@ export async function getAllDocuments() {
 // --- Users ---
 export async function insertUser(name: string, email: string, passwordHash: string, role?: string | null, isActive?: boolean | null): Promise<number | undefined> {
   const db = await getDbConnection();
+  console.log("[DB:insertUser] Dados (parciais):", { name, email, role, isActive });
   const result = await db.run('INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?)', name, email, passwordHash, role ?? 'user', isActive === null || isActive === undefined ? 1 : (isActive ? 1 : 0));
+  console.log("[DB:insertUser] Resultado:", result);
   return result.lastID;
 }
 
@@ -909,3 +886,4 @@ export async function getAllKpis() {
   return kpis;
 }
 
+    
