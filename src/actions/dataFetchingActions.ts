@@ -7,17 +7,17 @@ import {
     getAllEmployees as dbGetAllEmployees,
     getAllTrainings as dbGetAllTrainings,
     getAllJsas as dbGetAllJsas,
-    getAllIncidents as dbGetAllIncidents // Importar a função do db.ts
+    getAllIncidents as dbGetAllIncidents,
+    getAllAudits as dbGetAllAudits
 } from '@/lib/db';
 
 // Define common types for data fetching results
 // Ensure these types align with what the db functions actually return or cast appropriately
 type Location = { id: number; name: string };
-type User = { id: number; name: string; email?: string; role?: string; is_active?: boolean }; // Adicionado mais campos para User
+type User = { id: number; name: string; email?: string; role?: string; is_active?: boolean };
 type Employee = { id: number; name: string };
 type Training = { id: number; course_name: string };
 
-// Updated Jsa type to match JsaEntry in InventarioJsaPage
 type Jsa = {
     id: number;
     task: string;
@@ -26,7 +26,6 @@ type Jsa = {
     review_date: string | null;
     status: string | null;
     attachment_path: string | null;
-    // Include other fields from the 'jsa' table if they might be needed elsewhere
     department?: string | null;
     team_members?: string | null;
     required_ppe?: string | null;
@@ -35,7 +34,6 @@ type Jsa = {
     approver_id?: number | null;
 };
 
-// Interface para IncidentEntry como definido em incidentes/page.tsx
 interface IncidentEntry {
   id: number;
   date: string;
@@ -56,6 +54,19 @@ interface IncidentEntry {
   closure_date?: string | null;
 }
 
+// Definição do tipo AuditEntry, consistente com /auditorias/page.tsx
+interface AuditEntry {
+  id: number;
+  type: string;
+  scope: string;
+  audit_date: string; // YYYY-MM-DD
+  auditor: string;
+  lead_auditor_id: number | null;
+  lead_auditor_name?: string | null; // Nome do auditor líder vindo do JOIN
+  status: string | null;
+  non_conformities_count?: number;
+}
+
 
 type FetchResult<T> = {
     success: boolean;
@@ -63,7 +74,6 @@ type FetchResult<T> = {
     error?: string;
 };
 
-// Fetch all locations (specifically id and name for dropdowns)
 export async function fetchLocations(): Promise<FetchResult<Location>> {
     try {
         const locations = await dbGetAllLocations();
@@ -75,15 +85,12 @@ export async function fetchLocations(): Promise<FetchResult<Location>> {
     }
 }
 
-// Fetch all users (specifically id and name for dropdowns)
 export async function fetchUsers(): Promise<FetchResult<User>> {
     try {
         const users = await dbGetAllUsers();
-        // Ajustar para garantir que os campos retornados correspondam ao tipo User
         const formattedUsers = users.map(user => ({
             id: user.id,
             name: user.name,
-            // Adicione outros campos se eles vierem do dbGetAllUsers e forem necessários
             email: user.email,
             role: user.role,
             is_active: user.is_active,
@@ -121,8 +128,7 @@ export async function fetchTrainings(): Promise<FetchResult<Training>> {
 
 export async function fetchJsas(): Promise<FetchResult<Jsa>> {
     try {
-        const jsas = await dbGetAllJsas(); // This function returns a more complex object
-        // The type casting here should be safe if dbGetAllJsas returns objects matching the expanded Jsa type.
+        const jsas = await dbGetAllJsas();
         return { success: true, data: jsas as Jsa[] };
     } catch (error) {
         console.error('Error fetching JSAs:', error);
@@ -131,7 +137,6 @@ export async function fetchJsas(): Promise<FetchResult<Jsa>> {
     }
 }
 
-// Nova Server Action para buscar todos os incidentes
 export async function fetchAllIncidentsAction(): Promise<FetchResult<IncidentEntry>> {
     console.log("fetchAllIncidentsAction: Iniciando busca de incidentes.");
     try {
@@ -142,5 +147,19 @@ export async function fetchAllIncidentsAction(): Promise<FetchResult<IncidentEnt
         console.error('Error fetching all incidents via action:', error);
         const message = error instanceof Error ? error.message : 'An unknown error occurred while fetching incidents.';
         return { success: false, error: `Erro ao buscar incidentes: ${message}` };
+    }
+}
+
+// Nova Server Action para buscar todas as auditorias
+export async function fetchAllAuditsAction(): Promise<FetchResult<AuditEntry>> {
+    console.log("[dataFetchingActions] fetchAllAuditsAction: Iniciando busca de auditorias.");
+    try {
+        const audits = await dbGetAllAudits();
+        console.log(`[dataFetchingActions] fetchAllAuditsAction: ${audits.length} auditorias encontradas.`);
+        return { success: true, data: audits as AuditEntry[] };
+    } catch (error) {
+        console.error('[dataFetchingActions] Error fetching all audits via action:', error);
+        const message = error instanceof Error ? error.message : 'An unknown error occurred while fetching audits.';
+        return { success: false, error: `Erro ao buscar auditorias: ${message}` };
     }
 }
