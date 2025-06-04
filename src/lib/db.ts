@@ -122,9 +122,9 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS jsa (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task TEXT NOT NULL,
-      location_id INTEGER,
+      location_name TEXT, -- Alterado de location_id
       department TEXT,
-      responsible_person_id INTEGER,
+      responsible_person_name TEXT, -- Alterado de responsible_person_id
       team_members TEXT,
       required_ppe TEXT,
       status TEXT DEFAULT 'Rascunho',
@@ -134,8 +134,6 @@ export async function getDbConnection(): Promise<Database> {
       approver_id INTEGER,
       attachment_path TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
-      FOREIGN KEY (responsible_person_id) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
@@ -233,8 +231,6 @@ export async function getDbConnection(): Promise<Database> {
       FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
-    -- Outras tabelas como audits, work_permits, ppe_types, etc.
-    -- ... (restante das definições de tabela) ...
     CREATE TABLE IF NOT EXISTS audits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL,
@@ -581,12 +577,13 @@ async function populateSampleData(db: Database) {
     7, '2024-07-10 15:20:00', 'Acidente com Afastamento', 'Grave', 7, 'Fechado', 'Queda de escada durante reparo em altura.', 2, 30, 'Uso de escada inadequada/instável.', 'Fornecer treinamento de trabalho em altura, substituir escada por plataforma elevatória quando possível.', 'Inspeção regular de escadas e equipamentos de acesso.', 2, 2500.00, '2024-08-10', '2,5');
 
   // Sample JSA
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    1, 'Manutenção Preventiva Prensa XPTO', 1, 'Manutenção', 3, 'João Silva, Maria Oliveira', 'Capacete, Óculos, Luvas, Botas', 'Ativo', '2024-08-01', '/uploads/jsa_prensa_xpto_v1.xlsx');
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, department, responsible_person_id, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    2, 'Limpeza de Tanque Químico T-02', 4, 'Produção', 3, 'Revisado', '2024-07-15', null);
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_id, department, responsible_person_id, status) VALUES (?, ?, ?, ?, ?, ?)',
-    3, 'Trabalho em Altura - Telhado Bloco B', 6, 'Manutenção', 2, 'Rascunho');
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    1, 'Manutenção Preventiva Prensa XPTO', 'Fábrica - Setor A', 'Manutenção', 'Técnico SST', 'João Silva, Maria Oliveira', 'Capacete, Óculos, Luvas, Botas', 'Ativo', '2024-08-01', '/uploads/jsa_prensa_xpto_v1.xlsx');
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_name, department, responsible_person_name, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    2, 'Limpeza de Tanque Químico T-02', 'Laboratório Químico', 'Produção', 'Técnico SST', 'Revisado', '2024-07-15', null);
+  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_name, department, responsible_person_name, status) VALUES (?, ?, ?, ?, ?, ?)',
+    3, 'Trabalho em Altura - Telhado Bloco B', 'Fábrica - Telhado', 'Manutenção', 'Gerente Seg', 'Rascunho');
+
 
   // Sample Action Plans
   await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Instalar guarda-corpo na plataforma P-102', 'Inspeção de Segurança ID 12', 2, '2024-09-15', 'Alta', 'Aberta');
@@ -610,49 +607,60 @@ export async function closeDbConnection(): Promise<void> {
 // --- Incidents ---
 export async function insertIncident(incidentData: Omit<IncidentInputType, 'id'>): Promise<number | undefined> {
     const db = await getDbConnection();
-    console.log('[DB:insertIncident] Dados recebidos:', incidentData);
-    const result = await db.run(
-        `INSERT INTO incidents (
-            description, date, type, severity, location_id, reported_by_id, status,
-            root_cause, corrective_actions, preventive_actions, involved_persons_ids,
-            investigation_responsible_id, lost_days, cost, closure_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        incidentData.description, incidentData.date, incidentData.type,
-        incidentData.severity ?? null, incidentData.locationId ?? null,
-        incidentData.reportedById ?? null, incidentData.status ?? 'Aberto',
-        incidentData.root_cause ?? null, incidentData.corrective_actions ?? null,
-        incidentData.preventive_actions ?? null, incidentData.involved_persons_ids ?? null,
-        incidentData.investigation_responsible_id ?? null, incidentData.lost_days ?? null,
-        incidentData.cost ?? null, incidentData.closure_date ?? null
-    );
-    console.log('[DB:insertIncident] Resultado:', result);
-    return result.lastID;
+    console.log('[DB:insertIncident] Dados recebidos para inserção:', incidentData);
+    try {
+        const result = await db.run(
+            `INSERT INTO incidents (
+                description, date, type, severity, location_id, reported_by_id, status,
+                root_cause, corrective_actions, preventive_actions, involved_persons_ids,
+                investigation_responsible_id, lost_days, cost, closure_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            incidentData.description, incidentData.date, incidentData.type,
+            incidentData.severity ?? null, incidentData.locationId ?? null,
+            incidentData.reportedById ?? null, incidentData.status ?? 'Aberto',
+            incidentData.root_cause ?? null, incidentData.corrective_actions ?? null,
+            incidentData.preventive_actions ?? null, incidentData.involved_persons_ids ?? null,
+            incidentData.investigation_responsible_id ?? null, incidentData.lost_days ?? null,
+            incidentData.cost ?? null, incidentData.closure_date ?? null
+        );
+        console.log('[DB:insertIncident] Incidente inserido com sucesso. ID:', result.lastID, 'Alterações:', result.changes);
+        return result.lastID;
+    } catch (error) {
+        console.error('[DB:insertIncident] Erro ao inserir incidente:', error);
+        throw error;
+    }
 }
 
 export async function updateIncidentInDb(id: number, incidentData: Omit<IncidentInputType, 'id'>): Promise<boolean> {
     const db = await getDbConnection();
-    console.log(`[DB:updateIncidentInDb] Atualizando ID ${id} com dados:`, incidentData);
-    const result = await db.run(
-        `UPDATE incidents SET
-            description = ?, date = ?, type = ?, severity = ?, location_id = ?,
-            reported_by_id = ?, status = ?, root_cause = ?, corrective_actions = ?,
-            preventive_actions = ?, involved_persons_ids = ?, investigation_responsible_id = ?,
-            lost_days = ?, cost = ?, closure_date = ?
-        WHERE id = ?`,
-        incidentData.description, incidentData.date, incidentData.type, incidentData.severity ?? null,
-        incidentData.locationId ?? null, incidentData.reportedById ?? null, incidentData.status ?? 'Aberto',
-        incidentData.root_cause ?? null, incidentData.corrective_actions ?? null,
-        incidentData.preventive_actions ?? null, incidentData.involved_persons_ids ?? null,
-        incidentData.investigation_responsible_id ?? null, incidentData.lost_days ?? null,
-        incidentData.cost ?? null, incidentData.closure_date ?? null,
-        id
-    );
-    console.log('[DB:updateIncidentInDb] Resultado:', result);
-    return (result.changes ?? 0) > 0;
+    console.log(`[DB:updateIncidentInDb] Atualizando incidente ID ${id} com dados:`, incidentData);
+    try {
+        const result = await db.run(
+            `UPDATE incidents SET
+                description = ?, date = ?, type = ?, severity = ?, location_id = ?,
+                reported_by_id = ?, status = ?, root_cause = ?, corrective_actions = ?,
+                preventive_actions = ?, involved_persons_ids = ?, investigation_responsible_id = ?,
+                lost_days = ?, cost = ?, closure_date = ?
+            WHERE id = ?`,
+            incidentData.description, incidentData.date, incidentData.type, incidentData.severity ?? null,
+            incidentData.locationId ?? null, incidentData.reportedById ?? null, incidentData.status ?? 'Aberto',
+            incidentData.root_cause ?? null, incidentData.corrective_actions ?? null,
+            incidentData.preventive_actions ?? null, incidentData.involved_persons_ids ?? null,
+            incidentData.investigation_responsible_id ?? null, incidentData.lost_days ?? null,
+            incidentData.cost ?? null, incidentData.closure_date ?? null,
+            id
+        );
+        console.log('[DB:updateIncidentInDb] Incidente atualizado com sucesso. Alterações:', result.changes);
+        return (result.changes ?? 0) > 0;
+    } catch (error) {
+        console.error(`[DB:updateIncidentInDb] Erro ao atualizar incidente ID ${id}:`, error);
+        throw error;
+    }
 }
 
 export async function getIncidentById(id: number) {
     const db = await getDbConnection();
+    console.log(`[DB:getIncidentById] Buscando incidente com ID: ${id}`);
     const incident = await db.get(`
         SELECT i.*, l.name as location_name, u_rep.name as reporter_name, u_inv.name as investigation_responsible_name
         FROM incidents i
@@ -661,11 +669,13 @@ export async function getIncidentById(id: number) {
         LEFT JOIN users u_inv ON i.investigation_responsible_id = u_inv.id
         WHERE i.id = ?
     `, id);
+    console.log(`[DB:getIncidentById] Incidente encontrado para ID ${id}:`, incident);
     return incident;
 }
 
 export async function getAllIncidents() {
     const db = await getDbConnection();
+    console.log('[DB:getAllIncidents] Buscando todos os incidentes.');
     const incidents = await db.all(`
         SELECT
             i.id, i.date, i.type, i.severity, i.location_id, l.name as location_name,
@@ -679,6 +689,7 @@ export async function getAllIncidents() {
         LEFT JOIN users u_inv ON i.investigation_responsible_id = u_inv.id
         ORDER BY i.date DESC
     `);
+    console.log(`[DB:getAllIncidents] ${incidents.length} incidentes encontrados.`);
     return incidents;
 }
 
@@ -688,30 +699,40 @@ interface JsaStepInput { step_order: number; description: string; hazards: strin
 export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaStepInput[]): Promise<number | undefined> {
     const db = await getDbConnection();
     let jsaId: number | undefined;
-    console.log("[DB:insertJsa] Dados recebidos:", jsaData);
+    console.log("[DB:insertJsa] Dados recebidos para inserção (JSA):", jsaData);
+    console.log("[DB:insertJsa] Dados recebidos para inserção (Etapas):", stepsData);
     try {
         await db.run('BEGIN TRANSACTION');
         const resultJsa = await db.run(
-            'INSERT INTO jsa (task, location_id, department, responsible_person_id, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            jsaData.task, jsaData.locationId ?? null, jsaData.department ?? null,
-            jsaData.responsiblePersonId ?? null, jsaData.teamMembers ?? null, jsaData.requiredPpe ?? null,
-            jsaData.status ?? 'Rascunho', jsaData.reviewDate ?? null, jsaData.attachmentPath ?? null
+            `INSERT INTO jsa (task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            jsaData.task,
+            jsaData.locationName ?? null, // Campo alterado
+            jsaData.department ?? null,
+            jsaData.responsiblePersonName ?? null, // Campo alterado
+            jsaData.teamMembers ?? null,
+            jsaData.requiredPpe ?? null,
+            jsaData.status ?? 'Rascunho',
+            jsaData.reviewDate ?? null,
+            jsaData.attachmentPath ?? null
         );
         jsaId = resultJsa.lastID;
-        console.log("[DB:insertJsa] JSA inserida com ID:", jsaId, "Resultado:", resultJsa);
+        console.log("[DB:insertJsa] JSA inserida com ID:", jsaId, "Resultado SQL:", resultJsa);
         if (!jsaId) throw new Error("Falha ao obter ID da JSA inserida.");
 
         if (stepsData && stepsData.length > 0) {
             const stmtStep = await db.prepare('INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)');
             for (const step of stepsData) {
                 await stmtStep.run(jsaId, step.step_order, step.description, step.hazards, step.controls);
+                 console.log(`[DB:insertJsa] Etapa JSA inserida para JSA ID ${jsaId}:`, step);
             }
             await stmtStep.finalize();
         }
         await db.run('COMMIT');
+        console.log("[DB:insertJsa] Transação COMMITADA com sucesso para JSA ID:", jsaId);
         return jsaId;
     } catch (error) {
-        console.error("[DB:insertJsa] Erro (rollback):", error);
+        console.error("[DB:insertJsa] Erro durante a inserção da JSA (transação será desfeita - ROLLBACK):", error);
         await db.run('ROLLBACK');
         throw error;
     }
@@ -719,133 +740,206 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
 
 export async function getAllJsas() {
   const db = await getDbConnection();
-  return db.all(`
-    SELECT j.*, l.name as location_name, u.name as responsible_person_name
+  console.log('[DB:getAllJsas] Buscando todas as JSAs.');
+  // Removido os JOINs com locations e users pois location_name e responsible_person_name agora são textos diretos
+  const jsas = await db.all(`
+    SELECT j.*
     FROM jsa j
-    LEFT JOIN locations l ON j.location_id = l.id
-    LEFT JOIN users u ON j.responsible_person_id = u.id
     ORDER BY j.id DESC
   `);
+  console.log(`[DB:getAllJsas] ${jsas.length} JSAs encontradas.`);
+  return jsas;
 }
 
 export async function getJsaSteps(jsaId: number) {
     const db = await getDbConnection();
-    return db.all('SELECT * FROM jsa_steps WHERE jsa_id = ? ORDER BY step_order', jsaId);
+    console.log(`[DB:getJsaSteps] Buscando etapas para JSA ID: ${jsaId}`);
+    const steps = await db.all('SELECT * FROM jsa_steps WHERE jsa_id = ? ORDER BY step_order', jsaId);
+    console.log(`[DB:getJsaSteps] ${steps.length} etapas encontradas para JSA ID: ${jsaId}`);
+    return steps;
 }
 
 // --- Employees ---
 export async function insertEmployee(name: string, role?: string | null, department?: string | null, hireDate?: string | null, birthDate?: string | null, rg?: string | null, cpf?: string | null, phone?: string | null, address?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertEmployee] Dados:", { name, role, department, hireDate, birthDate, rg, cpf, phone, address });
-  const result = await db.run('INSERT INTO employees (name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', name, role ?? null, department ?? null, hireDate ?? null, birthDate ?? null, rg ?? null, cpf ?? null, phone ?? null, address ?? null);
-  console.log("[DB:insertEmployee] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertEmployee] Dados para inserção:", { name, role, department, hireDate, birthDate, rg, cpf, phone, address });
+  try {
+    const result = await db.run('INSERT INTO employees (name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', name, role ?? null, department ?? null, hireDate ?? null, birthDate ?? null, rg ?? null, cpf ?? null, phone ?? null, address ?? null);
+    console.log("[DB:insertEmployee] Funcionário inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertEmployee] Erro ao inserir funcionário:", error);
+    throw error;
+  }
 }
 
 export async function getAllEmployees() {
   const db = await getDbConnection();
-  return db.all('SELECT id, name FROM employees ORDER BY name');
+  console.log("[DB:getAllEmployees] Buscando todos os funcionários (ID e Nome).");
+  const employees = await db.all('SELECT id, name FROM employees ORDER BY name');
+  console.log(`[DB:getAllEmployees] ${employees.length} funcionários encontrados.`);
+  return employees;
 }
 
 // --- Locations ---
 export async function insertLocation(name: string, description?: string | null, type?: string | null, address?: string | null, contactPerson?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertLocation] Dados:", { name, description, type, address, contactPerson });
-  const result = await db.run('INSERT INTO locations (name, description, type, address, contact_person) VALUES (?, ?, ?, ?, ?)', name, description ?? null, type ?? null, address ?? null, contactPerson ?? null);
-  console.log("[DB:insertLocation] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertLocation] Dados para inserção:", { name, description, type, address, contactPerson });
+  try {
+    const result = await db.run('INSERT INTO locations (name, description, type, address, contact_person) VALUES (?, ?, ?, ?, ?)', name, description ?? null, type ?? null, address ?? null, contactPerson ?? null);
+    console.log("[DB:insertLocation] Local inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertLocation] Erro ao inserir local:", error);
+    throw error;
+  }
 }
 
 export async function getAllLocations() {
   const db = await getDbConnection();
-  return db.all('SELECT id, name FROM locations ORDER BY name');
+  console.log("[DB:getAllLocations] Buscando todos os locais (ID e Nome).");
+  const locations = await db.all('SELECT id, name FROM locations ORDER BY name');
+  console.log(`[DB:getAllLocations] ${locations.length} locais encontrados.`);
+  return locations;
 }
 
 // --- Equipment ---
 export async function insertEquipment(name: string, type?: string | null, locationId?: number | null, serialNumber?: string | null, brand?: string | null, model?: string | null, acquisitionDate?: string | null, status?: string | null, maintenanceSchedule?: string | null, lastMaintenanceDate?: string | null, nextMaintenanceDate?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertEquipment] Dados:", { name, type, locationId, serialNumber, brand, model, acquisitionDate, status, maintenanceSchedule, lastMaintenanceDate, nextMaintenanceDate });
-  const result = await db.run('INSERT INTO equipment (name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', name, type ?? null, locationId ?? null, serialNumber ?? null, brand ?? null, model ?? null, acquisitionDate ?? null, status ?? 'Operacional', maintenanceSchedule ?? null, lastMaintenanceDate ?? null, nextMaintenanceDate ?? null);
-  console.log("[DB:insertEquipment] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertEquipment] Dados para inserção:", { name, type, locationId, serialNumber, brand, model, acquisitionDate, status, maintenanceSchedule, lastMaintenanceDate, nextMaintenanceDate });
+  try {
+    const result = await db.run('INSERT INTO equipment (name, type, location_id, serial_number, brand, model, acquisition_date, status, maintenance_schedule, last_maintenance_date, next_maintenance_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', name, type ?? null, locationId ?? null, serialNumber ?? null, brand ?? null, model ?? null, acquisitionDate ?? null, status ?? 'Operacional', maintenanceSchedule ?? null, lastMaintenanceDate ?? null, nextMaintenanceDate ?? null);
+    console.log("[DB:insertEquipment] Equipamento inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertEquipment] Erro ao inserir equipamento:", error);
+    throw error;
+  }
 }
 
 export async function getAllEquipment() {
     const db = await getDbConnection();
-    return db.all('SELECT eq.*, l.name as location_name FROM equipment eq LEFT JOIN locations l ON eq.location_id = l.id ORDER BY eq.name');
+    console.log("[DB:getAllEquipment] Buscando todos os equipamentos.");
+    const equipment = await db.all('SELECT eq.*, l.name as location_name FROM equipment eq LEFT JOIN locations l ON eq.location_id = l.id ORDER BY eq.name');
+    console.log(`[DB:getAllEquipment] ${equipment.length} equipamentos encontrados.`);
+    return equipment;
 }
 
 // --- Trainings (Courses) ---
 export async function insertTraining(courseName: string, description?: string | null, provider?: string | null, durationHours?: number | null, frequencyMonths?: number | null, targetAudience?: string | null, contentOutline?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertTraining] Dados:", { courseName, description, provider, durationHours, frequencyMonths, targetAudience, contentOutline });
-  const result = await db.run('INSERT INTO trainings (course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?)', courseName, description ?? null, provider ?? null, durationHours ?? null, frequencyMonths === 0 ? 0 : (frequencyMonths ?? null), targetAudience ?? null, contentOutline ?? null);
-  console.log("[DB:insertTraining] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertTraining] Dados para inserção:", { courseName, description, provider, durationHours, frequencyMonths, targetAudience, contentOutline });
+  try {
+    const result = await db.run('INSERT INTO trainings (course_name, description, provider, duration_hours, frequency_months, target_audience, content_outline) VALUES (?, ?, ?, ?, ?, ?, ?)', courseName, description ?? null, provider ?? null, durationHours ?? null, frequencyMonths === 0 ? 0 : (frequencyMonths ?? null), targetAudience ?? null, contentOutline ?? null);
+    console.log("[DB:insertTraining] Curso inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertTraining] Erro ao inserir curso:", error);
+    throw error;
+  }
 }
 
 export async function getAllTrainings() {
   const db = await getDbConnection();
-  return db.all('SELECT id, course_name FROM trainings ORDER BY course_name');
+  console.log("[DB:getAllTrainings] Buscando todos os cursos (ID e Nome).");
+  const trainings = await db.all('SELECT id, course_name FROM trainings ORDER BY course_name');
+  console.log(`[DB:getAllTrainings] ${trainings.length} cursos encontrados.`);
+  return trainings;
 }
 
 // --- Training Records ---
 export async function insertTrainingRecord(employeeId: number, trainingId: number, completionDate: string, expiryDate?: string | null, score?: number | null, status?: string | null, certificatePath?: string | null, instructorName?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertTrainingRecord] Dados:", { employeeId, trainingId, completionDate, expiryDate, score, status, certificatePath, instructorName });
-  const result = await db.run('INSERT INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, certificate_path, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', employeeId, trainingId, completionDate, expiryDate ?? null, score ?? null, status ?? 'Concluído', certificatePath ?? null, instructorName ?? null);
-  console.log("[DB:insertTrainingRecord] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertTrainingRecord] Dados para inserção:", { employeeId, trainingId, completionDate, expiryDate, score, status, certificatePath, instructorName });
+  try {
+    const result = await db.run('INSERT INTO training_records (employee_id, training_id, completion_date, expiry_date, score, status, certificate_path, instructor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', employeeId, trainingId, completionDate, expiryDate ?? null, score ?? null, status ?? 'Concluído', certificatePath ?? null, instructorName ?? null);
+    console.log("[DB:insertTrainingRecord] Registro de treinamento inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertTrainingRecord] Erro ao inserir registro de treinamento:", error);
+    throw error;
+  }
 }
 
 export async function getAllTrainingRecords() {
   const db = await getDbConnection();
-  return db.all('SELECT tr.*, e.name as employee_name, t.course_name as training_name FROM training_records tr JOIN employees e ON tr.employee_id = e.id JOIN trainings t ON tr.training_id = t.id ORDER BY tr.completion_date DESC');
+  console.log("[DB:getAllTrainingRecords] Buscando todos os registros de treinamento.");
+  const records = await db.all('SELECT tr.*, e.name as employee_name, t.course_name as training_name FROM training_records tr JOIN employees e ON tr.employee_id = e.id JOIN trainings t ON tr.training_id = t.id ORDER BY tr.completion_date DESC');
+  console.log(`[DB:getAllTrainingRecords] ${records.length} registros encontrados.`);
+  return records;
 }
 
 // --- Documents ---
 export async function insertDocument(title: string, description?: string | null, category?: string | null, filePath?: string | null, version?: string | null, reviewDate?: string | null, status?: string | null, jsaId?: number | null, authorId?: number | null, ownerDepartment?: string | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertDocument] Dados:", { title, description, category, filePath, version, reviewDate, status, jsaId, authorId, ownerDepartment });
-  const result = await db.run('INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date, jsa_id, author_id, owner_department) VALUES (?, ?, ?, ?, ?, ?, ?, strftime(\'%Y-%m-%d\', \'now\'), ?, ?, ?)', title, description ?? null, category ?? null, filePath ?? null, version ?? null, reviewDate ?? null, status ?? 'Ativo', jsaId ?? null, authorId ?? null, ownerDepartment ?? null);
-  console.log("[DB:insertDocument] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertDocument] Dados para inserção:", { title, description, category, filePath, version, reviewDate, status, jsaId, authorId, ownerDepartment });
+  try {
+    const result = await db.run('INSERT INTO documents (title, description, category, file_path, version, review_date, status, upload_date, jsa_id, author_id, owner_department) VALUES (?, ?, ?, ?, ?, ?, ?, strftime(\'%Y-%m-%d\', \'now\'), ?, ?, ?)', title, description ?? null, category ?? null, filePath ?? null, version ?? null, reviewDate ?? null, status ?? 'Ativo', jsaId ?? null, authorId ?? null, ownerDepartment ?? null);
+    console.log("[DB:insertDocument] Documento inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertDocument] Erro ao inserir documento:", error);
+    throw error;
+  }
 }
 
 export async function getAllDocuments() {
   const db = await getDbConnection();
-  return db.all('SELECT * FROM documents ORDER BY upload_date DESC, title');
+  console.log("[DB:getAllDocuments] Buscando todos os documentos.");
+  const documents = await db.all('SELECT * FROM documents ORDER BY upload_date DESC, title');
+  console.log(`[DB:getAllDocuments] ${documents.length} documentos encontrados.`);
+  return documents;
 }
 
 // --- Users ---
 export async function insertUser(name: string, email: string, passwordHash: string, role?: string | null, isActive?: boolean | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  console.log("[DB:insertUser] Dados (parciais):", { name, email, role, isActive });
-  const result = await db.run('INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?)', name, email, passwordHash, role ?? 'user', isActive === null || isActive === undefined ? 1 : (isActive ? 1 : 0));
-  console.log("[DB:insertUser] Resultado:", result);
-  return result.lastID;
+  console.log("[DB:insertUser] Dados para inserção (parcial - sem hash):", { name, email, role, isActive });
+  try {
+    const result = await db.run('INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?)', name, email, passwordHash, role ?? 'user', isActive === null || isActive === undefined ? 1 : (isActive ? 1 : 0));
+    console.log("[DB:insertUser] Usuário inserido com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertUser] Erro ao inserir usuário:", error);
+    throw error;
+  }
 }
 
 export async function getUserByEmail(email: string) {
   const db = await getDbConnection();
-  return db.get('SELECT * FROM users WHERE email = ?', email);
+  console.log(`[DB:getUserByEmail] Buscando usuário com email: ${email}`);
+  const user = await db.get('SELECT * FROM users WHERE email = ?', email);
+  console.log(`[DB:getUserByEmail] Usuário encontrado para email ${email}:`, user);
+  return user;
 }
 
 export async function getAllUsers() {
   const db = await getDbConnection();
-  return db.all('SELECT id, name, email, role, is_active, created_at FROM users ORDER BY name');
+  console.log("[DB:getAllUsers] Buscando todos os usuários.");
+  const users = await db.all('SELECT id, name, email, role, is_active, created_at FROM users ORDER BY name');
+  console.log(`[DB:getAllUsers] ${users.length} usuários encontrados.`);
+  return users;
 }
 
 // --- Activity Logs ---
 export async function insertActivityLog(action: string, details?: string | null, userId?: number | null): Promise<number | undefined> {
   const db = await getDbConnection();
-  const result = await db.run('INSERT INTO activity_logs (action, details, user_id) VALUES (?, ?, ?)', action, details ?? null, userId ?? null);
-  return result.lastID;
+  try {
+    const result = await db.run('INSERT INTO activity_logs (action, details, user_id) VALUES (?, ?, ?)', action, details ?? null, userId ?? null);
+    // console.log("[DB:insertActivityLog] Log de atividade inserido. ID:", result.lastID); // Frequent, so commented out
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertActivityLog] Erro ao inserir log de atividade:", error);
+    throw error;
+  }
 }
 
 export async function getAllActivityLogs(limit: number = 50) {
     const db = await getDbConnection();
-    return db.all('SELECT al.*, u.name as user_name FROM activity_logs al LEFT JOIN users u ON al.user_id = u.id ORDER BY al.timestamp DESC LIMIT ?', limit);
+    console.log(`[DB:getAllActivityLogs] Buscando os últimos ${limit} logs de atividade.`);
+    const logs = await db.all('SELECT al.*, u.name as user_name FROM activity_logs al LEFT JOIN users u ON al.user_id = u.id ORDER BY al.timestamp DESC LIMIT ?', limit);
+    console.log(`[DB:getAllActivityLogs] ${logs.length} logs encontrados.`);
+    return logs;
 }
 
 // --- Action Plans ---
@@ -862,27 +956,42 @@ export async function getDashboardActionItems(statusFilter?: string[], limit?: n
         limitClause = 'LIMIT ?';
         params.push(limit);
     }
-    return db.all(`SELECT ap.*, u.name as responsible_name FROM action_plans ap LEFT JOIN users u ON ap.responsible_id = u.id ${whereClause} ORDER BY CASE ap.priority WHEN 'Alta' THEN 1 WHEN 'Média' THEN 2 WHEN 'Baixa' THEN 3 ELSE 4 END, ap.due_date ASC ${limitClause}`, ...params);
+    console.log(`[DB:getDashboardActionItems] Buscando itens do plano de ação com filtro: ${statusFilter}, limite: ${limit}`);
+    const items = await db.all(`SELECT ap.*, u.name as responsible_name FROM action_plans ap LEFT JOIN users u ON ap.responsible_id = u.id ${whereClause} ORDER BY CASE ap.priority WHEN 'Alta' THEN 1 WHEN 'Média' THEN 2 WHEN 'Baixa' THEN 3 ELSE 4 END, ap.due_date ASC ${limitClause}`, ...params);
+    console.log(`[DB:getDashboardActionItems] ${items.length} itens encontrados.`);
+    return items;
 }
 
 export async function getAllActionItemsSortedByDueDate(): Promise<any[]> {
     const db = await getDbConnection();
-    return db.all(`SELECT ap.*, u.name as responsible_name FROM action_plans ap LEFT JOIN users u ON ap.responsible_id = u.id ORDER BY CASE WHEN ap.status = 'Concluída' OR ap.status = 'Cancelada' THEN 1 ELSE 0 END, ap.due_date ASC`);
+    console.log('[DB:getAllActionItemsSortedByDueDate] Buscando todos os itens do plano de ação ordenados por data de vencimento.');
+    const items = await db.all(`SELECT ap.*, u.name as responsible_name FROM action_plans ap LEFT JOIN users u ON ap.responsible_id = u.id ORDER BY CASE WHEN ap.status = 'Concluída' OR ap.status = 'Cancelada' THEN 1 ELSE 0 END, ap.due_date ASC`);
+    console.log(`[DB:getAllActionItemsSortedByDueDate] ${items.length} itens encontrados.`);
+    return items;
 }
 
 // --- KPIs ---
 export async function insertKpi(name: string, value: number, category?: string, unit?: string, target?: number, period?: string, data_date?: string) {
   const db = await getDbConnection();
-  const result = await db.run(
-    'INSERT INTO kpis (name, value, category, unit, target, period, data_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(name) DO UPDATE SET value=excluded.value, category=excluded.category, unit=excluded.unit, target=excluded.target, period=excluded.period, data_date=excluded.data_date, updated_at=CURRENT_TIMESTAMP',
-    name, value, category ?? null, unit ?? null, target ?? null, period ?? null, data_date ?? null
-  );
-  return result.lastID;
+  console.log("[DB:insertKpi] Dados para inserção/atualização:", {name, value, category, unit, target, period, data_date});
+  try {
+    const result = await db.run(
+      'INSERT INTO kpis (name, value, category, unit, target, period, data_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(name) DO UPDATE SET value=excluded.value, category=excluded.category, unit=excluded.unit, target=excluded.target, period=excluded.period, data_date=excluded.data_date, updated_at=CURRENT_TIMESTAMP',
+      name, value, category ?? null, unit ?? null, target ?? null, period ?? null, data_date ?? null
+    );
+    console.log("[DB:insertKpi] KPI inserido/atualizado com sucesso. ID:", result.lastID, "Alterações:", result.changes);
+    return result.lastID;
+  } catch (error) {
+    console.error("[DB:insertKpi] Erro ao inserir/atualizar KPI:", error);
+    throw error;
+  }
 }
 
 export async function getAllKpis() {
   const db = await getDbConnection();
+  console.log("[DB:getAllKpis] Buscando todos os KPIs.");
   const kpis = await db.all('SELECT * FROM kpis ORDER BY category, name');
+  console.log(`[DB:getAllKpis] ${kpis.length} KPIs encontrados.`);
   return kpis;
 }
 

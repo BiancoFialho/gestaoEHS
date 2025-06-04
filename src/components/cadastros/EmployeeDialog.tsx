@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parse, isValid, parseISO } from "date-fns";
-import { ptBR } from 'date-fns/locale';
 
 import {
   Dialog,
@@ -34,7 +33,7 @@ import { addEmployee } from '@/actions/employeeActions';
 interface EmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialData?: EmployeeInitialData | null; // For editing
+  initialData?: EmployeeInitialData | null;
 }
 
 interface EmployeeInitialData {
@@ -42,8 +41,8 @@ interface EmployeeInitialData {
     name: string;
     role?: string | null;
     department?: string | null;
-    hireDate?: string | null; // Expect YYYY-MM-DD from DB
-    birthDate?: string | null; // Expect YYYY-MM-DD from DB
+    hireDate?: string | null; // YYYY-MM-DD
+    birthDate?: string | null; // YYYY-MM-DD
     rg?: string | null;
     cpf?: string | null;
     phone?: string | null;
@@ -78,15 +77,9 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, ini
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      role: "",
-      department: "",
-      hireDateString: null,
-      birthDateString: null,
-      rg: "",
-      cpf: "",
-      phone: "",
-      address: "",
+      name: "", role: "", department: "",
+      hireDateString: null, birthDateString: null,
+      rg: "", cpf: "", phone: "", address: "",
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,7 +87,7 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, ini
 
   const onSubmit = async (values: EmployeeFormValues) => {
     setIsSubmitting(true);
-    console.log("[EmployeeDialog] onSubmit values:", values);
+    console.log("[EmployeeDialog] onSubmit values antes da formatação:", values);
 
     let formattedHireDate: string | null = null;
     if (values.hireDateString && values.hireDateString.trim() !== "") {
@@ -122,24 +115,21 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, ini
         }
     }
 
+    const dataToSend = {
+      name: values.name,
+      role: values.role || null,
+      department: values.department || null,
+      hireDate: formattedHireDate,
+      birthDate: formattedBirthDate,
+      rg: values.rg || null,
+      cpf: values.cpf || null,
+      phone: values.phone || null,
+      address: values.address || null,
+    };
+    console.log("[EmployeeDialog] Submitting to Action:", dataToSend);
+
     try {
-      const dataToSend = {
-        name: values.name,
-        role: values.role || null,
-        department: values.department || null,
-        hireDate: formattedHireDate,
-        birthDate: formattedBirthDate,
-        rg: values.rg || null,
-        cpf: values.cpf || null,
-        phone: values.phone || null,
-        address: values.address || null,
-      };
-      console.log("[EmployeeDialog] Submitting Employee Data to Action:", dataToSend);
-
-      // TODO: Implement updateEmployee action and use it here if isEditMode
-      // For now, only addEmployee is used.
       const result = await addEmployee(dataToSend);
-
       if (result.success) {
         toast({
           title: "Sucesso!",
@@ -149,16 +139,16 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, ini
         onOpenChange(false);
       } else {
          toast({
-            title: "Erro",
+            title: "Erro ao Salvar",
             description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} funcionário.`,
             variant: "destructive",
          });
       }
     } catch (error) {
-      console.error(`Error ${isEditMode ? 'updating' : 'adding'} employee:`, error);
+      console.error(`[EmployeeDialog] Catch error ${isEditMode ? 'updating' : 'adding'} employee:`, error);
       toast({
-        title: "Erro Inesperado",
-        description: "Ocorreu um erro inesperado.",
+        title: "Erro Inesperado no Formulário",
+        description: "Ocorreu um erro inesperado ao enviar os dados.",
         variant: "destructive",
       });
     } finally {
@@ -192,7 +182,6 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, ini
     }
   }, [open, form, initialData, isEditMode]);
 
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -218,125 +207,38 @@ const EmployeeDialog: React.FC<EmployeeDialogProps> = ({ open, onOpenChange, ini
               )}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cargo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Técnico de Segurança" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Departamento</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Produção" {...field} value={field.value ?? ''}/>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="role" render={({ field }) => (
+                  <FormItem><FormLabel>Cargo</FormLabel><FormControl><Input placeholder="Ex: Técnico de Segurança" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+              )}/>
+              <FormField control={form.control} name="department" render={({ field }) => (
+                  <FormItem><FormLabel>Departamento</FormLabel><FormControl><Input placeholder="Ex: Produção" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
+              )}/>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="hireDateString"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Data Admissão ({DATE_FORMAT_DISPLAY})</FormLabel>
-                    <FormControl>
-                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="birthDateString"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Data Nascimento ({DATE_FORMAT_DISPLAY})</FormLabel>
-                    <FormControl>
-                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <FormField control={form.control} name="hireDateString" render={({ field }) => (
+                    <FormItem><FormLabel>Data Admissão ({DATE_FORMAT_DISPLAY})</FormLabel><FormControl><Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="birthDateString" render={({ field }) => (
+                    <FormItem><FormLabel>Data Nascimento ({DATE_FORMAT_DISPLAY})</FormLabel><FormControl><Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="rg"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>RG</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Número do RG" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="cpf"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>CPF</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Número do CPF" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <FormField control={form.control} name="rg" render={({ field }) => (
+                    <FormItem><FormLabel>RG</FormLabel><FormControl><Input placeholder="Número do RG" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="cpf" render={({ field }) => (
+                    <FormItem><FormLabel>CPF</FormLabel><FormControl><Input placeholder="Número do CPF" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
             </div>
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Telefone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="(XX) XXXXX-XXXX" {...field} value={field.value ?? ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Endereço</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Endereço completo" {...field} value={field.value ?? ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem><FormLabel>Telefone</FormLabel><FormControl><Input placeholder="(XX) XXXXX-XXXX" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            )}/>
+            <FormField control={form.control} name="address" render={({ field }) => (
+                <FormItem><FormLabel>Endereço</FormLabel><FormControl><Textarea placeholder="Endereço completo" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            )}/>
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
-                <DialogClose asChild>
-                 <Button type="button" variant="outline">Cancelar</Button>
-                </DialogClose>
-                <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
-                </Button>
+                <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}</Button>
             </DialogFooter>
           </form>
         </Form>

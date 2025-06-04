@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { insertTrainingRecord } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
-// Dates are expected as 'yyyy-MM-dd' from the TrainingRecordDialog after parsing
 const recordSchema = z.object({
   employeeId: z.number().int().positive(),
   trainingId: z.number().int().positive(),
@@ -19,11 +18,11 @@ const recordSchema = z.object({
 type RecordInput = z.infer<typeof recordSchema>;
 
 export async function addTrainingRecord(data: RecordInput): Promise<{ success: boolean; error?: string; id?: number }> {
-  console.log("[Action:addTrainingRecord] Recebido para adicionar:", data);
+  console.log("[Action:addTrainingRecord] Dados recebidos para adicionar:", data);
   try {
     const validatedData = recordSchema.safeParse(data);
     if (!validatedData.success) {
-      console.error("[Action:addTrainingRecord] Falha na validação:", validatedData.error.errors);
+      console.error("[Action:addTrainingRecord] Falha na validação Zod:", validatedData.error.errors);
       const errorMessages = validatedData.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
@@ -32,7 +31,7 @@ export async function addTrainingRecord(data: RecordInput): Promise<{ success: b
         employeeId, trainingId, completionDate, expiryDate,
         score, status, instructorName
     } = validatedData.data;
-    console.log("[Action:addTrainingRecord] Dados validados para inserção no DB:", validatedData.data);
+    console.log("[Action:addTrainingRecord] Dados validados e formatados para inserção no DB:", validatedData.data);
 
     const newRecordId = await insertTrainingRecord(
         employeeId, trainingId, completionDate, expiryDate,
@@ -40,17 +39,17 @@ export async function addTrainingRecord(data: RecordInput): Promise<{ success: b
     );
 
      if (newRecordId === undefined || newRecordId === null) {
-        console.error("[Action:addTrainingRecord] Falha ao inserir no DB, ID não retornado.");
-        throw new Error('Failed to insert training record, ID not returned.');
+        console.error("[Action:addTrainingRecord] Falha ao inserir registro de treinamento no DB, ID não retornado.");
+        throw new Error('Falha ao inserir registro de treinamento, ID não retornado.');
      }
 
-    console.log(`[Action:addTrainingRecord] Registro de treinamento adicionado com ID: ${newRecordId}`);
+    console.log(`[Action:addTrainingRecord] Registro de treinamento adicionado com sucesso com ID: ${newRecordId}`);
     revalidatePath('/geral/treinamentos');
     return { success: true, id: newRecordId };
 
   } catch (error) {
-    console.error('[Action:addTrainingRecord] Erro ao adicionar registro de treinamento:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error('[Action:addTrainingRecord] Erro detalhado ao adicionar registro de treinamento:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao adicionar registro de treinamento.';
     return { success: false, error: `Erro ao adicionar registro de treinamento: ${errorMessage}` };
   }
 }

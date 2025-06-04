@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { insertDocument } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
-// Dates are expected as 'yyyy-MM-dd' from the DocumentDialog after parsing
 const documentSchema = z.object({
   title: z.string().min(3, { message: "Título deve ter pelo menos 3 caracteres." }),
   category: z.string().optional().nullable(),
@@ -22,11 +21,11 @@ const documentSchema = z.object({
 type DocumentInput = z.infer<typeof documentSchema>;
 
 export async function addDocument(data: DocumentInput): Promise<{ success: boolean; error?: string; id?: number }> {
-  console.log("[Action:addDocument] Recebido para adicionar:", data);
+  console.log("[Action:addDocument] Dados recebidos para adicionar:", data);
   try {
     const validatedData = documentSchema.safeParse(data);
     if (!validatedData.success) {
-      console.error("[Action:addDocument] Falha na validação:", validatedData.error.errors);
+      console.error("[Action:addDocument] Falha na validação Zod:", validatedData.error.errors);
       const errorMessages = validatedData.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
@@ -35,10 +34,7 @@ export async function addDocument(data: DocumentInput): Promise<{ success: boole
         title, description, category, filePath, version, reviewDate,
         status, jsaId, authorId, ownerDepartment
     } = validatedData.data;
-    console.log("[Action:addDocument] Dados validados para inserção no DB:", validatedData.data);
-
-    // TODO: Handle actual file upload here if necessary.
-    // For now, filePath comes directly from the form (manual input).
+    console.log("[Action:addDocument] Dados validados e formatados para inserção no DB:", validatedData.data);
 
     const newDocumentId = await insertDocument(
       title, description, category, filePath, version, reviewDate,
@@ -46,17 +42,17 @@ export async function addDocument(data: DocumentInput): Promise<{ success: boole
     );
 
     if (newDocumentId === undefined || newDocumentId === null) {
-        console.error("[Action:addDocument] Falha ao inserir no DB, ID não retornado.");
-        throw new Error('Failed to insert document, ID not returned.');
+        console.error("[Action:addDocument] Falha ao inserir documento no DB, ID não retornado.");
+        throw new Error('Falha ao inserir documento, ID não retornado.');
     }
 
-    console.log(`[Action:addDocument] Documento adicionado com ID: ${newDocumentId}`);
+    console.log(`[Action:addDocument] Documento adicionado com sucesso com ID: ${newDocumentId}`);
     revalidatePath('/geral/documentos');
     return { success: true, id: newDocumentId };
 
   } catch (error) {
-    console.error('[Action:addDocument] Erro ao adicionar documento:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error('[Action:addDocument] Erro detalhado ao adicionar documento:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao adicionar documento.';
     return { success: false, error: `Erro ao adicionar documento: ${errorMessage}` };
   }
 }

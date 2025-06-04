@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parse, isValid, parseISO } from "date-fns";
-import { ptBR } from 'date-fns/locale';
 
 import {
   Dialog,
@@ -42,7 +41,7 @@ import { fetchLocations } from '@/actions/dataFetchingActions';
 interface EquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialData?: EquipmentInitialData | null; // For editing
+  initialData?: EquipmentInitialData | null;
 }
 
 interface EquipmentInitialData {
@@ -53,11 +52,11 @@ interface EquipmentInitialData {
     serialNumber?: string | null;
     brand?: string | null;
     model?: string | null;
-    acquisitionDate?: string | null; // Expect YYYY-MM-DD
+    acquisitionDate?: string | null; // YYYY-MM-DD
     status?: string | null;
     maintenanceSchedule?: string | null;
-    lastMaintenanceDate?: string | null; // Expect YYYY-MM-DD
-    nextMaintenanceDate?: string | null; // Expect YYYY-MM-DD
+    lastMaintenanceDate?: string | null; // YYYY-MM-DD
+    nextMaintenanceDate?: string | null; // YYYY-MM-DD
 }
 
 const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
@@ -88,10 +87,7 @@ const formSchema = z.object({
 
 type EquipmentFormValues = z.infer<typeof formSchema>;
 
-interface Location {
-    id: number;
-    name: string;
-}
+interface Location { id: number; name: string; }
 
 const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, initialData }) => {
   const { toast } = useToast();
@@ -99,6 +95,7 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, i
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditMode = !!initialData?.id;
+  const NONE_SELECT_VALUE = "__NONE__";
 
   const form = useForm<EquipmentFormValues>({
     resolver: zodResolver(formSchema),
@@ -118,20 +115,11 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, i
         try {
            const result = await fetchLocations();
            if (isMounted) {
-               if (result.success && result.data) {
-                   setLocations(result.data);
-               } else {
-                   console.error("Error fetching locations:", result.error);
-                   toast({ title: "Erro", description: result.error || "Não foi possível carregar os locais.", variant: "destructive" });
-                   setLocations([]);
-               }
+               if (result.success && result.data) setLocations(result.data);
+               else { toast({ title: "Erro", description: result.error || "Não foi possível carregar os locais.", variant: "destructive" }); setLocations([]); }
            }
         } catch (error) {
-           if (isMounted) {
-              console.error("Error fetching locations:", error);
-              toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" });
-              setLocations([]);
-           }
+           if (isMounted) { toast({ title: "Erro", description: "Não foi possível carregar os locais.", variant: "destructive" }); setLocations([]); }
         } finally {
           if (isMounted) setIsLoadingLocations(false);
         }
@@ -140,15 +128,11 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, i
 
       if (isEditMode && initialData) {
         form.reset({
-            name: initialData.name || "",
-            type: initialData.type || "",
+            name: initialData.name || "", type: initialData.type || "",
             locationId: initialData.locationId?.toString() || "",
-            serialNumber: initialData.serialNumber || "",
-            brand: initialData.brand || "",
-            model: initialData.model || "",
+            serialNumber: initialData.serialNumber || "", brand: initialData.brand || "", model: initialData.model || "",
             acquisitionDateString: initialData.acquisitionDate ? format(parseISO(initialData.acquisitionDate), DATE_FORMAT_DISPLAY) : null,
-            status: initialData.status || "Operacional",
-            maintenanceSchedule: initialData.maintenanceSchedule || "",
+            status: initialData.status || "Operacional", maintenanceSchedule: initialData.maintenanceSchedule || "",
             lastMaintenanceDateString: initialData.lastMaintenanceDate ? format(parseISO(initialData.lastMaintenanceDate), DATE_FORMAT_DISPLAY) : null,
             nextMaintenanceDateString: initialData.nextMaintenanceDate ? format(parseISO(initialData.nextMaintenanceDate), DATE_FORMAT_DISPLAY) : null,
         });
@@ -160,26 +144,22 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, i
         });
       }
     } else {
-      setLocations([]);
-      setIsSubmitting(false);
-      setIsLoadingLocations(false);
+      setLocations([]); setIsSubmitting(false); setIsLoadingLocations(false);
     }
     return () => { isMounted = false; };
   }, [open, form, toast, initialData, isEditMode]);
 
   const onSubmit = async (values: EquipmentFormValues) => {
     setIsSubmitting(true);
-    console.log("[EquipmentDialog] onSubmit values:", values);
+    console.log("[EquipmentDialog] onSubmit values antes da formatação:", values);
 
-    const parseDateString = (dateStr: string | null | undefined): string | null => {
+    const parseDateString = (dateStr: string | null | undefined, fieldName: string): string | null => {
         if (!dateStr || dateStr.trim() === "") return null;
         try {
             const parsed = parse(dateStr, DATE_FORMAT_DISPLAY, new Date());
-            if (!isValid(parsed)) throw new Error(`Data inválida: ${dateStr}`);
+            if (!isValid(parsed)) throw new Error(`Data de ${fieldName} inválida.`);
             return format(parsed, DATE_FORMAT_DB);
-        } catch (e) {
-            throw e; // Re-throw to be caught by the main try-catch
-        }
+        } catch (e) { throw e; }
     };
 
     let formattedAcquisitionDate: string | null = null;
@@ -187,9 +167,9 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, i
     let formattedNextMaintenanceDate: string | null = null;
 
     try {
-        formattedAcquisitionDate = parseDateString(values.acquisitionDateString);
-        formattedLastMaintenanceDate = parseDateString(values.lastMaintenanceDateString);
-        formattedNextMaintenanceDate = parseDateString(values.nextMaintenanceDateString);
+        formattedAcquisitionDate = parseDateString(values.acquisitionDateString, "aquisição");
+        formattedLastMaintenanceDate = parseDateString(values.lastMaintenanceDateString, "última manutenção");
+        formattedNextMaintenanceDate = parseDateString(values.nextMaintenanceDateString, "próxima manutenção");
     } catch (e) {
         toast({ title: "Erro de Formato de Data", description: (e as Error).message, variant: "destructive"});
         setIsSubmitting(false);
@@ -197,251 +177,96 @@ const EquipmentDialog: React.FC<EquipmentDialogProps> = ({ open, onOpenChange, i
     }
 
     const dataToSend = {
-        name: values.name,
-        type: values.type || null,
-        locationId: values.locationId ? parseInt(values.locationId, 10) : null,
-        serialNumber: values.serialNumber || null,
-        brand: values.brand || null,
-        model: values.model || null,
-        acquisitionDate: formattedAcquisitionDate,
-        status: values.status || 'Operacional',
+        name: values.name, type: values.type || null,
+        locationId: values.locationId && values.locationId !== NONE_SELECT_VALUE ? parseInt(values.locationId, 10) : null,
+        serialNumber: values.serialNumber || null, brand: values.brand || null, model: values.model || null,
+        acquisitionDate: formattedAcquisitionDate, status: values.status || 'Operacional',
         maintenanceSchedule: values.maintenanceSchedule || null,
-        lastMaintenanceDate: formattedLastMaintenanceDate,
-        nextMaintenanceDate: formattedNextMaintenanceDate,
+        lastMaintenanceDate: formattedLastMaintenanceDate, nextMaintenanceDate: formattedNextMaintenanceDate,
     };
-    console.log("[EquipmentDialog] Submitting Equipment Data to Action:", dataToSend);
+    console.log("[EquipmentDialog] Submitting to Action:", dataToSend);
 
-    // TODO: Implement updateEquipment action
     try {
       const result = await addEquipment(dataToSend);
       if (result.success) {
-        toast({
-          title: "Sucesso!",
-          description: `Equipamento ${isEditMode ? 'atualizado' : 'adicionado'} com sucesso.`,
-        });
-        form.reset();
-        onOpenChange(false);
+        toast({ title: "Sucesso!", description: `Equipamento ${isEditMode ? 'atualizado' : 'adicionado'} com sucesso.` });
+        form.reset(); onOpenChange(false);
       } else {
-         toast({
-            title: "Erro",
-            description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} equipamento.`,
-            variant: "destructive",
-         });
+         toast({ title: "Erro ao Salvar", description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'adicionar'} equipamento.`, variant: "destructive" });
       }
     } catch (error) {
-      console.error(`Error ${isEditMode ? 'updating' : 'adding'} equipment:`, error);
-      toast({
-        title: "Erro Inesperado",
-        description: "Ocorreu um erro inesperado.",
-        variant: "destructive",
-      });
+      console.error(`[EquipmentDialog] Catch error ${isEditMode ? 'updating' : 'adding'} equipment:`, error);
+      toast({ title: "Erro Inesperado no Formulário", description: "Ocorreu um erro inesperado.", variant: "destructive" });
     } finally {
         setIsSubmitting(false);
     }
   };
 
   const equipmentStatusOptions = ["Operacional", "Em Manutenção", "Fora de Uso", "Aguardando Peças", "Descartado"];
-  const NONE_SELECT_VALUE = "__NONE__";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento"}</DialogTitle>
-          <DialogDescription>
-            {isEditMode ? "Altere os dados do equipamento." : "Insira os dados do novo equipamento."}
-          </DialogDescription>
+          <DialogDescription>{isEditMode ? "Altere os dados do equipamento." : "Insira os dados do novo equipamento."}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome do Equipamento *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Extintor PQS ABC" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Nome do Equipamento *</FormLabel><FormControl><Input placeholder="Ex: Extintor PQS ABC" {...field} /></FormControl><FormMessage /></FormItem>
+            )}/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Ex: Extintor, Máquina" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="serialNumber"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Nº de Série</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Número de série único" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <FormField control={form.control} name="type" render={({ field }) => (
+                    <FormItem><FormLabel>Tipo</FormLabel><FormControl><Input placeholder="Ex: Extintor, Máquina" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="serialNumber" render={({ field }) => (
+                    <FormItem><FormLabel>Nº de Série</FormLabel><FormControl><Input placeholder="Número de série único" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="brand"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Marca</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Ex: Kidde, Bosch" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="model"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Modelo</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Ex: ABC 4kg, GSB 13 RE" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <FormField control={form.control} name="brand" render={({ field }) => (
+                    <FormItem><FormLabel>Marca</FormLabel><FormControl><Input placeholder="Ex: Kidde, Bosch" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="model" render={({ field }) => (
+                    <FormItem><FormLabel>Modelo</FormLabel><FormControl><Input placeholder="Ex: ABC 4kg, GSB 13 RE" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
             </div>
-
-             <FormField
-              control={form.control}
-              name="locationId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Local</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)}
-                    value={field.value || ""}
-                    disabled={isLoadingLocations}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={isLoadingLocations ? "Carregando..." : "Selecione um local"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                       <SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>
-                       {locations.map((loc) => (
-                        <SelectItem key={loc.id} value={loc.id.toString()}>
-                          {loc.name}
-                        </SelectItem>
-                      ))}
-                       {!isLoadingLocations && locations.length === 0 && (
-                           <SelectItem value="no-locations" disabled>Nenhum local cadastrado</SelectItem>
-                       )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+             <FormField control={form.control} name="locationId" render={({ field }) => (
+                <FormItem><FormLabel>Local</FormLabel>
+                  <Select onValueChange={(value) => field.onChange(value === NONE_SELECT_VALUE ? '' : value)} value={field.value || ""} disabled={isLoadingLocations}>
+                    <FormControl><SelectTrigger><SelectValue placeholder={isLoadingLocations ? "Carregando..." : "Selecione um local"} /></SelectTrigger></FormControl>
+                    <SelectContent><SelectItem value={NONE_SELECT_VALUE}>Nenhum</SelectItem>{locations.map((loc) => (<SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>))}
+                       {!isLoadingLocations && locations.length === 0 && (<SelectItem value="no-locations" disabled>Nenhum local</SelectItem>)}</SelectContent>
+                  </Select><FormMessage />
                 </FormItem>
-              )}
-            />
-
+              )}/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="acquisitionDateString"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Data Aquisição ({DATE_FORMAT_DISPLAY})</FormLabel>
-                    <FormControl>
-                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Status</FormLabel>
+                <FormField control={form.control} name="acquisitionDateString" render={({ field }) => (
+                    <FormItem><FormLabel>Data Aquisição ({DATE_FORMAT_DISPLAY})</FormLabel><FormControl><Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem><FormLabel>Status</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? 'Operacional'}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecione o status" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {equipmentStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl>
+                        <SelectContent>{equipmentStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                    </Select><FormMessage /></FormItem>
+                )}/>
             </div>
-
-            <FormField
-              control={form.control}
-              name="maintenanceSchedule"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Plano de Manutenção</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Descreva a frequência ou plano..." {...field} value={field.value ?? ''}/>
-                  </FormControl>
-                   <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormField control={form.control} name="maintenanceSchedule" render={({ field }) => (
+                <FormItem><FormLabel>Plano de Manutenção</FormLabel><FormControl><Textarea placeholder="Descreva a frequência ou plano..." {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
+            )}/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="lastMaintenanceDateString"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Última Manutenção ({DATE_FORMAT_DISPLAY})</FormLabel>
-                    <FormControl>
-                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="nextMaintenanceDateString"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Próxima Manutenção ({DATE_FORMAT_DISPLAY})</FormLabel>
-                    <FormControl>
-                        <Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <FormField control={form.control} name="lastMaintenanceDateString" render={({ field }) => (
+                    <FormItem><FormLabel>Última Manutenção ({DATE_FORMAT_DISPLAY})</FormLabel><FormControl><Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="nextMaintenanceDateString" render={({ field }) => (
+                    <FormItem><FormLabel>Próxima Manutenção ({DATE_FORMAT_DISPLAY})</FormLabel><FormControl><Input placeholder={DATE_FORMAT_DISPLAY} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
             </div>
-
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
-                <DialogClose asChild>
-                 <Button type="button" variant="outline">Cancelar</Button>
-                </DialogClose>
-                 <Button type="submit" disabled={isSubmitting || isLoadingLocations}>
-                    {isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}
-                </Button>
+                <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                 <Button type="submit" disabled={isSubmitting || isLoadingLocations}>{isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}</Button>
             </DialogFooter>
           </form>
         </Form>
