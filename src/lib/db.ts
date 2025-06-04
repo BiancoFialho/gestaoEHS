@@ -26,10 +26,11 @@ let db: Database | null = null;
  */
 export async function getDbConnection(): Promise<Database> {
   if (db) {
+    console.log('[DB] Usando conexão SQLite existente.');
     return db;
   }
 
-  console.log('[DB] Tentando abrir conexão com SQLite...');
+  console.log('[DB] Tentando abrir NOVA conexão com SQLite (arquivo: ./ehs_database.sqlite)...');
   db = await open({
     filename: './ehs_database.sqlite', // Este arquivo será criado na raiz do projeto
     driver: sqlite3.Database,
@@ -39,6 +40,7 @@ export async function getDbConnection(): Promise<Database> {
   await db.run('PRAGMA foreign_keys = ON');
   console.log('[DB] PRAGMA foreign_keys habilitado.');
 
+  console.log('[DB] Verificando/Criando tabelas...');
   await db.exec(`
     CREATE TABLE IF NOT EXISTS employees (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,9 +124,9 @@ export async function getDbConnection(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS jsa (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task TEXT NOT NULL,
-      location_name TEXT, -- Alterado de location_id
+      location_name TEXT, 
       department TEXT,
-      responsible_person_name TEXT, -- Alterado de responsible_person_id
+      responsible_person_name TEXT, 
       team_members TEXT,
       required_ppe TEXT,
       status TEXT DEFAULT 'Rascunho',
@@ -534,65 +536,88 @@ export async function getDbConnection(): Promise<Database> {
 }
 
 async function populateSampleData(db: Database) {
-  console.log('[DB] Iniciando população de dados de exemplo...');
-  // Sample Users
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', 1);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', 1);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', '$2a$10$dummyhashuser', 'user', 1);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho', 'biancofialho@gmail.com', '$2a$10$mY4C4mN3/8wFfO60V.sR6eJ9F0o/qA3mR7K9Q8B1Z6v7J3k9D2c.a', 'admin', 1);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', '$2a$10$dummyhashinactive', 'user', 0);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 6, 'Alice Silva (Usuário)', 'alice@company.com', '$2a$10$dummyhashalice', 'user', 1);
-  await db.run('INSERT OR IGNORE INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 7, 'Bruno Costa (Usuário)', 'bruno@company.com', '$2a$10$dummyhashbruno', 'user', 1);
-
-  // Sample Locations
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 1, 'Fábrica - Setor A', 'Área de produção principal', 'Fábrica');
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 2, 'Almoxarifado Central', 'Armazenamento de materiais', 'Armazém');
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 3, 'Escritório - RH', 'Recursos Humanos', 'Escritório');
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 4, 'Laboratório Químico', 'Análises e testes', 'Laboratório');
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 5, 'Pátio Externo', 'Área de carga e descarga', 'Externo');
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 6, 'Fábrica - Telhado', 'Telhado do bloco principal', 'Fábrica');
-  await db.run('INSERT OR IGNORE INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 7, 'Oficina Manutenção', 'Manutenção Mecânica/Elétrica', 'Oficina');
-
-  // Sample Employees
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Alice Silva', 'Operadora', 'Produção', '2022-03-15', '1990-05-20', '123456789', '111.222.333-44', '(11) 98765-4321', 'Rua das Flores, 123');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Bruno Costa', 'Técnico Manutenção', 'Manutenção', '2021-08-01', '1985-11-10', '987654321', '222.333.444-55', '(22) 91234-5678', 'Avenida Principal, 456');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Carlos Dias', 'Almoxarife', 'Logística', '2023-01-10', '1995-02-25', '456789123', '333.444.555-66', '(33) 99876-1234', 'Travessa da Paz, 789');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Diana Souza', 'Analista RH', 'RH', '2020-11-20', '1992-09-15', '321654987', '444.555.666-77', '(44) 98888-4444', 'Alameda dos Anjos, 101');
-  await db.run('INSERT OR IGNORE INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 5, 'Eduardo Lima', 'Químico', 'Laboratório', '2022-05-05', '1988-07-30', '789123456', '555.666.777-88', '(55) 97777-5555', 'Praça Central, 202');
-
-  // Sample Incidents
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0, 'Falta de atenção ao manusear ferramenta cortante.', 'Fornecer luvas de proteção adequadas. Realizar DDS sobre manuseio seguro de ferramentas.', 'Revisar JSA da tarefa para incluir uso obrigatório de luvas.', 3, 50.00, '2024-08-20', '1');
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    2, '2024-08-18 14:00:00', 'Acidente com Afastamento', 'Moderado', 1, 'Em Investigação', 'Entorse no tornozelo ao descer escada da máquina.', 3, 5, null, null, null, 2, 350.00, null, '2');
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    3, '2024-08-19 09:15:00', 'Quase Acidente', 'N/A', 2, 'Fechado', 'Caixa caiu de prateleira próxima ao funcionário Carlos.', 1, 0, 'Armazenamento inadequado de caixas.', 'Reorganizar prateleiras, instalar anteparos.', 'Treinamento sobre empilhamento seguro.', 2, 0.00, '2024-08-21', '3');
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    4, '2024-08-22 11:00:00', 'Incidente Ambiental', 'Insignificante', 5, 'Aberto', 'Pequeno vazamento de óleo contido na área de descarte.', 2, 0, 'Falha na vedação de tambor.', 'Substituir vedação do tambor.', 'Inspeção periódica de tambores.', null, 20.00, null, null);
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    5, '2024-08-23 16:45:00', 'Quase Acidente', 'N/A', 1, 'Aguardando Ação', 'Piso escorregadio devido a vazamento de óleo na máquina Y.', 6, 0, 'Vazamento na máquina Y.', 'Limpar área, sinalizar e solicitar reparo da máquina Y.', 'Manutenção preventiva na máquina Y.', null, 0.00, null, null);
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    6, '2024-08-24 08:00:00', 'Acidente sem Afastamento', 'Leve', 3, 'Aberto', 'Colisão com mobília, resultando em hematoma.', 4, 0, null, null, null, null, 0.00, null, '4');
-  await db.run('INSERT OR IGNORE INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    7, '2024-07-10 15:20:00', 'Acidente com Afastamento', 'Grave', 7, 'Fechado', 'Queda de escada durante reparo em altura.', 2, 30, 'Uso de escada inadequada/instável.', 'Fornecer treinamento de trabalho em altura, substituir escada por plataforma elevatória quando possível.', 'Inspeção regular de escadas e equipamentos de acesso.', 2, 2500.00, '2024-08-10', '2,5');
-
-  // Sample JSA
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    1, 'Manutenção Preventiva Prensa XPTO', 'Fábrica - Setor A', 'Manutenção', 'Técnico SST', 'João Silva, Maria Oliveira', 'Capacete, Óculos, Luvas, Botas', 'Ativo', '2024-08-01', '/uploads/jsa_prensa_xpto_v1.xlsx');
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_name, department, responsible_person_name, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    2, 'Limpeza de Tanque Químico T-02', 'Laboratório Químico', 'Produção', 'Técnico SST', 'Revisado', '2024-07-15', null);
-  await db.run('INSERT OR IGNORE INTO jsa (id, task, location_name, department, responsible_person_name, status) VALUES (?, ?, ?, ?, ?, ?)',
-    3, 'Trabalho em Altura - Telhado Bloco B', 'Fábrica - Telhado', 'Manutenção', 'Gerente Seg', 'Rascunho');
+  const isUsersEmpty = await db.get('SELECT COUNT(*) as count FROM users');
+  if (isUsersEmpty && isUsersEmpty.count === 0) {
+    console.log('[DB] Populando dados de exemplo para Users...');
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', '$2a$10$dummyhashuser', 'user', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho', 'biancofialho@gmail.com', '$2a$10$mY4C4mN3/8wFfO60V.sR6eJ9F0o/qA3mR7K9Q8B1Z6v7J3k9D2c.a', 'admin', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', '$2a$10$dummyhashinactive', 'user', 0);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 6, 'Alice Silva (Usuário)', 'alice@company.com', '$2a$10$dummyhashalice', 'user', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 7, 'Bruno Costa (Usuário)', 'bruno@company.com', '$2a$10$dummyhashbruno', 'user', 1);
+    console.log('[DB] Dados de exemplo para Users populados.');
+  }
 
 
-  // Sample Action Plans
-  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Instalar guarda-corpo na plataforma P-102', 'Inspeção de Segurança ID 12', 2, '2024-09-15', 'Alta', 'Aberta');
-  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 'Revisar procedimento de bloqueio e etiquetagem', 'Auditoria Interna ID 5 (NC-003)', 3, '2024-08-30', 'Alta', 'Em Andamento');
-  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status, completion_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Sinalizar área de tráfego de empilhadeiras', 'Incidente ID 3 (Quase Acidente)', 1, '2024-07-31', 'Média', 'Concluída', '2024-07-28');
-  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 4, 'Adquirir novos protetores auriculares tipo concha', 'Monitoramento de Ruído (Setor A)', 2, '2024-08-20', 'Baixa', 'Atrasada');
-  await db.run('INSERT OR IGNORE INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 5, 'Treinamento sobre uso de extintores para Brigada', 'Plano Anual de Treinamentos', 3, '2024-10-15', 'Média', 'Aberta');
+  const isLocationsEmpty = await db.get('SELECT COUNT(*) as count FROM locations');
+  if (isLocationsEmpty && isLocationsEmpty.count === 0) {
+    console.log('[DB] Populando dados de exemplo para Locations...');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 1, 'Fábrica - Setor A', 'Área de produção principal', 'Fábrica');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 2, 'Almoxarifado Central', 'Armazenamento de materiais', 'Armazém');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 3, 'Escritório - RH', 'Recursos Humanos', 'Escritório');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 4, 'Laboratório Químico', 'Análises e testes', 'Laboratório');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 5, 'Pátio Externo', 'Área de carga e descarga', 'Externo');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 6, 'Fábrica - Telhado', 'Telhado do bloco principal', 'Fábrica');
+    await db.run('INSERT INTO locations (id, name, description, type) VALUES (?, ?, ?, ?)', 7, 'Oficina Manutenção', 'Manutenção Mecânica/Elétrica', 'Oficina');
+    console.log('[DB] Dados de exemplo para Locations populados.');
+  }
 
-  console.log('[DB] Dados de exemplo SQLite verificados/inseridos com sucesso.');
+
+  const isEmployeesEmpty = await db.get('SELECT COUNT(*) as count FROM employees');
+  if (isEmployeesEmpty && isEmployeesEmpty.count === 0) {
+    console.log('[DB] Populando dados de exemplo para Employees...');
+    await db.run('INSERT INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 1, 'Alice Silva', 'Operadora', 'Produção', '2022-03-15', '1990-05-20', '123456789', '111.222.333-44', '(11) 98765-4321', 'Rua das Flores, 123');
+    await db.run('INSERT INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 2, 'Bruno Costa', 'Técnico Manutenção', 'Manutenção', '2021-08-01', '1985-11-10', '987654321', '222.333.444-55', '(22) 91234-5678', 'Avenida Principal, 456');
+    await db.run('INSERT INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Carlos Dias', 'Almoxarife', 'Logística', '2023-01-10', '1995-02-25', '456789123', '333.444.555-66', '(33) 99876-1234', 'Travessa da Paz, 789');
+    await db.run('INSERT INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 4, 'Diana Souza', 'Analista RH', 'RH', '2020-11-20', '1992-09-15', '321654987', '444.555.666-77', '(44) 98888-4444', 'Alameda dos Anjos, 101');
+    await db.run('INSERT INTO employees (id, name, role, department, hire_date, birth_date, rg, cpf, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 5, 'Eduardo Lima', 'Químico', 'Laboratório', '2022-05-05', '1988-07-30', '789123456', '555.666.777-88', '(55) 97777-5555', 'Praça Central, 202');
+    console.log('[DB] Dados de exemplo para Employees populados.');
+  }
+
+  const isIncidentsEmpty = await db.get('SELECT COUNT(*) as count FROM incidents');
+  if (isIncidentsEmpty && isIncidentsEmpty.count === 0) {
+    console.log('[DB] Populando dados de exemplo para Incidents...');
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      1, '2024-08-17 10:30:00', 'Acidente sem Afastamento', 'Leve', 1, 'Fechado', 'Corte superficial no dedo ao manusear peça.', 3, 0, 'Falta de atenção ao manusear ferramenta cortante.', 'Fornecer luvas de proteção adequadas. Realizar DDS sobre manuseio seguro de ferramentas.', 'Revisar JSA da tarefa para incluir uso obrigatório de luvas.', 3, 50.00, '2024-08-20', '1');
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      2, '2024-08-18 14:00:00', 'Acidente com Afastamento', 'Moderado', 1, 'Em Investigação', 'Entorse no tornozelo ao descer escada da máquina.', 3, 5, null, null, null, 2, 350.00, null, '2');
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      3, '2024-08-19 09:15:00', 'Quase Acidente', 'N/A', 2, 'Fechado', 'Caixa caiu de prateleira próxima ao funcionário Carlos.', 1, 0, 'Armazenamento inadequado de caixas.', 'Reorganizar prateleiras, instalar anteparos.', 'Treinamento sobre empilhamento seguro.', 2, 0.00, '2024-08-21', '3');
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      4, '2024-08-22 11:00:00', 'Incidente Ambiental', 'Insignificante', 5, 'Aberto', 'Pequeno vazamento de óleo contido na área de descarte.', 2, 0, 'Falha na vedação de tambor.', 'Substituir vedação do tambor.', 'Inspeção periódica de tambores.', null, 20.00, null, null);
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      5, '2024-08-23 16:45:00', 'Quase Acidente', 'N/A', 1, 'Aguardando Ação', 'Piso escorregadio devido a vazamento de óleo na máquina Y.', 6, 0, 'Vazamento na máquina Y.', 'Limpar área, sinalizar e solicitar reparo da máquina Y.', 'Manutenção preventiva na máquina Y.', null, 0.00, null, null);
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      6, '2024-08-24 08:00:00', 'Acidente sem Afastamento', 'Leve', 3, 'Aberto', 'Colisão com mobília, resultando em hematoma.', 4, 0, null, null, null, null, 0.00, null, '4');
+    await db.run('INSERT INTO incidents (id, date, type, severity, location_id, status, description, reported_by_id, lost_days, root_cause, corrective_actions, preventive_actions, investigation_responsible_id, cost, closure_date, involved_persons_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      7, '2024-07-10 15:20:00', 'Acidente com Afastamento', 'Grave', 7, 'Fechado', 'Queda de escada durante reparo em altura.', 2, 30, 'Uso de escada inadequada/instável.', 'Fornecer treinamento de trabalho em altura, substituir escada por plataforma elevatória quando possível.', 'Inspeção regular de escadas e equipamentos de acesso.', 2, 2500.00, '2024-08-10', '2,5');
+    console.log('[DB] Dados de exemplo para Incidents populados.');
+  }
+
+  const isJsaEmpty = await db.get('SELECT COUNT(*) as count FROM jsa');
+  if (isJsaEmpty && isJsaEmpty.count === 0) {
+    console.log('[DB] Populando dados de exemplo para JSA...');
+    await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      1, 'Manutenção Preventiva Prensa XPTO', 'Fábrica - Setor A', 'Manutenção', 'Técnico SST (Exemplo)', 'João Silva, Maria Oliveira', 'Capacete, Óculos, Luvas, Botas', 'Ativo', '2024-08-01', '/uploads/jsa_prensa_xpto_v1.xlsx');
+    await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      2, 'Limpeza de Tanque Químico T-02', 'Laboratório Químico', 'Produção', 'Gerente Seg (Exemplo)', 'Revisado', '2024-07-15', null);
+    await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, status) VALUES (?, ?, ?, ?, ?, ?)',
+      3, 'Trabalho em Altura - Telhado Bloco B', 'Fábrica - Telhado', 'Manutenção', 'Admin EHS (Exemplo)', 'Rascunho');
+    console.log('[DB] Dados de exemplo para JSA populados.');
+  }
+
+  const isActionPlansEmpty = await db.get('SELECT COUNT(*) as count FROM action_plans');
+  if (isActionPlansEmpty && isActionPlansEmpty.count === 0) {
+    console.log('[DB] Populando dados de exemplo para Action Plans...');
+    await db.run('INSERT INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 1, 'Instalar guarda-corpo na plataforma P-102', 'Inspeção de Segurança ID 12', 2, '2024-09-15', 'Alta', 'Aberta');
+    await db.run('INSERT INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 2, 'Revisar procedimento de bloqueio e etiquetagem', 'Auditoria Interna ID 5 (NC-003)', 3, '2024-08-30', 'Alta', 'Em Andamento');
+    await db.run('INSERT INTO action_plans (id, description, origin, responsible_id, due_date, priority, status, completion_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 3, 'Sinalizar área de tráfego de empilhadeiras', 'Incidente ID 3 (Quase Acidente)', 1, '2024-07-31', 'Média', 'Concluída', '2024-07-28');
+    await db.run('INSERT INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 4, 'Adquirir novos protetores auriculares tipo concha', 'Monitoramento de Ruído (Setor A)', 2, '2024-08-20', 'Baixa', 'Atrasada');
+    await db.run('INSERT INTO action_plans (id, description, origin, responsible_id, due_date, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 5, 'Treinamento sobre uso de extintores para Brigada', 'Plano Anual de Treinamentos', 3, '2024-10-15', 'Média', 'Aberta');
+    console.log('[DB] Dados de exemplo para Action Plans populados.');
+  }
+  console.log('[DB] Verificação/População de dados de exemplo concluída.');
 }
 
 
@@ -700,16 +725,28 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
     const db = await getDbConnection();
     let jsaId: number | undefined;
     console.log("[DB:insertJsa] Dados recebidos para inserção (JSA):", jsaData);
-    console.log("[DB:insertJsa] Dados recebidos para inserção (Etapas):", stepsData);
+    const sql = `INSERT INTO jsa (task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    console.log("[DB:insertJsa] Tentando executar SQL:", sql);
+    console.log("[DB:insertJsa] Com os seguintes parâmetros (na ordem):",
+        jsaData.task,
+        jsaData.locationName ?? null,
+        jsaData.department ?? null,
+        jsaData.responsiblePersonName ?? null,
+        jsaData.teamMembers ?? null,
+        jsaData.requiredPpe ?? null,
+        jsaData.status ?? 'Rascunho',
+        jsaData.reviewDate ?? null,
+        jsaData.attachmentPath ?? null
+    );
     try {
         await db.run('BEGIN TRANSACTION');
         const resultJsa = await db.run(
-            `INSERT INTO jsa (task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            sql,
             jsaData.task,
-            jsaData.locationName ?? null, // Campo alterado
+            jsaData.locationName ?? null,
             jsaData.department ?? null,
-            jsaData.responsiblePersonName ?? null, // Campo alterado
+            jsaData.responsiblePersonName ?? null,
             jsaData.teamMembers ?? null,
             jsaData.requiredPpe ?? null,
             jsaData.status ?? 'Rascunho',
@@ -741,7 +778,6 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
 export async function getAllJsas() {
   const db = await getDbConnection();
   console.log('[DB:getAllJsas] Buscando todas as JSAs.');
-  // Removido os JOINs com locations e users pois location_name e responsible_person_name agora são textos diretos
   const jsas = await db.all(`
     SELECT j.*
     FROM jsa j
@@ -994,5 +1030,4 @@ export async function getAllKpis() {
   console.log(`[DB:getAllKpis] ${kpis.length} KPIs encontrados.`);
   return kpis;
 }
-
     
