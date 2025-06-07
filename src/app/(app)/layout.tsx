@@ -49,33 +49,28 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useAuth } from '@/context/AuthContext'; // Usar para pegar nome do usuário
-import { logoutAction } from '@/actions/authActions'; // Importar a server action
+// import { useAuth } from '@/context/AuthContext'; // Comentado, pois o login está desabilitado
+// import { logoutAction } from '@/actions/authActions'; // Comentado
 import { useToast } from '@/hooks/use-toast';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth(); // Pegar usuário do contexto
+  // const { user, isLoading } = useAuth(); // Comentado
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogout = async () => {
-    console.log("[AppLayout] Logout button clicked. Calling logoutAction...");
-    try {
-      // A server action `logoutAction` já faz o redirect.
-      // Não precisamos mais de `router.push` aqui, nem de `deleteSession` do auth.ts diretamente.
-      await logoutAction();
-      // O middleware ou a server action cuidará do redirecionamento.
-      // Apenas para garantir que o estado local seja limpo, podemos chamar checkAuthStatus
-      // mas o ideal é que o redirect já ocorra.
-      toast({ title: 'Logout', description: 'Você foi desconectado.' });
-    } catch (error) {
-        console.error("[AppLayout] Erro durante o logoutAction:", error);
-        toast({ title: 'Erro no Logout', description: 'Não foi possível fazer logout.', variant: 'destructive' });
-    }
-  };
+  // const handleLogout = async () => { // Comentado
+  //   console.log("[AppLayout] Logout button clicked. Calling logoutAction...");
+  //   try {
+  //     await logoutAction();
+  //     toast({ title: 'Logout', description: 'Você foi desconectado.' });
+  //   } catch (error) {
+  //       console.error("[AppLayout] Erro durante o logoutAction:", error);
+  //       toast({ title: 'Erro no Logout', description: 'Não foi possível fazer logout.', variant: 'destructive' });
+  //   }
+  // };
 
-  const userName = isLoading ? "Carregando..." : (user?.name || user?.email || "Usuário");
-  const userIP = "N/A"; // IP não é mais facilmente acessível no cliente em Next.js moderno
+  // const userName = isLoading ? "Carregando..." : (user?.name || user?.email || "Usuário"); // Comentado
+  const userName = "Usuário (Login Desabilitado)"; // Mensagem temporária
 
   const ehsMenu = [
     {
@@ -182,10 +177,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Accordion>
         </SidebarContent>
         <SidebarFooter className="p-2 border-t border-sidebar-border">
-          {/* Usar um formulário para chamar a server action de logout */}
+          {/* Formulário de Logout comentado
           <form action={handleLogout} className="w-full">
             <SidebarMenuButton
-              type="submit" // Tipo submit para o formulário
+              type="submit"
               variant="ghost"
               tooltip="Logout"
               className="w-full justify-center group-data-[collapsible=icon]:justify-center"
@@ -194,6 +189,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="group-data-[collapsible=icon]:hidden">Logout</span>
             </SidebarMenuButton>
           </form>
+          */}
         </SidebarFooter>
       </Sidebar>
 
@@ -204,11 +200,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <User className="h-4 w-4" />
             <span>
-              {isLoading ? "Carregando..." : 
-                (user ? 
-                  <>Logado como <span className="font-semibold text-foreground">{userName}</span></> 
-                  : "Não autenticado")
-              }
+              {userName}
             </span>
           </div>
         </header>

@@ -1,14 +1,16 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySessionFromCookieStore } from '@/lib/auth'; // Renomeado para clareza
+// import { verifySessionFromCookieStore } from '@/lib/auth'; // Comentado para desabilitar auth
 
-const PUBLIC_PATHS = ['/login', '/cadastro'];
-const PROTECTED_ROOT = '/';
+// const PUBLIC_PATHS = ['/login', '/cadastro']; // Comentado
+// const PROTECTED_ROOT = '/'; // Comentado
 
 export async function middleware(request: NextRequest) {
-  console.log('[Middleware] Verificando rota:', request.nextUrl.pathname);
-  // Passar request.cookies para a função de verificação de sessão
+  console.log('[Middleware] Autenticação temporariamente desabilitada. Permitindo acesso para:', request.nextUrl.pathname);
+  
+  // Comentar toda a lógica de autenticação e redirecionamento
+  /*
   const session = await verifySessionFromCookieStore(request.cookies);
   const url = request.nextUrl.clone();
 
@@ -31,6 +33,7 @@ export async function middleware(request: NextRequest) {
   }
 
   console.log('[Middleware] Permissão concedida para:', request.nextUrl.pathname);
+  */
   return NextResponse.next();
 }
 
@@ -39,3 +42,4 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|picsum.photos|uploads).*)',
   ],
 };
+
