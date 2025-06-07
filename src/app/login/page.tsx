@@ -3,7 +3,7 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useFormStatus } from 'react'; // Updated import
 import { useRouter } from 'next/navigation';
 import { loginAction } from '@/actions/authActions';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,8 @@ function SubmitButton() {
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [state, formAction] = useFormState(loginAction, { success: false, message: '', errors: undefined });
+  // Updated to useActionState
+  const [state, formAction, isPending] = useActionState(loginAction, { success: false, message: '', errors: undefined });
 
   useEffect(() => {
     if (state.success === false && state.message) {
