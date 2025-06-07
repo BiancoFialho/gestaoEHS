@@ -4,6 +4,7 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import type { JsaInput as JsaInputTypeFromAction } from '@/actions/jsaActions';
 import type { IncidentInput as IncidentInputType } from '@/actions/incidentActions';
+import bcrypt from 'bcryptjs'; // Importar bcrypt para hashear a senha do superusuário
 
 
 // Variável global para armazenar a conexão do banco de dados
@@ -548,17 +549,23 @@ export async function getDbConnection(): Promise<Database> {
 }
 
 async function populateSampleData(db: Database) {
-  // ... (conteúdo da populateSampleData não alterado, mas importante que execute)
   const isUsersEmpty = await db.get('SELECT COUNT(*) as count FROM users');
   if (isUsersEmpty && isUsersEmpty.count === 0) {
     console.log('[DB:populateSampleData] Populando dados de exemplo para Users...');
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', '$2a$10$dummyhashadmin', 'admin', 1);
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', '$2a$10$dummyhashmanager', 'manager', 1);
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', '$2a$10$dummyhashuser', 'user', 1);
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho', 'biancofialho@gmail.com', '$2a$10$mY4C4mN3/8wFfO60V.sR6eJ9F0o/qA3mR7K9Q8B1Z6v7J3k9D2c.a', 'admin', 1);
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', '$2a$10$dummyhashinactive', 'user', 0);
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 6, 'Alice Silva (Usuário)', 'alice@company.com', '$2a$10$dummyhashalice', 'user', 1);
-    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 7, 'Bruno Costa (Usuário)', 'bruno@company.com', '$2a$10$dummyhashbruno', 'user', 1);
+    // Senhas dummy para usuários de exemplo (exceto o superusuário)
+    const dummyHash = await bcrypt.hash('password123', 10); // Hashear uma senha padrão
+    const superPasswordHash = await bcrypt.hash('Super', 10); // Hashear a senha do superusuário
+
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 1, 'Admin EHS', 'admin@ehscontrol.com', dummyHash, 'admin', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 2, 'Gerente Seg', 'gerente.seg@company.com', dummyHash, 'manager', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 3, 'Técnico SST', 'tecnico.sst@company.com', dummyHash, 'user', 1);
+    
+    // Superusuário com e-mail biancofialho@gmail.com e senha "Super"
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 4, 'Bianco Fialho (Superadmin)', 'biancofialho@gmail.com', superPasswordHash, 'admin', 1);
+    
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 5, 'Usuário Inativo', 'inativo@company.com', dummyHash, 'user', 0);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 6, 'Alice Silva (Usuário)', 'alice@company.com', dummyHash, 'user', 1);
+    await db.run('INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?)', 7, 'Bruno Costa (Usuário)', 'bruno@company.com', dummyHash, 'user', 1);
     console.log('[DB:populateSampleData] Dados de exemplo para Users populados.');
   }
 
@@ -1089,3 +1096,4 @@ export async function getAllKpis() {
   console.log(`[DB:getAllKpis] ${kpis.length} KPIs encontrados.`);
   return kpis;
 }
+
