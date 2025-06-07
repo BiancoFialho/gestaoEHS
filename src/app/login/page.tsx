@@ -3,7 +3,8 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { useActionState, useFormStatus } from 'react'; // Updated import
+import { useActionState } from 'react'; // Correct: Only useActionState from react
+// DO NOT import useFormStatus from 'react' or 'react-dom'
 import { useRouter } from 'next/navigation';
 import { loginAction } from '@/actions/authActions';
 import { Button } from '@/components/ui/button';
@@ -13,8 +14,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck } from 'lucide-react';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+// SubmitButton now takes 'pending' as a prop
+interface SubmitButtonProps {
+  pending: boolean;
+}
+
+function SubmitButton({ pending }: SubmitButtonProps) {
   return (
     <Button type="submit" className="w-full" disabled={pending}>
       {pending ? 'Entrando...' : 'Entrar'}
@@ -25,7 +30,7 @@ function SubmitButton() {
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  // Updated to useActionState
+  // useActionState returns [state, formAction, isPending]
   const [state, formAction, isPending] = useActionState(loginAction, { success: false, message: '', errors: undefined });
 
   useEffect(() => {
@@ -36,11 +41,6 @@ export default function LoginPage() {
         variant: 'destructive',
       });
     }
-    // O redirecionamento em caso de sucesso é feito pela server action com redirect()
-    // Se precisasse ser feito aqui, seria:
-    // if (state.success === true) {
-    //   router.push('/');
-    // }
   }, [state, toast, router]);
 
   return (
@@ -65,11 +65,11 @@ export default function LoginPage() {
               <Input id="password" name="password" type="password" required />
               {state.errors?.password && <p className="text-xs text-destructive mt-1">{state.errors.password[0]}</p>}
             </div>
-            {/* Mensagem de erro geral (não relacionada a campos específicos) */}
             {state.message && !state.errors && (
                  <p className="text-sm text-destructive text-center bg-destructive/10 p-2 rounded-md">{state.message}</p>
             )}
-            <SubmitButton />
+            {/* Pass the isPending state from useActionState to the SubmitButton */}
+            <SubmitButton pending={isPending} />
           </form>
         </CardContent>
         <CardFooter className="flex flex-col items-center space-y-2 pt-4">

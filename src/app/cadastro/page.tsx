@@ -3,17 +3,22 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react'; // Correct: Only useActionState from react
+// DO NOT import useFormStatus from 'react' or 'react-dom'
 import { registerAction } from '@/actions/authActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus } from 'lucide-react'; // Ícone para cadastro
+import { UserPlus } from 'lucide-react';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+// SubmitButton now takes 'pending' as a prop
+interface SubmitButtonProps {
+  pending: boolean;
+}
+
+function SubmitButton({ pending }: SubmitButtonProps) {
   return (
     <Button type="submit" className="w-full" disabled={pending}>
       {pending ? 'Registrando...' : 'Registrar'}
@@ -23,7 +28,8 @@ function SubmitButton() {
 
 export default function CadastroPage() {
   const { toast } = useToast();
-  const [state, formAction] = useFormState(registerAction, { success: false, message: '', errors: undefined });
+  // useActionState returns [state, formAction, isPending]
+  const [state, formAction, isPending] = useActionState(registerAction, { success: false, message: '', errors: undefined });
 
   useEffect(() => {
     if (state.message) {
@@ -32,10 +38,6 @@ export default function CadastroPage() {
         description: state.message,
         variant: state.success ? 'default' : 'destructive',
       });
-      if (state.success) {
-        // Opcional: redirecionar para login ou mostrar mensagem para aguardar aprovação
-        // Por enquanto, o usuário fica na página de cadastro e vê o toast.
-      }
     }
   }, [state, toast]);
 
@@ -71,14 +73,14 @@ export default function CadastroPage() {
               <Input id="confirmPassword" name="confirmPassword" type="password" required />
               {state.errors?.confirmPassword && <p className="text-xs text-destructive mt-1">{state.errors.confirmPassword[0]}</p>}
             </div>
-            {/* Mensagem de erro geral ou sucesso */}
             {state.message && !state.errors && !state.success && (
                  <p className="text-sm text-destructive text-center bg-destructive/10 p-2 rounded-md">{state.message}</p>
             )}
             {state.message && state.success && (
                  <p className="text-sm text-green-600 text-center bg-green-500/10 p-2 rounded-md">{state.message}</p>
             )}
-            <SubmitButton />
+            {/* Pass the isPending state from useActionState to the SubmitButton */}
+            <SubmitButton pending={isPending} />
           </form>
         </CardContent>
         <CardFooter className="flex flex-col items-center space-y-2 pt-4">
