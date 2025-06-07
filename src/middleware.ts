@@ -1,34 +1,40 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { verifySession } from '@/lib/auth';
 
-const AUTH_KEY = 'ehs_control_auth'; // Ensure this matches AuthContext
+const PUBLIC_PATHS = ['/login', '/cadastro'];
+const PROTECTED_ROOT = '/';
 
-// This function can be marked `async` if using `await` inside
-export function middleware(request: NextRequest) {
-  // const isAuthenticated = request.cookies.get(AUTH_KEY)?.value === 'true';
-  // const url = request.nextUrl.clone();
+export async function middleware(request: NextRequest) {
+  console.log('[Middleware] Verificando rota:', request.nextUrl.pathname);
+  const session = await verifySession(request);
+  const url = request.nextUrl.clone();
 
-  // // If trying to access login page while authenticated, redirect to home
-  // if (isAuthenticated && url.pathname === '/login') {
-  //   url.pathname = '/';
-  //   return NextResponse.redirect(url);
-  // }
+  const isPublicPath = PUBLIC_PATHS.includes(url.pathname);
 
-  // // If trying to access protected routes (anything other than login) while not authenticated, redirect to login
-  // if (!isAuthenticated && url.pathname !== '/login') {
-  //   // Preserve the original path as a query parameter for potential redirection after login
-  //   // Example: /some/protected/path -> /login?next=/some/protected/path
-  //   // url.searchParams.set('next', url.pathname); // Uncomment if you want redirect after login feature
-  //   url.pathname = '/login';
-  //   return NextResponse.redirect(url);
-  // }
+  if (session && isPublicPath) {
+    // Se autenticado e tentando acessar login/cadastro, redirecionar para o dashboard
+    console.log('[Middleware] Usuário autenticado tentando acessar rota pública. Redirecionando para /');
+    url.pathname = PROTECTED_ROOT;
+    return NextResponse.redirect(url);
+  }
 
-  // Allow all requests for now
+  if (!session && !isPublicPath) {
+    // Se não autenticado e tentando acessar rota protegida, redirecionar para login
+    console.log('[Middleware] Usuário não autenticado tentando acessar rota protegida. Redirecionando para /login');
+    const originalPath = url.pathname !== '/' ? url.pathname : ''; // Evitar next=/ se for a raiz
+    if (originalPath) {
+        url.searchParams.set('next', originalPath);
+    }
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  console.log('[Middleware] Permissão concedida para:', request.nextUrl.pathname);
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
   matcher: [
     /*
@@ -38,7 +44,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - picsum.photos (placeholder images)
+     * - public assets (como /uploads)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|picsum.photos).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|picsum.photos|uploads).*)',
   ],
 };

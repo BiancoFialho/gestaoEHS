@@ -1,59 +1,67 @@
 
-"use client";
+"use client"; // Manter "use client" pois usa hooks como createContext e useContext
 
 import type { ReactNode } from 'react';
-import React, { createContext } from 'react'; // Removed useState, useEffect
-// import { useRouter } from 'next/navigation'; // Keep if needed for logout redirect
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { verifySession as verifyAuthSession, SessionPayload } from '@/lib/auth'; // Importar verifySession de auth.ts
+// A action de logout será chamada diretamente, não precisa estar no contexto.
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (identifier: string, pass: string) => Promise<boolean>;
-  logout: () => void;
+  user: SessionPayload | null;
   isLoading: boolean;
+  checkAuthStatus: () => Promise<void>; // Função para revalidar o status
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// const AUTH_KEY = 'ehs_control_auth'; // Key not needed for now
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  // const [isLoading, setIsLoading] = useState<boolean>(true);
-  // const router = useRouter();
+  const [user, setUser] = useState<SessionPayload | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const router = useRouter();
 
-  // useEffect(() => {
-  //   // No need to check localStorage for now
-  //   setIsLoading(false);
-  // }, []);
+  const checkAuthStatus = useCallback(async () => {
+    console.log('[AuthContext] checkAuthStatus: Verificando sessão...');
+    setIsLoading(true);
+    try {
+      // Não passamos 'request' aqui, pois estamos no lado do cliente.
+      // verifyAuthSession usará `cookies()` do 'next/headers' que funciona em RSC e Server Actions.
+      // Para uso client-side puro, idealmente teríamos uma API route.
+      // Por simplicidade, vamos tentar chamar e ver se o middleware já protegeu.
+      // Uma abordagem melhor para o client-side seria uma API route /api/auth/session
+      const session = await verifyAuthSession();
+      if (session) {
+        setUser(session);
+        console.log('[AuthContext] checkAuthStatus: Sessão válida encontrada para', session.email);
+      } else {
+        setUser(null);
+        console.log('[AuthContext] checkAuthStatus: Nenhuma sessão válida.');
+        // O middleware deve cuidar do redirecionamento se estivermos em uma rota protegida.
+      }
+    } catch (error) {
+      console.error('[AuthContext] checkAuthStatus: Erro ao verificar sessão:', error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+      console.log('[AuthContext] checkAuthStatus: Verificação concluída.');
+    }
+  }, []);
 
- const login = async (identifier: string, pass: string): Promise<boolean> => {
-    // Simulate API call delay (optional)
-    // await new Promise(resolve => setTimeout(resolve, 500));
-    console.log(`Login attempt with identifier: ${identifier}`); // Log attempt
-    // Always return true for now
-    return true;
-  };
 
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
-  const logout = () => {
-    // try {
-    //   localStorage.removeItem(AUTH_KEY);
-    // } catch (error) {
-    //   console.error('Error removing localStorage:', error);
-    // }
-    // setIsAuthenticated(false);
-    console.log("Logout triggered"); // Simulate logout
-    // Redirect can be handled by middleware or page logic if needed later
-    // router.push('/login');
-  };
-
-  // Always authenticated, never loading
   const value = {
-    isAuthenticated: true,
-    login,
-    logout,
-    isLoading: false,
+    isAuthenticated: !!user,
+    user,
+    isLoading,
+    checkAuthStatus,
   };
+
+  // O login e logout agora são primariamente Server Actions e redirecionamentos via middleware.
+  // O AuthContext serve mais para prover o estado `isAuthenticated` e `user` para a UI.
 
   return (
     <AuthContext.Provider value={value}>
@@ -63,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => {
-  const context = React.useContext(AuthContext);
+  const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }

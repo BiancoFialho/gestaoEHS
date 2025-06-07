@@ -3,32 +3,32 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // Para redirecionar após logout
 import {
-  ShieldCheck, // Logo
-  BarChart3, // Page Title (used in old header, keep for consistency if needed elsewhere)
-  // AlertTriangle, // Análise de Riscos - REMOVED
-  FileWarning, // Incidentes
-  ClipboardCheck, // Auditorias / JSA
-  FileCheck2, // Permissões de Trabalho
-  GraduationCap, // Treinamentos
-  Users, // Usuários
-  FileText as FileTextIcon, // Logs / Documentos / ASOs
-  LogOut, // Logout
-  User, // User info
-  ClipboardList, // Cadastros / JSA
-  HardHat, // EPIs
-  HeartPulse, // Saúde Ocupacional / ASOs
-  FlaskConical, // Inventário Químico
-  Folder, // Documentos
-  ListChecks, // Plano de Ação
-  Stethoscope, // Doenças Ocup.
-  BarChartBig, // Estatísticas / Indicadores Desempenho
-  Gavel, // Ações Trab.
-  Shield, // Segurança do Trabalho
-  Leaf, // Meio Ambiente
-  Target, // Indicadores Integrados
-  Activity, // Generic indicator icon / Indicadores Prevenção
-  LayoutDashboard, // Dashboard Icon
+  ShieldCheck, 
+  BarChart3, 
+  FileWarning, 
+  ClipboardCheck, 
+  FileCheck2, 
+  GraduationCap, 
+  Users, 
+  FileText as FileTextIcon, 
+  LogOut, 
+  User, 
+  ClipboardList, 
+  HardHat, 
+  HeartPulse, 
+  FlaskConical, 
+  Folder, 
+  ListChecks, 
+  Stethoscope, 
+  BarChartBig, 
+  Gavel, 
+  Shield, 
+  Leaf, 
+  Target, 
+  Activity, 
+  LayoutDashboard, 
 } from 'lucide-react';
 
 import {
@@ -49,29 +49,34 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-
-// NOTE: useAuth is not used here as authentication is currently disabled.
-// If re-enabled, you might need to uncomment and use it.
-// import { useAuth } from '@/context/AuthContext';
-
+import { useAuth } from '@/context/AuthContext'; // Usar para pegar nome do usuário
+import { logoutAction } from '@/actions/authActions'; // Importar a server action
+import { useToast } from '@/hooks/use-toast';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // Hardcoded user info for now
-  const userName = "admin";
-  const userIP = "192.168.56.1"; // Example IP
+  const { user, isLoading } = useAuth(); // Pegar usuário do contexto
+  const router = useRouter();
+  const { toast } = useToast();
 
-  // Fake logout function for now
-  const handleLogout = () => {
-    console.log("Logout clicked");
-    // If using NextAuth or similar, call signOut() here.
-    // For basic context, you might call a context logout function.
-    // If redirecting, use Next.js router.
-    // import { useRouter } from 'next/navigation';
-    // const router = useRouter();
-    // router.push('/login');
+  const handleLogout = async () => {
+    console.log("[AppLayout] Logout button clicked. Calling logoutAction...");
+    try {
+      // A server action `logoutAction` já faz o redirect.
+      // Não precisamos mais de `router.push` aqui, nem de `deleteSession` do auth.ts diretamente.
+      await logoutAction();
+      // O middleware ou a server action cuidará do redirecionamento.
+      // Apenas para garantir que o estado local seja limpo, podemos chamar checkAuthStatus
+      // mas o ideal é que o redirect já ocorra.
+      toast({ title: 'Logout', description: 'Você foi desconectado.' });
+    } catch (error) {
+        console.error("[AppLayout] Erro durante o logoutAction:", error);
+        toast({ title: 'Erro no Logout', description: 'Não foi possível fazer logout.', variant: 'destructive' });
+    }
   };
 
-  // EHS Menu Structure - Simplified
+  const userName = isLoading ? "Carregando..." : (user?.name || user?.email || "Usuário");
+  const userIP = "N/A"; // IP não é mais facilmente acessível no cliente em Next.js moderno
+
   const ehsMenu = [
     {
       title: "Segurança do Trabalho",
@@ -79,7 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       subItems: [
         { title: "Indicadores Desempenho", icon: BarChartBig, href: "/seguranca-trabalho/indicadores-desempenho" },
         { title: "Indicadores Prevenção", icon: Activity, href: "/seguranca-trabalho/indicadores-prevencao" },
-        { title: "Inventário JSA", icon: ClipboardList, href: "/seguranca-trabalho/inventario-jsa" }, // Updated Text and Icon
+        { title: "Inventário JSA", icon: ClipboardList, href: "/seguranca-trabalho/inventario-jsa" },
         { title: "Incidentes", icon: FileWarning, href: "/seguranca-trabalho/incidentes" },
         { title: "Auditorias", icon: ClipboardCheck, href: "/seguranca-trabalho/auditorias" },
         { title: "Permissões", icon: FileCheck2, href: "/seguranca-trabalho/permissoes" },
@@ -93,7 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       icon: HeartPulse,
       subItems: [
         { title: "Indicadores", icon: Activity, href: "/saude-ocupacional/indicadores" },
-        { title: "ASOs", icon: FileTextIcon, href: "/saude-ocupacional/asos" }, // Changed icon for variety
+        { title: "ASOs", icon: FileTextIcon, href: "/saude-ocupacional/asos" }, 
         { title: "Doenças Ocup.", icon: Stethoscope, href: "/saude-ocupacional/doencas-ocupacionais" },
       ],
     },
@@ -115,7 +120,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
      {
         title: "Geral",
-        icon: ClipboardList, // Using Cadastros icon for the category
+        icon: ClipboardList, 
         subItems: [
           { title: "Cadastros", icon: ClipboardList, href: "/geral/cadastros" },
           { title: "Treinamentos", icon: GraduationCap, href: "/geral/treinamentos" },
@@ -128,7 +133,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      {/* Sidebar */}
       <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
         <SidebarHeader className="items-center gap-2 p-4 h-16 border-b border-sidebar-border">
           <ShieldCheck className="size-6 shrink-0 text-primary" />
@@ -137,7 +141,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </SidebarHeader>
         <SidebarContent className="p-2 flex-1 overflow-y-auto">
-          {/* Dashboard Link */}
           <SidebarMenu className="mb-2">
             <SidebarMenuItem>
               <SidebarMenuButton href="/" variant="ghost" size="sm" className="h-8 justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
@@ -179,32 +182,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Accordion>
         </SidebarContent>
         <SidebarFooter className="p-2 border-t border-sidebar-border">
-          {/* Logout Button */}
-          <SidebarMenuButton
-            variant="ghost"
-            onClick={handleLogout}
-            tooltip="Logout"
-            className="justify-center group-data-[collapsible=icon]:justify-center"
-          >
-            <LogOut />
-            <span className="group-data-[collapsible=icon]:hidden">Logout</span>
-          </SidebarMenuButton>
+          {/* Usar um formulário para chamar a server action de logout */}
+          <form action={handleLogout} className="w-full">
+            <SidebarMenuButton
+              type="submit" // Tipo submit para o formulário
+              variant="ghost"
+              tooltip="Logout"
+              className="w-full justify-center group-data-[collapsible=icon]:justify-center"
+            >
+              <LogOut />
+              <span className="group-data-[collapsible=icon]:hidden">Logout</span>
+            </SidebarMenuButton>
+          </form>
         </SidebarFooter>
       </Sidebar>
 
-      {/* Main Content Area */}
       <SidebarInset>
-        {/* Header */}
         <header className="flex items-center justify-between border-b bg-background p-4 h-16">
           <SidebarTrigger className="md:hidden" />
-          <div className="flex-1" /> {/* Spacer */}
+          <div className="flex-1" /> 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <User className="h-4 w-4" />
-            <span>Você está logado como <span className="font-semibold text-foreground">{userName}</span> - IP: <span className="font-semibold text-foreground">{userIP}</span></span>
+            <span>
+              {isLoading ? "Carregando..." : 
+                (user ? 
+                  <>Logado como <span className="font-semibold text-foreground">{userName}</span></> 
+                  : "Não autenticado")
+              }
+            </span>
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 p-6 bg-muted/40">
           {children}
         </main>
