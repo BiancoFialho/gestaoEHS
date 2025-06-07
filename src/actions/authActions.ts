@@ -4,9 +4,40 @@
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { getUserByEmail as dbGetUserByEmail, insertUser as dbInsertUser } from '@/lib/db';
-import { createSession, deleteSession } from '@/lib/auth';
+import { encrypt, decrypt, SessionPayload, COOKIE_NAME } from '@/lib/auth'; // encrypt, decrypt, SessionPayload e COOKIE_NAME são de auth.ts
+import { cookies } from 'next/headers'; // Importar cookies de next/headers aqui
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+
+// Funções de sessão movidas para cá
+async function createServerSession(userId: number, email: string, role: string) {
+  const expiresAtDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 horas
+  const expTimestamp = Math.floor(expiresAtDate.getTime() / 1000); // JWT 'exp' é em segundos
+
+  const sessionPayload: SessionPayload & { exp: number } = {
+    userId,
+    email,
+    role,
+    expiresAt: expiresAtDate, // Mantido para referência, mas JWT usa 'exp'
+    exp: expTimestamp
+  };
+  const sessionToken = await encrypt(sessionPayload);
+
+  cookies().set(COOKIE_NAME, sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    expires: expiresAtDate,
+    sameSite: 'lax',
+    path: '/',
+  });
+  console.log('[AuthActions] Sessão criada para usuário:', email);
+}
+
+async function deleteServerSession() {
+  cookies().delete(COOKIE_NAME);
+  console.log('[AuthActions] Sessão deletada.');
+}
+
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'E-mail inválido.' }),
@@ -48,15 +79,14 @@ export async function loginAction(prevState: any, formData: FormData) {
       return { success: false, message: 'E-mail ou senha incorretos.' };
     }
 
-    await createSession(user.id, user.email, user.role || 'user');
+    await createServerSession(user.id, user.email, user.role || 'user'); // Usar a função local
     console.log(`[AuthActions:loginAction] Login bem-sucedido para: ${email}`);
-    // O redirecionamento será tratado no lado do cliente ou pelo middleware
-    // Para Server Actions, o redirect deve ser chamado fora do try/catch ou no final da action
+
   } catch (error) {
     console.error('[AuthActions:loginAction] Erro no servidor durante login:', error);
     return { success: false, message: 'Erro no servidor. Tente novamente.' };
   }
-  redirect('/'); // Redireciona para o dashboard após login bem-sucedido
+  redirect('/');
 }
 
 
@@ -67,7 +97,7 @@ const registerSchema = z.object({
     confirmPassword: z.string()
   }).refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não coincidem.",
-    path: ["confirmPassword"], // Path of the error
+    path: ["confirmPassword"],
   });
 
 
@@ -98,9 +128,7 @@ export async function registerAction(prevState: any, formData: FormData) {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Novos usuários são cadastrados como inativos (is_active = 0)
-    // e com role 'user' por padrão
-    const newUserId = await dbInsertUser(name, email, passwordHash, 'user', false);
+    const newUserId = await dbInsertUser(name, email, passwordHash, 'user', false); // is_active = false
 
     if (!newUserId) {
       console.error('[AuthActions:registerAction] Falha ao inserir usuário no DB.');
@@ -108,8 +136,7 @@ export async function registerAction(prevState: any, formData: FormData) {
     }
 
     console.log(`[AuthActions:registerAction] Usuário registrado com sucesso (ID: ${newUserId}, Email: ${email}). Aguardando aprovação.`);
-    // Não cria sessão aqui, usuário precisa ser aprovado
-    revalidatePath('/geral/usuarios'); // Para admin ver o novo usuário na lista
+    revalidatePath('/geral/usuarios');
     return { success: true, message: 'Cadastro realizado com sucesso! Aguarde a aprovação do administrador para acessar o sistema.' };
 
   } catch (error) {
@@ -121,6 +148,6 @@ export async function registerAction(prevState: any, formData: FormData) {
 
 export async function logoutAction() {
   console.log('[AuthActions:logoutAction] Iniciando logout...');
-  await deleteSession();
+  await deleteServerSession(); // Usar a função local
   redirect('/login');
 }
