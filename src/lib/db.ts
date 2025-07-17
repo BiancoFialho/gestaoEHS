@@ -795,29 +795,17 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
     }
 }
 
-export async function updateJsa(id: number, jsaData: JsaInputTypeFromAction): Promise<boolean> {
+export async function updateJsa(id: number, jsaData: Omit<JsaInputTypeFromAction, 'steps' | 'attachmentPath'>): Promise<boolean> {
     const db = await getDbConnection();
     console.log(`[DB:updateJsa] Atualizando JSA ID ${id} com dados:`, jsaData);
-    // Nota: Esta função não atualiza o anexo. Isso deve ser tratado na action (deletar arquivo antigo se um novo for enviado).
+    // Esta função não altera o anexo. A action deve lidar com isso.
     const sql = `UPDATE jsa SET
-                    task = ?,
-                    location_name = ?,
-                    department = ?,
-                    responsible_person_name = ?,
-                    team_members = ?,
-                    required_ppe = ?,
-                    status = ?,
-                    review_date = ?
+                    task = ?, location_name = ?, department = ?, responsible_person_name = ?,
+                    team_members = ?, required_ppe = ?, status = ?, review_date = ?
                  WHERE id = ?`;
     const params = [
-        jsaData.task,
-        jsaData.locationName ?? null,
-        jsaData.department ?? null,
-        jsaData.responsiblePersonName ?? null,
-        jsaData.teamMembers ?? null,
-        jsaData.requiredPpe ?? null,
-        jsaData.status ?? 'Rascunho',
-        jsaData.reviewDate ?? null,
+        jsaData.task, jsaData.locationName ?? null, jsaData.department ?? null, jsaData.responsiblePersonName ?? null,
+        jsaData.teamMembers ?? null, jsaData.requiredPpe ?? null, jsaData.status ?? 'Rascunho', jsaData.reviewDate ?? null,
         id
     ];
     try {
@@ -826,6 +814,34 @@ export async function updateJsa(id: number, jsaData: JsaInputTypeFromAction): Pr
         return (result.changes ?? 0) > 0;
     } catch (error) {
         console.error(`[DB:updateJsa] Erro ao atualizar JSA ID ${id}:`, error);
+        throw error;
+    }
+}
+
+export async function deleteJsaById(id: number): Promise<{ success: boolean; attachmentPath?: string | null }> {
+    const db = await getDbConnection();
+    console.log(`[DB:deleteJsaById] Tentando excluir JSA com ID: ${id}`);
+    try {
+        // Primeiro, pegue o caminho do anexo para que possa ser retornado e excluído pela action.
+        const jsa = await db.get<{ attachment_path: string | null }>('SELECT attachment_path FROM jsa WHERE id = ?', id);
+        
+        if (!jsa) {
+            console.warn(`[DB:deleteJsaById] JSA com ID ${id} não encontrada para exclusão.`);
+            return { success: false };
+        }
+
+        const result = await db.run('DELETE FROM jsa WHERE id = ?', id);
+        
+        if (result.changes === 0) {
+            console.warn(`[DB:deleteJsaById] Nenhuma linha foi excluída para JSA ID ${id}, pode já ter sido removida.`);
+            return { success: false };
+        }
+        
+        console.log(`[DB:deleteJsaById] JSA com ID ${id} excluída com sucesso. Alterações:`, result.changes);
+        // A exclusão em cascata cuidará das etapas em jsa_steps.
+        return { success: true, attachmentPath: jsa.attachment_path };
+    } catch (error) {
+        console.error(`[DB:deleteJsaById] Erro ao excluir JSA com ID ${id}:`, error);
         throw error;
     }
 }

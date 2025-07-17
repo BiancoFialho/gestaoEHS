@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { insertJsa as dbInsertJsa, updateJsa as dbUpdateJsa } from '@/lib/db';
+import { insertJsa as dbInsertJsa, updateJsa as dbUpdateJsa, deleteJsaById } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import path from 'path';
 import fs from 'fs/promises';
@@ -178,5 +178,41 @@ export async function updateJsaAction(formData: FormData): Promise<{ success: bo
         console.error(`[Action:updateJsaAction] Erro ao atualizar JSA ${id} no banco:`, error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao salvar JSA.';
         return { success: false, error: `Erro ao atualizar JSA: ${errorMessage}` };
+    }
+}
+
+
+export async function deleteJsaAction(id: number): Promise<{ success: boolean; error?: string }> {
+    console.log(`[Action:deleteJsaAction] Tentando excluir JSA ID: ${id}`);
+    try {
+        // A função do DB agora retorna o caminho do anexo
+        const deleteDbResult = await deleteJsaById(id);
+
+        if (!deleteDbResult.success) {
+            console.warn(`[Action:deleteJsaAction] Falha ao excluir JSA ${id} do banco de dados.`);
+            return { success: false, error: 'Falha ao excluir JSA do banco de dados. Pode já ter sido removida.' };
+        }
+
+        // Se a exclusão do DB foi bem-sucedida e havia um anexo, tente excluir o arquivo
+        if (deleteDbResult.attachmentPath) {
+            try {
+                const filePath = path.join(process.cwd(), 'public', deleteDbResult.attachmentPath);
+                await fs.unlink(filePath);
+                console.log(`[Action:deleteJsaAction] Anexo ${deleteDbResult.attachmentPath} excluído com sucesso.`);
+            } catch (fileError) {
+                // Não retorna um erro para o usuário se apenas a exclusão do arquivo falhar,
+                // mas registra um aviso no servidor. O registro do DB já foi removido.
+                console.error(`[Action:deleteJsaAction] JSA ${id} excluída do DB, mas falha ao excluir o arquivo anexo ${deleteDbResult.attachmentPath}:`, fileError);
+            }
+        }
+
+        console.log(`[Action:deleteJsaAction] JSA ${id} e seu anexo (se houver) foram excluídos com sucesso.`);
+        revalidatePath('/seguranca-trabalho/inventario-jsa');
+        return { success: true };
+
+    } catch (error) {
+        console.error(`[Action:deleteJsaAction] Erro ao excluir JSA ${id}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao excluir JSA.';
+        return { success: false, error: `Erro ao excluir JSA: ${errorMessage}` };
     }
 }

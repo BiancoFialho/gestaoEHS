@@ -2,15 +2,25 @@
 "use client";
 
 import React from 'react';
-import { ClipboardList, PlusCircle, ListFilter, Edit, Paperclip, Download } from 'lucide-react';
+import { ClipboardList, PlusCircle, ListFilter, Edit, Paperclip, Download, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { fetchJsas, fetchJsaByIdAction } from '@/actions/dataFetchingActions';
+import { fetchJsas, fetchJsaByIdAction, deleteJsaAction } from '@/actions/dataFetchingActions';
 import { useToast } from "@/hooks/use-toast";
 
 interface JsaEntry {
@@ -39,7 +49,9 @@ interface JsaDataForDialog {
 
 export default function InventarioJsaPage() {
   const [isJsaDialogOpen, setJsaDialogOpen] = React.useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [editingJsa, setEditingJsa] = React.useState<JsaDataForDialog | null>(null);
+  const [deletingJsa, setDeletingJsa] = React.useState<JsaEntry | null>(null);
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -123,6 +135,33 @@ export default function InventarioJsaPage() {
   const handleAddNew = () => {
     setEditingJsa(null);
     setJsaDialogOpen(true);
+  };
+
+  const openDeleteConfirmation = (jsa: JsaEntry) => {
+    setDeletingJsa(jsa);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingJsa) return;
+    setIsLoading(true);
+    const result = await deleteJsaAction(deletingJsa.id);
+    if (result.success) {
+      toast({
+        title: "Sucesso",
+        description: `JSA "${deletingJsa.task}" foi excluída.`,
+      });
+      loadJsaData(); // Recarrega a lista
+    } else {
+      toast({
+        title: "Erro ao Excluir",
+        description: result.error || "Não foi possível excluir a JSA.",
+        variant: "destructive",
+      });
+    }
+    setIsLoading(false);
+    setIsDeleteDialogOpen(false);
+    setDeletingJsa(null);
   };
 
 
@@ -210,6 +249,9 @@ export default function InventarioJsaPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(jsa.id)} title="Editar JSA">
                             <Edit className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(jsa)} title="Excluir JSA" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -222,6 +264,26 @@ export default function InventarioJsaPage() {
       </Card>
 
        <JsaDialog open={isJsaDialogOpen} onOpenChange={handleDialogClose} initialData={editingJsa} />
+
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+                Confirmar Exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem certeza que deseja excluir a JSA &quot;{deletingJsa?.task}&quot;? Esta ação não pode ser desfeita e também removerá o arquivo anexado, se houver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingJsa(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Sim, Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
        <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
             <p className="text-muted-foreground">A visualização e edição detalhada dos passos da JSA será implementada aqui.</p>
