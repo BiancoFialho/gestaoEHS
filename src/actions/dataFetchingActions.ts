@@ -36,6 +36,16 @@ type Jsa = {
     approver_id?: number | null;
 };
 
+// Definição do tipo para um passo da JSA
+export interface JsaStep {
+  id: number;
+  jsa_id: number;
+  step_order: number;
+  description: string;
+  hazards: string;
+  controls: string;
+}
+
 // Type that matches the full data for the dialog
 type JsaData = {
     id: number;
@@ -48,6 +58,7 @@ type JsaData = {
     status?: string | null;
     reviewDate?: string | null;
     attachmentPath?: string | null;
+    steps?: JsaStep[];
 }
 
 interface IncidentEntry {
@@ -82,17 +93,6 @@ interface AuditEntry {
   status: string | null;
   non_conformities_count?: number;
 }
-
-// Definição do tipo para um passo da JSA
-export interface JsaStep {
-  id: number;
-  jsa_id: number;
-  step_order: number;
-  description: string;
-  hazards: string;
-  controls: string;
-}
-
 
 type FetchResult<T> = {
     success: boolean;
@@ -181,6 +181,7 @@ export async function fetchJsaByIdAction(id: number): Promise<FetchResult<JsaDat
                 status: jsa.status,
                 reviewDate: jsa.review_date,
                 attachmentPath: jsa.attachment_path,
+                steps: jsa.steps, // Passa os passos para o dialog
             };
             console.log(`[dataFetchingActions] JSA ID ${id} encontrada e formatada:`, jsaData);
             return { success: true, data: jsaData };

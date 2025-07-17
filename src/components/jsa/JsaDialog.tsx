@@ -2,10 +2,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parse, isValid, parseISO } from "date-fns";
+import { PlusCircle, Trash2 } from 'lucide-react';
 
 import {
   Dialog,
@@ -36,11 +37,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { addJsaWithAttachment, updateJsaAction } from '@/actions/jsaActions';
+import type { JsaStep as JsaStepType } from '@/actions/dataFetchingActions';
 
 interface JsaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialData?: JsaInitialData | null; // For editing
+  initialData?: JsaInitialData | null;
 }
 
 interface JsaInitialData {
@@ -52,12 +54,19 @@ interface JsaInitialData {
     teamMembers?: string | null;
     requiredPpe?: string | null;
     status?: string | null;
-    reviewDate?: string | null; // Expect YYYY-MM-DD
+    reviewDate?: string | null;
     attachmentPath?: string | null;
+    steps?: JsaStepType[];
 }
 
 const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
 const DATE_FORMAT_DB = "yyyy-MM-dd";
+
+const stepSchema = z.object({
+  description: z.string().min(1, 'Descrição é obrigatória.'),
+  hazards: z.string().min(1, 'Perigos são obrigatórios.'),
+  controls: z.string().min(1, 'Controles são obrigatórios.'),
+});
 
 const formSchema = z.object({
   task: z.string().min(5, { message: "Tarefa deve ter pelo menos 5 caracteres." }),
@@ -72,6 +81,7 @@ const formSchema = z.object({
     return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
   }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   attachment: z.any().optional(),
+  steps: z.array(stepSchema).optional(),
 });
 
 type JsaFormValues = z.infer<typeof formSchema>;
@@ -94,7 +104,13 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
       status: "Rascunho",
       reviewDateString: null,
       attachment: undefined,
+      steps: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "steps"
   });
 
   useEffect(() => {
@@ -111,12 +127,14 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
             status: initialData.status || "Rascunho",
             reviewDateString: initialData.reviewDate ? format(parseISO(initialData.reviewDate), DATE_FORMAT_DISPLAY) : null,
             attachment: undefined,
+            steps: initialData.steps || [],
         });
       } else {
         form.reset({
             task: "", locationName: "", department: "", responsiblePersonName: "",
             teamMembers: "", requiredPpe: "", status: "Rascunho", reviewDateString: null,
             attachment: undefined,
+            steps: [],
         });
       }
     } else {
@@ -135,9 +153,10 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
      const formData = new FormData(formRef.current);
      
      if (isEditMode && initialData?.id) {
-         formData.set('id', initialData.id.toString());
+         formData.append('id', initialData.id.toString());
      }
      
+     // Append main fields from react-hook-form values to ensure they are correct
      formData.set('task', values.task || "");
      formData.set('locationName', values.locationName || "");
      formData.set('department', values.department || "");
@@ -161,17 +180,24 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
      }
      formData.delete('reviewDateString');
      
+     // Handle attachment file
      const fileInput = formRef.current.querySelector('input[type="file"][name="attachment"]') as HTMLInputElement;
      if (fileInput && fileInput.files && fileInput.files.length > 0) {
         formData.set('attachment', fileInput.files[0]);
      } else {
         formData.delete('attachment');
      }
+
+     // Handle steps array by serializing it
+     if (values.steps && values.steps.length > 0) {
+        formData.set('steps', JSON.stringify(values.steps));
+     } else {
+        formData.delete('steps');
+     }
     
     try {
-      const result = isEditMode
-        ? await updateJsaAction(formData)
-        : await addJsaWithAttachment(formData);
+      const action = isEditMode ? updateJsaAction : addJsaWithAttachment;
+      const result = await action(formData);
 
        if (result.success) {
         toast({
@@ -204,15 +230,16 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{isEditMode ? `Editar JSA #${initialData?.id}` : "Adicionar Nova JSA"}</DialogTitle>
           <DialogDescription>
-            {isEditMode ? "Altere as informações da JSA." : "Insira as informações básicas e anexe o arquivo (opcional)."}
+            {isEditMode ? "Altere as informações e etapas da JSA." : "Insira as informações básicas, adicione as etapas e anexe o arquivo (opcional)."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            <h3 className="text-lg font-semibold border-b pb-2">Informações Gerais</h3>
              <FormField control={form.control} name="task" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tarefa *</FormLabel>
@@ -221,23 +248,23 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
                 </FormItem>
               )}
             />
-             <FormField control={form.control} name="locationName" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Local</FormLabel>
-                  <FormControl><Input placeholder="Digite o nome do local (opcional)" {...field} value={field.value ?? ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField control={form.control} name="department" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Departamento</FormLabel>
-                  <FormControl><Input placeholder="Departamento (opcional)" {...field} value={field.value ?? ''}/></FormControl>
-                   <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField control={form.control} name="responsiblePersonName" render={({ field }) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="locationName" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Local</FormLabel>
+                    <FormControl><Input placeholder="Digite o nome do local (opcional)" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+                <FormField control={form.control} name="department" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Departamento</FormLabel>
+                    <FormControl><Input placeholder="Departamento (opcional)" {...field} value={field.value ?? ''}/></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+            </div>
+            <FormField control={form.control} name="responsiblePersonName" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
                   <FormControl><Input placeholder="Digite o nome do responsável (opcional)" {...field} value={field.value ?? ''} /></FormControl>
@@ -260,7 +287,7 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
                   <FormMessage />
                 </FormItem>
               )}
-            />
+             />
              <FormField control={form.control} name="attachment" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Anexar JSA (Excel, PDF)</FormLabel>
@@ -276,30 +303,90 @@ const JsaDialog: React.FC<JsaDialogProps> = ({ open, onOpenChange, initialData }
                 </FormItem>
               )}
              />
-             <FormField control={form.control} name="status" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select name={field.name} onValueChange={field.onChange} value={field.value ?? 'Rascunho'}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="Rascunho">Rascunho</SelectItem>
-                      <SelectItem value="Ativo">Ativo</SelectItem>
-                      <SelectItem value="Revisado">Revisado</SelectItem>
-                      <SelectItem value="Obsoleto">Obsoleto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField control={form.control} name="reviewDateString" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Data Próxima Revisão ({DATE_FORMAT_DISPLAY})</FormLabel>
-                    <FormControl><Input placeholder={`${DATE_FORMAT_DISPLAY} (opcional)`} {...field} value={field.value ?? ''}/></FormControl>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select name={field.name} onValueChange={field.onChange} value={field.value ?? 'Rascunho'}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                        <SelectItem value="Rascunho">Rascunho</SelectItem>
+                        <SelectItem value="Ativo">Ativo</SelectItem>
+                        <SelectItem value="Revisado">Revisado</SelectItem>
+                        <SelectItem value="Obsoleto">Obsoleto</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <FormMessage />
-                </FormItem>
-              )}
-            />
+                    </FormItem>
+                )}/>
+                <FormField control={form.control} name="reviewDateString" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Data Próxima Revisão ({DATE_FORMAT_DISPLAY})</FormLabel>
+                        <FormControl><Input placeholder={`${DATE_FORMAT_DISPLAY} (opcional)`} {...field} value={field.value ?? ''}/></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}/>
+            </div>
+            
+            <div className="pt-4 border-t">
+                 <h3 className="text-lg font-semibold pb-2">Etapas da Tarefa</h3>
+                 <div className="space-y-4">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="p-4 border rounded-md relative space-y-2 bg-muted/50">
+                             <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={() => remove(index)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Remover Etapa</span>
+                            </Button>
+                            <h4 className="font-semibold">Etapa {index + 1}</h4>
+                            <FormField
+                                control={form.control}
+                                name={`steps.${index}.description`}
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Descrição da Etapa</FormLabel>
+                                    <FormControl><Textarea placeholder="Descreva a etapa" {...field} /></FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name={`steps.${index}.hazards`}
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Perigos</FormLabel>
+                                    <FormControl><Textarea placeholder="Liste os perigos" {...field} /></FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name={`steps.${index}.controls`}
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Controles</FormLabel>
+                                    <FormControl><Textarea placeholder="Liste as medidas de controle" {...field} /></FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    ))}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => append({ description: '', hazards: '', controls: '' })}
+                    >
+                        <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Etapa
+                    </Button>
+                 </div>
+            </div>
+
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting}>

@@ -20,18 +20,18 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import JsaStepsDialog from '@/components/jsa/JsaStepsDialog'; // Importar o novo diálogo
+import JsaStepsDialog from '@/components/jsa/JsaStepsDialog';
 import { fetchJsas, fetchJsaByIdAction, fetchJsaStepsAction } from '@/actions/dataFetchingActions';
 import { deleteJsaAction } from '@/actions/jsaActions';
 import { useToast } from "@/hooks/use-toast";
-import type { JsaStep } from '@/actions/dataFetchingActions'; // Importar o tipo
+import type { JsaStep } from '@/actions/dataFetchingActions';
 
 interface JsaEntry {
     id: number;
     task: string;
     location_name: string | null;
     responsible_person_name: string | null;
-    review_date: string | null; // YYYY-MM-DD
+    review_date: string | null;
     status: string | null;
     attachment_path: string | null;
 }
@@ -46,18 +46,19 @@ interface JsaDataForDialog {
     teamMembers?: string | null;
     requiredPpe?: string | null;
     status?: string | null;
-    reviewDate?: string | null; // YYYY-MM-DD
+    reviewDate?: string | null;
     attachmentPath?: string | null;
+    steps?: JsaStep[];
 }
 
 export default function InventarioJsaPage() {
   const [isJsaDialogOpen, setJsaDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-  const [isStepsDialogOpen, setIsStepsDialogOpen] = React.useState(false); // State para o diálogo de passos
+  const [isStepsDialogOpen, setIsStepsDialogOpen] = React.useState(false);
   const [editingJsa, setEditingJsa] = React.useState<JsaDataForDialog | null>(null);
   const [deletingJsa, setDeletingJsa] = React.useState<JsaEntry | null>(null);
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
-  const [currentJsaForSteps, setCurrentJsaForSteps] = React.useState<{task: string, steps: JsaStep[]}>({task: '', steps: []}); // State para guardar os passos
+  const [currentJsaForSteps, setCurrentJsaForSteps] = React.useState<{task: string, steps: JsaStep[]}>({task: '', steps: []});
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
   const { toast } = useToast();
@@ -97,8 +98,8 @@ export default function InventarioJsaPage() {
   const handleDialogClose = (open: boolean) => {
     setJsaDialogOpen(open);
     if (!open) {
-      setEditingJsa(null); // Limpa os dados de edição ao fechar
-      loadJsaData(); // Recarregar dados quando o diálogo é fechado
+      setEditingJsa(null);
+      loadJsaData();
     }
   };
 
@@ -136,7 +137,7 @@ export default function InventarioJsaPage() {
         const result = await fetchJsaByIdAction(id);
         if (result.success && result.data) {
             console.log("[inventario-jsa] JSA data fetched for editing:", result.data);
-            setEditingJsa(result.data as JsaDataForDialog); // Cast para o tipo completo
+            setEditingJsa(result.data as JsaDataForDialog);
             setJsaDialogOpen(true);
         } else {
             console.error(`[inventario-jsa] Failed to fetch JSA ${id}:`, result.error);
@@ -169,7 +170,7 @@ export default function InventarioJsaPage() {
         title: "Sucesso",
         description: `JSA "${deletingJsa.task}" foi excluída.`,
       });
-      loadJsaData(); // Recarrega a lista
+      loadJsaData();
     } else {
       toast({
         title: "Erro ao Excluir",
@@ -312,4 +313,3 @@ export default function InventarioJsaPage() {
 
     </div>
   );
-    

@@ -2,9 +2,23 @@
 // src/lib/db.ts
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import type { JsaInput as JsaInputTypeFromAction } from '@/actions/jsaActions';
+import type { JsaStepInput } from '@/actions/jsaActions';
 import type { IncidentInput as IncidentInputType } from '@/actions/incidentActions';
 import bcrypt from 'bcryptjs'; // Importar bcrypt para hashear a senha do superusuário
+
+// JSA input type, combining text fields and steps
+interface JsaInput {
+  task: string;
+  locationName?: string | null;
+  department?: string | null;
+  responsiblePersonName?: string | null;
+  teamMembers?: string | null;
+  requiredPpe?: string | null;
+  status?: string | null;
+  reviewDate?: string | null;
+  attachmentPath?: string | null;
+  steps?: JsaStepInput[];
+}
 
 
 // Variável global para armazenar a conexão do banco de dados
@@ -131,9 +145,9 @@ export async function getDbConnection(): Promise<Database> {
       CREATE TABLE IF NOT EXISTS jsa (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task TEXT NOT NULL,
-        location_name TEXT, -- Alterado de location_id
+        location_name TEXT,
         department TEXT,
-        responsible_person_name TEXT, -- Alterado de responsible_person_id
+        responsible_person_name TEXT,
         team_members TEXT,
         required_ppe TEXT,
         status TEXT DEFAULT 'Rascunho',
@@ -141,7 +155,7 @@ export async function getDbConnection(): Promise<Database> {
         review_date TEXT, -- YYYY-MM-DD
         approval_date TEXT, -- YYYY-MM-DD
         approver_id INTEGER,
-        attachment_path TEXT, -- Coluna para o caminho do anexo
+        attachment_path TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL
       );
@@ -617,14 +631,21 @@ async function populateSampleData(db: Database) {
 
   const isJsaEmpty = await db.get('SELECT COUNT(*) as count FROM jsa');
   if (isJsaEmpty && isJsaEmpty.count === 0) {
-    console.log('[DB:populateSampleData] Populando dados de exemplo para JSA...');
-    await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      1, 'Manutenção Preventiva Prensa XPTO', 'Fábrica - Setor A', 'Manutenção', 'Técnico SST (Exemplo)', 'João Silva, Maria Oliveira', 'Capacete, Óculos, Luvas, Botas', 'Ativo', '2024-08-01', '/uploads/jsa_prensa_xpto_v1.xlsx');
+    console.log('[DB:populateSampleData] Populando dados de exemplo para JSA e JSA Steps...');
+    const jsa1Id = (await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      1, 'Manutenção Preventiva Prensa XPTO', 'Fábrica - Setor A', 'Manutenção', 'Técnico SST (Exemplo)', 'João Silva, Maria Oliveira', 'Capacete, Óculos, Luvas, Botas', 'Ativo', '2024-08-01', '/uploads/jsa_prensa_xpto_v1.xlsx')).lastID;
+    
+    if(jsa1Id) {
+        await db.run('INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)', jsa1Id, 1, 'Desligar e bloquear a energia da prensa (LOTO)', 'Energia residual, partida inesperada', 'Seguir procedimento LOTO, usar cadeado e etiqueta individual');
+        await db.run('INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)', jsa1Id, 2, 'Remover proteções fixas da máquina', 'Prensamento, esmagamento', 'Usar ferramentas adequadas, trabalho em equipe (2 pessoas)');
+        await db.run('INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)', jsa1Id, 3, 'Limpeza e lubrificação das partes móveis', 'Contato com produtos químicos, projeção de partículas', 'Uso de óculos de segurança, luvas nitrílicas, ventilação adequada');
+    }
+
     await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, status, review_date, attachment_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       2, 'Limpeza de Tanque Químico T-02', 'Laboratório Químico', 'Produção', 'Gerente Seg (Exemplo)', 'Revisado', '2024-07-15', null);
     await db.run('INSERT INTO jsa (id, task, location_name, department, responsible_person_name, status) VALUES (?, ?, ?, ?, ?, ?)',
       3, 'Trabalho em Altura - Telhado Bloco B', 'Fábrica - Telhado', 'Manutenção', 'Admin EHS (Exemplo)', 'Rascunho');
-    console.log('[DB:populateSampleData] Dados de exemplo para JSA populados.');
+    console.log('[DB:populateSampleData] Dados de exemplo para JSA e JSA Steps populados.');
   }
 
   const isActionPlansEmpty = await db.get('SELECT COUNT(*) as count FROM action_plans');
@@ -739,84 +760,77 @@ export async function getAllIncidents() {
 }
 
 // --- JSA (Job Safety Analysis) ---
-interface JsaStepInput { step_order: number; description: string; hazards: string; controls: string; }
-
-export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaStepInput[]): Promise<number | undefined> {
+export async function insertJsa(jsaData: JsaInput): Promise<number | undefined> {
     const db = await getDbConnection();
     let jsaId: number | undefined;
-    console.log("[DB:insertJsa] Iniciando inserção. Dados da JSA:", jsaData);
-    console.log("[DB:insertJsa] Dados das Etapas (se houver):", stepsData);
 
     const sql = `INSERT INTO jsa (task, location_name, department, responsible_person_name, team_members, required_ppe, status, review_date, attachment_path)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    console.log("[DB:insertJsa] SQL a ser executado:", sql);
     const params = [
-        jsaData.task,
-        jsaData.locationName ?? null,
-        jsaData.department ?? null,
-        jsaData.responsiblePersonName ?? null,
-        jsaData.teamMembers ?? null,
-        jsaData.requiredPpe ?? null,
-        jsaData.status ?? 'Rascunho',
-        jsaData.reviewDate ?? null,
-        jsaData.attachmentPath ?? null
+        jsaData.task, jsaData.locationName ?? null, jsaData.department ?? null,
+        jsaData.responsiblePersonName ?? null, jsaData.teamMembers ?? null,
+        jsaData.requiredPpe ?? null, jsaData.status ?? 'Rascunho',
+        jsaData.reviewDate ?? null, jsaData.attachmentPath ?? null
     ];
-    console.log("[DB:insertJsa] Parâmetros para SQL (na ordem):", params);
 
     try {
         await db.run('BEGIN TRANSACTION');
-        console.log("[DB:insertJsa] Transação INICIADA.");
         const resultJsa = await db.run(sql, ...params);
         jsaId = resultJsa.lastID;
-        console.log("[DB:insertJsa] JSA inserida com ID:", jsaId, "Resultado SQL (JSA):", resultJsa);
-        if (!jsaId) {
-            console.error("[DB:insertJsa] Falha ao obter ID da JSA inserida. Resultado:", resultJsa);
-            throw new Error("Falha ao obter ID da JSA inserida.");
-        }
+        if (!jsaId) throw new Error("Falha ao obter ID da JSA inserida.");
 
-        if (stepsData && stepsData.length > 0) {
-            console.log(`[DB:insertJsa] Inserindo ${stepsData.length} etapas para JSA ID: ${jsaId}`);
+        if (jsaData.steps && jsaData.steps.length > 0) {
             const stmtStep = await db.prepare('INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)');
-            for (const step of stepsData) {
-                await stmtStep.run(jsaId, step.step_order, step.description, step.hazards, step.controls);
-                 console.log(`[DB:insertJsa] Etapa JSA inserida para JSA ID ${jsaId}:`, step);
+            for (const [index, step] of jsaData.steps.entries()) {
+                await stmtStep.run(jsaId, index + 1, step.description, step.hazards, step.controls);
             }
             await stmtStep.finalize();
-            console.log(`[DB:insertJsa] Todas as ${stepsData.length} etapas inseridas com sucesso.`);
         }
         await db.run('COMMIT');
-        console.log("[DB:insertJsa] Transação COMMITADA com sucesso para JSA ID:", jsaId);
         return jsaId;
     } catch (error) {
-        console.error("[DB:insertJsa] ERRO durante a inserção da JSA. Fazendo ROLLBACK. Erro:", error);
+        console.error("[DB:insertJsa] ERRO:", error);
         await db.run('ROLLBACK');
-        console.log("[DB:insertJsa] Transação ROLLBACKED.");
         throw error;
     }
 }
 
-export async function updateJsa(id: number, jsaData: Omit<JsaInputTypeFromAction, 'steps' | 'attachmentPath'>): Promise<boolean> {
+export async function updateJsa(id: number, jsaData: JsaInput): Promise<boolean> {
     const db = await getDbConnection();
-    console.log(`[DB:updateJsa] Atualizando JSA ID ${id} com dados:`, jsaData);
-    // Esta função não altera o anexo. A action deve lidar com isso.
     const sql = `UPDATE jsa SET
                     task = ?, location_name = ?, department = ?, responsible_person_name = ?,
                     team_members = ?, required_ppe = ?, status = ?, review_date = ?
                  WHERE id = ?`;
     const params = [
-        jsaData.task, jsaData.locationName ?? null, jsaData.department ?? null, jsaData.responsiblePersonName ?? null,
-        jsaData.teamMembers ?? null, jsaData.requiredPpe ?? null, jsaData.status ?? 'Rascunho', jsaData.reviewDate ?? null,
-        id
+        jsaData.task, jsaData.locationName ?? null, jsaData.department ?? null,
+        jsaData.responsiblePersonName ?? null, jsaData.teamMembers ?? null,
+        jsaData.requiredPpe ?? null, jsaData.status ?? 'Rascunho',
+        jsaData.reviewDate ?? null, id
     ];
+
     try {
+        await db.run('BEGIN TRANSACTION');
         const result = await db.run(sql, ...params);
-        console.log(`[DB:updateJsa] JSA ID ${id} atualizada com sucesso. Alterações:`, result.changes);
+        
+        // Atualiza os passos: deleta os antigos e insere os novos
+        await db.run('DELETE FROM jsa_steps WHERE jsa_id = ?', id);
+        if (jsaData.steps && jsaData.steps.length > 0) {
+            const stmtStep = await db.prepare('INSERT INTO jsa_steps (jsa_id, step_order, description, hazards, controls) VALUES (?, ?, ?, ?, ?)');
+            for (const [index, step] of jsaData.steps.entries()) {
+                await stmtStep.run(id, index + 1, step.description, step.hazards, step.controls);
+            }
+            await stmtStep.finalize();
+        }
+
+        await db.run('COMMIT');
         return (result.changes ?? 0) > 0;
     } catch (error) {
         console.error(`[DB:updateJsa] Erro ao atualizar JSA ID ${id}:`, error);
+        await db.run('ROLLBACK');
         throw error;
     }
 }
+
 
 export async function deleteJsaById(id: number): Promise<{ success: boolean; attachmentPath?: string | null }> {
     const db = await getDbConnection();
@@ -863,6 +877,10 @@ export async function getJsaById(id: number) {
     const db = await getDbConnection();
     console.log(`[DB:getJsaById] Buscando JSA com ID: ${id}`);
     const jsa = await db.get('SELECT * FROM jsa WHERE id = ?', id);
+    if (jsa) {
+      const steps = await getJsaSteps(id);
+      jsa.steps = steps;
+    }
     console.log(`[DB:getJsaById] JSA encontrada para ID ${id}:`, jsa);
     return jsa;
 }
