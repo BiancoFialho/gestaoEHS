@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { insertIncident as dbInsertIncident, updateIncidentInDb, getIncidentById as dbGetIncidentById } from '@/lib/db';
+import { insertIncident as dbInsertIncident, updateIncidentInDb, getIncidentById as dbGetIncidentById, deleteIncidentById as dbDeleteIncidentById } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 // Schema for data received by the server action (from client, dates are strings)
@@ -112,4 +112,23 @@ export async function getIncidentById(id: number): Promise<{ success: boolean; d
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
         return { success: false, error: `Erro ao buscar incidente: ${errorMessage}` };
     }
+}
+
+export async function deleteIncidentAction(id: number): Promise<{ success: boolean; error?: string }> {
+  console.log(`[Action:deleteIncidentAction] Tentando excluir Incidente ID: ${id}`);
+  try {
+    const success = await dbDeleteIncidentById(id);
+    if (success) {
+      console.log(`[Action:deleteIncidentAction] Incidente ${id} excluído com sucesso do DB.`);
+      revalidatePath('/seguranca-trabalho/incidentes');
+      return { success: true };
+    } else {
+      console.warn(`[Action:deleteIncidentAction] Falha ao excluir incidente ${id} do DB.`);
+      return { success: false, error: 'Falha ao excluir o incidente. Pode já ter sido removido.' };
+    }
+  } catch (error) {
+    console.error(`[Action:deleteIncidentAction] Erro ao excluir incidente ${id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
+    return { success: false, error: `Erro ao excluir incidente: ${errorMessage}` };
+  }
 }

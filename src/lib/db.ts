@@ -724,6 +724,24 @@ export async function updateIncidentInDb(id: number, incidentData: Omit<Incident
     }
 }
 
+export async function deleteIncidentById(id: number): Promise<boolean> {
+    const db = await getDbConnection();
+    console.log(`[DB:deleteIncidentById] Tentando excluir incidente com ID: ${id}`);
+    try {
+        const result = await db.run('DELETE FROM incidents WHERE id = ?', id);
+        if ((result.changes ?? 0) > 0) {
+             console.log(`[DB:deleteIncidentById] Incidente com ID ${id} excluído com sucesso.`);
+             return true;
+        } else {
+             console.warn(`[DB:deleteIncidentById] Nenhum incidente foi excluído para ID ${id}, pode já ter sido removido.`);
+             return false;
+        }
+    } catch (error) {
+        console.error(`[DB:deleteIncidentById] Erro ao excluir incidente com ID ${id}:`, error);
+        throw error;
+    }
+}
+
 export async function getIncidentById(id: number) {
     const db = await getDbConnection();
     console.log(`[DB:getIncidentById] Buscando incidente com ID: ${id}`);

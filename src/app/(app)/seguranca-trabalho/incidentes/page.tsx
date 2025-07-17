@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { FileWarning, PlusCircle, AlertCircle, CheckCircle, Clock, Edit, Eye, Info } from 'lucide-react';
+import { FileWarning, PlusCircle, AlertCircle, CheckCircle, Clock, Edit, Eye, Info, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,19 @@ import { Badge } from '@/components/ui/badge';
 import IncidentDialog from '@/components/incidentes/IncidentDialog';
 import IncidentDetailsDialog from '@/components/incidentes/IncidentDetailsDialog';
 import { useToast } from '@/hooks/use-toast';
-import { fetchAllIncidentsAction } from '@/actions/dataFetchingActions'; // Importar a nova server action
+import { fetchAllIncidentsAction } from '@/actions/dataFetchingActions';
+import { deleteIncidentAction } from '@/actions/incidentActions'; // Importar a nova action
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 interface IncidentEntry {
   id: number;
@@ -38,8 +50,10 @@ interface IncidentEntry {
 export default function IncidentesPage() {
   const [isIncidentDialogOpen, setIncidentDialogOpen] = React.useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = React.useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = React.useState<IncidentEntry | null>(null);
   const [selectedIncidentForEdit, setSelectedIncidentForEdit] = React.useState<IncidentEntry | null>(null);
+  const [deletingIncident, setDeletingIncident] = React.useState<IncidentEntry | null>(null);
   const [incidents, setIncidents] = React.useState<IncidentEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -49,7 +63,6 @@ export default function IncidentesPage() {
     setIsLoading(true);
     console.log("IncidentesPage: Iniciando fetchIncidents via action.");
     try {
-      // Usar a server action para buscar os incidentes
       const result = await fetchAllIncidentsAction();
       if (result.success && result.data) {
         console.log(`IncidentesPage: ${result.data.length} incidentes recebidos da action.`);
@@ -79,7 +92,7 @@ export default function IncidentesPage() {
 
   React.useEffect(() => {
     fetchIncidents();
-  }, [fetchIncidents]); // Fetch on initial load
+  }, [fetchIncidents]);
 
   const handleOpenDetailsDialog = (incident: IncidentEntry) => {
     setSelectedIncidentForDetails(incident);
@@ -88,14 +101,14 @@ export default function IncidentesPage() {
 
   const handleOpenEditDialog = (incident: IncidentEntry) => {
     setSelectedIncidentForEdit(incident);
-    setIncidentDialogOpen(true); // Open the main dialog for editing
+    setIncidentDialogOpen(true);
   };
 
   const handleDialogClose = (open: boolean) => {
     setIncidentDialogOpen(open);
     if (!open) {
-      setSelectedIncidentForEdit(null); // Clear edit state when dialog closes
-      fetchIncidents(); // Refresh list when dialog closes after an add/update
+      setSelectedIncidentForEdit(null);
+      fetchIncidents();
     }
   };
 
@@ -106,6 +119,32 @@ export default function IncidentesPage() {
     }
   };
 
+  const openDeleteConfirmation = (incident: IncidentEntry) => {
+    setDeletingIncident(incident);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingIncident) return;
+    setIsLoading(true);
+    const result = await deleteIncidentAction(deletingIncident.id);
+    if (result.success) {
+      toast({
+        title: "Sucesso",
+        description: `Incidente #${deletingIncident.id} foi excluído.`,
+      });
+      fetchIncidents();
+    } else {
+      toast({
+        title: "Erro ao Excluir",
+        description: result.error || "Não foi possível excluir o incidente.",
+        variant: "destructive",
+      });
+    }
+    setIsLoading(false);
+    setIsDeleteDialogOpen(false);
+    setDeletingIncident(null);
+  };
 
     const getSeverityBadgeVariant = (severity: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
         if (!severity) return 'outline';
@@ -220,6 +259,9 @@ export default function IncidentesPage() {
                       <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(incident)} title="Editar Incidente">
                         <Edit className="h-4 w-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(incident)} title="Excluir Incidente" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -238,14 +280,33 @@ export default function IncidentesPage() {
       <IncidentDialog
         open={isIncidentDialogOpen}
         onOpenChange={handleDialogClose}
-        initialData={selectedIncidentForEdit} // Pass data for editing
-        onIncidentAddedOrUpdated={fetchIncidents} // Callback to refresh list
+        initialData={selectedIncidentForEdit}
+        onIncidentAddedOrUpdated={fetchIncidents}
       />
       <IncidentDetailsDialog
         incident={selectedIncidentForDetails}
         open={isDetailsDialogOpen}
         onOpenChange={handleDetailsDialogClose}
       />
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+                Confirmar Exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem certeza que deseja excluir o incidente #{deletingIncident?.id} (&quot;{deletingIncident?.description.substring(0, 30)}...&quot;)? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingIncident(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isLoading}>
+              {isLoading ? "Excluindo..." : "Sim, Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
