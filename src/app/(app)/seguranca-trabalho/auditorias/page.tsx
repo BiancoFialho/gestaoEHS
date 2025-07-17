@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ClipboardCheck, PlusCircle, FileSearch, CheckCircle, Clock, XCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { ClipboardCheck, PlusCircle, FileSearch, CheckCircle, Clock, XCircle, Edit, Trash2, AlertTriangle, Star } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,8 @@ interface AuditEntry {
   lead_auditor_id: number | null;
   lead_auditor_name?: string | null; // Nome do auditor líder vindo do JOIN
   status: string | null;
-  non_conformities_count?: number; // Adicionado para a coluna "Não Conf."
+  non_conformities_count?: number;
+  score?: number | null;
 }
 
 export default function AuditoriasPage() {
@@ -193,13 +194,14 @@ export default function AuditoriasPage() {
                 <TableHead>Auditor(es)</TableHead>
                 <TableHead>Auditor Líder</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-center">Não Conf.</TableHead>
+                <TableHead className="text-center">NCs</TableHead>
+                <TableHead className="text-center">Nota</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">Carregando auditorias...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="h-24 text-center text-muted-foreground">Carregando auditorias...</TableCell></TableRow>
               ) : filteredAudits.length > 0 ? (
                 filteredAudits.map((audit) => (
                   <TableRow key={audit.id}>
@@ -219,6 +221,14 @@ export default function AuditoriasPage() {
                             {audit.non_conformities_count ?? 0}
                          </Badge>
                     </TableCell>
+                    <TableCell className="text-center">
+                        {audit.score !== null && audit.score !== undefined ? (
+                            <div className="flex items-center justify-center gap-1 font-semibold">
+                                <Star className="h-4 w-4 text-yellow-500 fill-yellow-400" />
+                                {audit.score}
+                            </div>
+                        ) : 'N/A'}
+                    </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="sm" onClick={() => handleViewReport(audit.id)}>
                          <FileSearch className="mr-1 h-4 w-4" /> Ver
@@ -234,7 +244,7 @@ export default function AuditoriasPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                     Nenhuma auditoria encontrada.
                   </TableCell>
                 </TableRow>

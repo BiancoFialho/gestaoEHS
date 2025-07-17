@@ -27,6 +27,7 @@ interface AuditData {
     auditor: string;
     lead_auditor_id: number | null;
     status: string;
+    score?: number | null; // Adicionado
 }
 
 
@@ -275,6 +276,7 @@ export async function getDbConnection(): Promise<Database> {
         observations_count INTEGER DEFAULT 0,
         status TEXT DEFAULT 'Planejada',
         report_path TEXT,
+        score REAL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (lead_auditor_id) REFERENCES users(id) ON DELETE SET NULL
       );
@@ -1097,12 +1099,13 @@ export async function insertAudit(
     auditDate: string, // YYYY-MM-DD
     auditor: string,
     leadAuditorId?: number | null,
-    status?: string | null
+    status?: string | null,
+    score?: number | null,
 ): Promise<number | undefined> {
     const db = await getDbConnection();
-    const sql = `INSERT INTO audits (type, scope, audit_date, auditor, lead_auditor_id, status)
-                 VALUES (?, ?, ?, ?, ?, ?)`;
-    const params = [type, scope, auditDate, auditor, leadAuditorId ?? null, status ?? 'Planejada'];
+    const sql = `INSERT INTO audits (type, scope, audit_date, auditor, lead_auditor_id, status, score)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const params = [type, scope, auditDate, auditor, leadAuditorId ?? null, status ?? 'Planejada', score ?? null];
     console.log(`[DB:insertAudit] Executando SQL: ${sql}`);
     console.log(`[DB:insertAudit] Com params:`, params);
     try {
@@ -1119,11 +1122,11 @@ export async function updateAudit(id: number, auditData: AuditData): Promise<boo
     const db = await getDbConnection();
     const sql = `UPDATE audits SET
                     type = ?, scope = ?, audit_date = ?, auditor = ?,
-                    lead_auditor_id = ?, status = ?
+                    lead_auditor_id = ?, status = ?, score = ?
                  WHERE id = ?`;
     const params = [
         auditData.type, auditData.scope, auditData.audit_date, auditData.auditor,
-        auditData.lead_auditor_id, auditData.status, id
+        auditData.lead_auditor_id, auditData.status, auditData.score ?? null, id
     ];
     console.log(`[DB:updateAudit] Atualizando auditoria ID ${id} com dados:`, auditData);
     try {

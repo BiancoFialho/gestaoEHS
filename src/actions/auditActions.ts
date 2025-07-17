@@ -22,6 +22,7 @@ const auditSchema = z.object({
   auditor: z.string().min(2, "Nome do auditor é obrigatório."),
   leadAuditorId: z.string().optional(),
   status: z.string().optional().default('Planejada'),
+  score: z.coerce.number().optional().nullable(), // Adicionado score
 });
 
 export type AuditInput = z.infer<typeof auditSchema>;
@@ -36,7 +37,7 @@ export async function addAudit(data: Omit<AuditInput, 'id'>): Promise<{ success:
       return { success: false, error: `Dados inválidos: ${errorMessages}` };
     }
 
-    const { type, scope, auditDateString, auditor, leadAuditorId, status } = validatedData.data;
+    const { type, scope, auditDateString, auditor, leadAuditorId, status, score } = validatedData.data;
 
     let formattedAuditDate: string;
     try {
@@ -49,9 +50,11 @@ export async function addAudit(data: Omit<AuditInput, 'id'>): Promise<{ success:
     }
 
     const leadAuditorIdNumber = leadAuditorId && leadAuditorId !== NONE_SELECT_VALUE ? parseInt(leadAuditorId, 10) : null;
+    const finalScore = status === 'Concluída' ? score : null;
+
 
     console.log("[Action:addAudit] Dados formatados para inserção no DB:", {
-        type, scope, formattedAuditDate, auditor, leadAuditorIdNumber, status
+        type, scope, formattedAuditDate, auditor, leadAuditorIdNumber, status, score: finalScore
     });
 
     const newAuditId = await insertAudit(
@@ -60,7 +63,8 @@ export async function addAudit(data: Omit<AuditInput, 'id'>): Promise<{ success:
       formattedAuditDate,
       auditor,
       leadAuditorIdNumber,
-      status
+      status,
+      finalScore
     );
 
     if (newAuditId === undefined || newAuditId === null) {
@@ -96,14 +100,16 @@ export async function updateAuditAction(data: AuditInput): Promise<{ success: bo
             return { success: false, error: `Dados inválidos: ${errorMessages}` };
         }
 
-        const { type, scope, auditDateString, auditor, leadAuditorId, status } = validatedData.data;
+        const { type, scope, auditDateString, auditor, leadAuditorId, status, score } = validatedData.data;
 
         const parsedDate = parse(auditDateString, DATE_FORMAT_DISPLAY, new Date());
         const formattedAuditDate = format(parsedDate, DATE_FORMAT_DB);
         const leadAuditorIdNumber = leadAuditorId && leadAuditorId !== NONE_SELECT_VALUE ? parseInt(leadAuditorId, 10) : null;
+        const finalScore = status === 'Concluída' ? score : null;
+
 
         console.log(`[Action:updateAuditAction] Dados formatados para atualização no DB (ID: ${id}):`, {
-            type, scope, formattedAuditDate, auditor, leadAuditorIdNumber, status
+            type, scope, formattedAuditDate, auditor, leadAuditorIdNumber, status, score: finalScore
         });
 
         const success = await dbUpdateAudit(id, {
@@ -112,7 +118,8 @@ export async function updateAuditAction(data: AuditInput): Promise<{ success: bo
             audit_date: formattedAuditDate,
             auditor,
             lead_auditor_id: leadAuditorIdNumber,
-            status: status || 'Planejada'
+            status: status || 'Planejada',
+            score: finalScore,
         });
 
         if (!success) {

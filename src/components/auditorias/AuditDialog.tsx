@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parse, isValid, parseISO } from "date-fns";
@@ -54,6 +54,7 @@ interface AuditInitialData {
     auditor: string;
     lead_auditor_id?: number | null;
     status?: string | null;
+    score?: number | null; // Adicionado
 }
 
 const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
@@ -69,6 +70,7 @@ const formSchema = z.object({
   auditor: z.string().min(2, { message: "Auditor(es) deve ter pelo menos 2 caracteres." }),
   leadAuditorId: z.string().optional(),
   status: z.string().optional().default('Planejada'),
+  score: z.coerce.number().optional().nullable(),
 });
 
 type AuditFormValues = z.infer<typeof formSchema>;
@@ -89,8 +91,13 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
     resolver: zodResolver(formSchema),
     defaultValues: {
       type: "", scope: "", auditDateString: "", auditor: "",
-      leadAuditorId: "", status: "Planejada",
+      leadAuditorId: "", status: "Planejada", score: null,
     },
+  });
+
+  const watchedStatus = useWatch({
+    control: form.control,
+    name: "status",
   });
 
   useEffect(() => {
@@ -121,11 +128,12 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
             auditor: initialData.auditor || "",
             leadAuditorId: initialData.lead_auditor_id?.toString() || "",
             status: initialData.status || "Planejada",
+            score: initialData.score ?? null,
         });
       } else {
         form.reset({
             type: "", scope: "", auditDateString: "", auditor: "",
-            leadAuditorId: "", status: "Planejada",
+            leadAuditorId: "", status: "Planejada", score: null,
         });
       }
     } else {
@@ -146,6 +154,7 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
         auditor: values.auditor,
         leadAuditorId: values.leadAuditorId,
         status: values.status,
+        score: values.score,
     };
     console.log("[AuditDialog] Submitting to Action:", dataToSend);
 
@@ -206,13 +215,26 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
                     </Select><FormMessage />
                 </FormItem>
             )}/>
-            <FormField control={form.control} name="status" render={({ field }) => (
-                <FormItem><FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value ?? 'Planejada'}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl>
-                    <SelectContent>{auditStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
-                </Select><FormMessage /></FormItem>
-            )}/>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem><FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value ?? 'Planejada'}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl>
+                        <SelectContent>{auditStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                    </Select><FormMessage /></FormItem>
+                )}/>
+                {watchedStatus === 'Concluída' && (
+                     <FormField control={form.control} name="score" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Nota / Score (0-100)</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="Nota final" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                )}
+            </div>
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6 border-t">
                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                  <Button type="submit" disabled={isLoadingUsers || isSubmitting}>{isSubmitting ? "Salvando..." : (isEditMode ? "Salvar Alterações" : "Salvar")}</Button>
