@@ -1,9 +1,9 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Para redirecionar após logout
+import { usePathname, useRouter } from 'next/navigation';
 import {
   ShieldCheck, 
   BarChart3, 
@@ -49,33 +49,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-// import { useAuth } from '@/context/AuthContext'; // Comentado, pois o login está desabilitado
-// import { logoutAction } from '@/actions/authActions'; // Comentado
 import { useToast } from '@/hooks/use-toast';
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // const { user, isLoading } = useAuth(); // Comentado
-  const router = useRouter();
-  const { toast } = useToast();
-
-  // const handleLogout = async () => { // Comentado
-  //   console.log("[AppLayout] Logout button clicked. Calling logoutAction...");
-  //   try {
-  //     await logoutAction();
-  //     toast({ title: 'Logout', description: 'Você foi desconectado.' });
-  //   } catch (error) {
-  //       console.error("[AppLayout] Erro durante o logoutAction:", error);
-  //       toast({ title: 'Erro no Logout', description: 'Não foi possível fazer logout.', variant: 'destructive' });
-  //   }
-  // };
-
-  // const userName = isLoading ? "Carregando..." : (user?.name || user?.email || "Usuário"); // Comentado
-  const userName = "Usuário (Login Desabilitado)"; // Mensagem temporária
-
-  const ehsMenu = [
+const ehsMenu = [
     {
       title: "Segurança do Trabalho",
       icon: Shield,
+      basePath: "/seguranca-trabalho",
       subItems: [
         { title: "Indicadores Desempenho", icon: BarChartBig, href: "/seguranca-trabalho/indicadores-desempenho" },
         { title: "Indicadores Prevenção", icon: Activity, href: "/seguranca-trabalho/indicadores-prevencao" },
@@ -91,6 +71,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       title: "Saúde Ocupacional",
       icon: HeartPulse,
+      basePath: "/saude-ocupacional",
       subItems: [
         { title: "Indicadores", icon: Activity, href: "/saude-ocupacional/indicadores" },
         { title: "ASOs", icon: FileTextIcon, href: "/saude-ocupacional/asos" }, 
@@ -100,6 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       title: "Meio Ambiente",
       icon: Leaf,
+      basePath: "/meio-ambiente",
       subItems: [
         { title: "Indicadores", icon: Activity, href: "/meio-ambiente/indicadores" },
         { title: "Inventário Químico", icon: FlaskConical, href: "/meio-ambiente/inventario-quimico" },
@@ -108,6 +90,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       title: "Indicadores Integrados",
       icon: Target,
+      basePath: "/indicadores-integrados",
       subItems: [
         { title: "Indicadores", icon: Activity, href: "/indicadores-integrados/indicadores" },
         { title: "Estatísticas", icon: BarChartBig, href: "/indicadores-integrados/estatisticas" },
@@ -116,6 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
      {
         title: "Geral",
         icon: ClipboardList, 
+        basePath: "/geral",
         subItems: [
           { title: "Cadastros", icon: ClipboardList, href: "/geral/cadastros" },
           { title: "Treinamentos", icon: GraduationCap, href: "/geral/treinamentos" },
@@ -125,6 +109,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         ],
     },
   ];
+
+const getActiveCategory = (pathname: string) => {
+    const activeCategory = ehsMenu.find(category => pathname.startsWith(category.basePath));
+    return activeCategory ? activeCategory.basePath : null;
+};
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { toast } = useToast();
+  
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
+  useEffect(() => {
+    const activeCategory = getActiveCategory(pathname);
+    if (activeCategory) {
+        setOpenAccordionItems([`category-${ehsMenu.findIndex(c => c.basePath === activeCategory)}`]);
+    } else {
+        setOpenAccordionItems([]);
+    }
+  }, [pathname]);
+
+  const userName = "Usuário (Login Desabilitado)";
 
   return (
     <SidebarProvider>
@@ -138,14 +145,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarContent className="p-2 flex-1 overflow-y-auto">
           <SidebarMenu className="mb-2">
             <SidebarMenuItem>
-              <SidebarMenuButton href="/" variant="ghost" size="sm" className="h-8 justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+              <SidebarMenuButton asChild variant="ghost" size="sm" className="h-8 justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                <Link href="/">
                  <LayoutDashboard className="size-4 shrink-0" />
-                <span className="truncate group-data-[collapsible=icon]:hidden">Dashboard</span>
+                 <span className="truncate group-data-[collapsible=icon]:hidden">Dashboard</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
 
-          <Accordion type="multiple" className="w-full">
+          <Accordion 
+            type="multiple" 
+            className="w-full"
+            value={openAccordionItems}
+            onValueChange={setOpenAccordionItems}
+          >
             {ehsMenu.map((category, catIndex) => (
               <AccordionItem value={`category-${catIndex}`} key={`category-${catIndex}`} className="border-none">
                 <AccordionTrigger className="px-2 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline rounded-md [&[data-state=open]>svg]:rotate-90 group-data-[collapsible=icon]:justify-center">
@@ -159,14 +173,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     {category.subItems.map((subItem, subIndex) => (
                       <SidebarMenuItem key={`sub-direct-${catIndex}-${subIndex}`}>
                         <SidebarMenuButton
-                          href={subItem.href || '#'}
+                          asChild
                           variant="ghost"
                           size="sm"
                           className="h-7 justify-start text-sidebar-foreground/80 hover:text-sidebar-accent-foreground"
                           tooltip={subItem.title}
+                          data-active={pathname === subItem.href}
                         >
-                          {subItem.icon && <subItem.icon className="size-3.5 shrink-0" />}
-                          <span className="truncate">{subItem.title}</span>
+                          <Link href={subItem.href || '#'}>
+                            {subItem.icon && <subItem.icon className="size-3.5 shrink-0" />}
+                            <span className="truncate">{subItem.title}</span>
+                          </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -177,19 +194,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Accordion>
         </SidebarContent>
         <SidebarFooter className="p-2 border-t border-sidebar-border">
-          {/* Formulário de Logout comentado
-          <form action={handleLogout} className="w-full">
-            <SidebarMenuButton
-              type="submit"
-              variant="ghost"
-              tooltip="Logout"
-              className="w-full justify-center group-data-[collapsible=icon]:justify-center"
-            >
-              <LogOut />
-              <span className="group-data-[collapsible=icon]:hidden">Logout</span>
-            </SidebarMenuButton>
-          </form>
-          */}
         </SidebarFooter>
       </Sidebar>
 

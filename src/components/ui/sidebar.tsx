@@ -1,6 +1,9 @@
 
+"use client"
+
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
+import { usePathname } from 'next/navigation'; // Importar usePathname
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -17,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import React from "react"
+import Link from "next/link"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -541,55 +545,58 @@ const sidebarMenuButtonVariants = cva(
 )
 
 const SidebarMenuButton = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<"button"> & {
+  HTMLButtonElement | HTMLAnchorElement,
+  (React.ButtonHTMLAttributes<HTMLButtonElement> | React.AnchorHTMLAttributes<HTMLAnchorElement>) & {
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-    href?: string; // Add href prop
   } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
     {
       asChild = false,
-      isActive = false,
+      isActive: isActiveProp,
       variant = "default",
       size = "default",
       tooltip,
       className,
-      href, // Destructure href
       ...props
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : href ? 'a' : "button"; // Use 'a' if href is present
-    const { isMobile, state } = useSidebar()
+    const { isMobile, state } = useSidebar();
+    
+    // Check if the component is an anchor tag with an href
+    const isLink = 'href' in props && typeof props.href === 'string';
+    const pathname = usePathname();
+    const isActive = isActiveProp ?? (isLink && props.href ? pathname === props.href : false);
 
-    const button = (
+    const Comp = asChild ? Slot : isLink ? "a" : "button";
+
+    const buttonContent = (
       <Comp
-        ref={ref}
+        ref={ref as any}
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-        href={href} // Pass href to the component
         {...props}
       />
-    )
+    );
 
     if (!tooltip) {
-      return button
+      return buttonContent;
     }
 
     if (typeof tooltip === "string") {
       tooltip = {
         children: tooltip,
-      }
+      };
     }
 
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
         <TooltipContent
           side="right"
           align="center"
@@ -597,9 +604,9 @@ const SidebarMenuButton = React.forwardRef<
           {...tooltip}
         />
       </Tooltip>
-    )
+    );
   }
-)
+);
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
 const SidebarMenuAction = React.forwardRef<
