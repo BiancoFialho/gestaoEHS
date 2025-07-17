@@ -289,6 +289,7 @@ const IncidentDialog: React.FC<IncidentDialogProps> = ({ open, onOpenChange, ini
   const incidentTypes = [
     "Acidente com Afastamento", "Acidente sem Afastamento", "Quase Acidente",
     "Incidente Ambiental", "Condição Insegura", "Comportamento Inseguro", "Primeiros Socorros",
+    "Dano à Propriedade", "Observação de Segurança", "Vazamento / Derrame"
   ];
   const severities = [ "N/A", "Insignificante", "Leve", "Moderado", "Grave", "Fatalidade" ];
   const statuses = [ "Aberto", "Em Investigação", "Aguardando Ação", "Fechado", "Cancelado" ];
