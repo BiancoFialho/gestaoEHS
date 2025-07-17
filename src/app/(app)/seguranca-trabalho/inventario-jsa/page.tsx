@@ -20,9 +20,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { fetchJsas, fetchJsaByIdAction } from '@/actions/dataFetchingActions';
+import JsaStepsDialog from '@/components/jsa/JsaStepsDialog'; // Importar o novo diálogo
+import { fetchJsas, fetchJsaByIdAction, fetchJsaStepsAction } from '@/actions/dataFetchingActions';
 import { deleteJsaAction } from '@/actions/jsaActions';
 import { useToast } from "@/hooks/use-toast";
+import type { JsaStep } from '@/actions/dataFetchingActions'; // Importar o tipo
 
 interface JsaEntry {
     id: number;
@@ -51,9 +53,11 @@ interface JsaDataForDialog {
 export default function InventarioJsaPage() {
   const [isJsaDialogOpen, setJsaDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [isStepsDialogOpen, setIsStepsDialogOpen] = React.useState(false); // State para o diálogo de passos
   const [editingJsa, setEditingJsa] = React.useState<JsaDataForDialog | null>(null);
   const [deletingJsa, setDeletingJsa] = React.useState<JsaEntry | null>(null);
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
+  const [currentJsaForSteps, setCurrentJsaForSteps] = React.useState<{task: string, steps: JsaStep[]}>({task: '', steps: []}); // State para guardar os passos
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
   const { toast } = useToast();
@@ -107,9 +111,22 @@ export default function InventarioJsaPage() {
        return 'outline';
    }
 
-  const handleViewSteps = (id: number) => {
-    console.log(`View Steps for JSA ${id}`);
-    toast({ title: "Funcionalidade Pendente", description: "Visualizar passos da JSA ainda não implementado."});
+  const handleViewSteps = async (jsa: JsaEntry) => {
+    console.log(`View Steps for JSA ${jsa.id}`);
+    setIsLoading(true);
+    try {
+      const result = await fetchJsaStepsAction(jsa.id);
+      if (result.success && result.data) {
+        setCurrentJsaForSteps({task: jsa.task, steps: result.data as JsaStep[]});
+        setIsStepsDialogOpen(true);
+      } else {
+        toast({ title: "Erro ao Buscar Passos", description: result.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Erro Crítico", description: "Não foi possível carregar os passos da JSA.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const handleEdit = async (id: number) => {
@@ -219,7 +236,7 @@ export default function InventarioJsaPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading && !jsaEntries.length ? (
                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Carregando JSAs...</TableCell></TableRow>
               ) : filteredJsas.length > 0 ? (
                 filteredJsas.map((jsa) => (
@@ -246,11 +263,11 @@ export default function InventarioJsaPage() {
                         )}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewSteps(jsa.id)} title="Visualizar Passos">Ver Passos</Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(jsa.id)} title="Editar JSA">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewSteps(jsa)} title="Visualizar Passos" disabled={isLoading}>Ver Passos</Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(jsa.id)} title="Editar JSA" disabled={isLoading}>
                             <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(jsa)} title="Excluir JSA" className="text-destructive hover:text-destructive">
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(jsa)} title="Excluir JSA" className="text-destructive hover:text-destructive" disabled={isLoading}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </TableCell>
@@ -265,6 +282,13 @@ export default function InventarioJsaPage() {
       </Card>
 
        <JsaDialog open={isJsaDialogOpen} onOpenChange={handleDialogClose} initialData={editingJsa} />
+       
+       <JsaStepsDialog 
+          open={isStepsDialogOpen} 
+          onOpenChange={setIsStepsDialogOpen} 
+          taskName={currentJsaForSteps.task}
+          steps={currentJsaForSteps.steps}
+        />
 
        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -286,10 +310,6 @@ export default function InventarioJsaPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-       <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
-            <p className="text-muted-foreground">A visualização e edição detalhada dos passos da JSA será implementada aqui.</p>
-        </div>
     </div>
   );
-
     

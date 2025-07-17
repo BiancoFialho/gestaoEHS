@@ -9,7 +9,8 @@ import {
     getAllJsas as dbGetAllJsas,
     getJsaById as dbGetJsaById,
     getAllIncidents as dbGetAllIncidents,
-    getAllAudits as dbGetAllAudits
+    getAllAudits as dbGetAllAudits,
+    getJsaSteps as dbGetJsaSteps
 } from '@/lib/db';
 
 // Define common types for data fetching results
@@ -80,6 +81,16 @@ interface AuditEntry {
   lead_auditor_name?: string | null; // Nome do auditor líder vindo do JOIN
   status: string | null;
   non_conformities_count?: number;
+}
+
+// Definição do tipo para um passo da JSA
+export interface JsaStep {
+  id: number;
+  jsa_id: number;
+  step_order: number;
+  description: string;
+  hazards: string;
+  controls: string;
 }
 
 
@@ -208,5 +219,19 @@ export async function fetchAllAuditsAction(): Promise<FetchResult<AuditEntry>> {
         console.error('[dataFetchingActions] Error fetching all audits via action:', error);
         const message = error instanceof Error ? error.message : 'An unknown error occurred while fetching audits.';
         return { success: false, error: `Erro ao buscar auditorias: ${message}` };
+    }
+}
+
+// Nova Server Action para buscar os passos de uma JSA
+export async function fetchJsaStepsAction(jsaId: number): Promise<FetchResult<JsaStep>> {
+    console.log(`[dataFetchingActions] fetchJsaStepsAction: Buscando passos para JSA ID: ${jsaId}`);
+    try {
+        const steps = await dbGetJsaSteps(jsaId);
+        console.log(`[dataFetchingActions] fetchJsaStepsAction: ${steps.length} passos encontrados.`);
+        return { success: true, data: steps as JsaStep[] };
+    } catch (error) {
+        console.error(`[dataFetchingActions] Erro ao buscar passos da JSA (${jsaId}):`, error);
+        const message = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
+        return { success: false, error: `Erro ao buscar passos da JSA: ${message}` };
     }
 }
