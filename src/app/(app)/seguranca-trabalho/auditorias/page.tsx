@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import AuditDialog from '@/components/auditorias/AuditDialog'; // Importar o novo dialog
+import AuditDialog from '@/components/auditorias/AuditDialog';
+import AuditDetailsDialog from '@/components/auditorias/AuditDetailsDialog'; // Importar o novo dialog
 import { useToast } from '@/hooks/use-toast';
 import { fetchAllAuditsAction } from '@/actions/dataFetchingActions';
 import { getAuditByIdAction } from '@/actions/auditActions';
@@ -28,7 +29,9 @@ interface AuditEntry {
 
 export default function AuditoriasPage() {
   const [isAuditDialogOpen, setAuditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [editingAudit, setEditingAudit] = useState<AuditEntry | null>(null);
+  const [selectedAudit, setSelectedAudit] = useState<AuditEntry | null>(null);
   const [audits, setAudits] = useState<AuditEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -118,10 +121,9 @@ export default function AuditoriasPage() {
     toast({ title: "Pendente", description: "Exclusão de auditoria ainda não implementada." });
   };
 
-  const handleViewReport = (auditId: number) => {
-    // Lógica para visualizar relatório (não implementado neste commit)
-    console.log(`Visualizar relatório da auditoria ID: ${auditId}`);
-    toast({ title: "Pendente", description: "Visualização de relatório ainda não implementada." });
+  const handleViewDetails = (audit: AuditEntry) => {
+    setSelectedAudit(audit);
+    setIsDetailsDialogOpen(true);
   };
 
     const getStatusIcon = (status: string | null) => {
@@ -230,7 +232,7 @@ export default function AuditoriasPage() {
                         ) : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleViewReport(audit.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleViewDetails(audit)}>
                          <FileSearch className="mr-1 h-4 w-4" /> Ver
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleEditAudit(audit.id)} disabled={isLoading}>
@@ -259,6 +261,12 @@ export default function AuditoriasPage() {
         onOpenChange={handleDialogClose}
         onAuditSaved={handleAuditSaved}
         initialData={editingAudit}
+      />
+
+      <AuditDetailsDialog
+        audit={selectedAudit}
+        open={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
       />
     </div>
   );
