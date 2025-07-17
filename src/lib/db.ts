@@ -795,6 +795,42 @@ export async function insertJsa(jsaData: JsaInputTypeFromAction, stepsData: JsaS
     }
 }
 
+export async function updateJsa(id: number, jsaData: JsaInputTypeFromAction): Promise<boolean> {
+    const db = await getDbConnection();
+    console.log(`[DB:updateJsa] Atualizando JSA ID ${id} com dados:`, jsaData);
+    // Nota: Esta função não atualiza o anexo. Isso deve ser tratado na action (deletar arquivo antigo se um novo for enviado).
+    const sql = `UPDATE jsa SET
+                    task = ?,
+                    location_name = ?,
+                    department = ?,
+                    responsible_person_name = ?,
+                    team_members = ?,
+                    required_ppe = ?,
+                    status = ?,
+                    review_date = ?
+                 WHERE id = ?`;
+    const params = [
+        jsaData.task,
+        jsaData.locationName ?? null,
+        jsaData.department ?? null,
+        jsaData.responsiblePersonName ?? null,
+        jsaData.teamMembers ?? null,
+        jsaData.requiredPpe ?? null,
+        jsaData.status ?? 'Rascunho',
+        jsaData.reviewDate ?? null,
+        id
+    ];
+    try {
+        const result = await db.run(sql, ...params);
+        console.log(`[DB:updateJsa] JSA ID ${id} atualizada com sucesso. Alterações:`, result.changes);
+        return (result.changes ?? 0) > 0;
+    } catch (error) {
+        console.error(`[DB:updateJsa] Erro ao atualizar JSA ID ${id}:`, error);
+        throw error;
+    }
+}
+
+
 export async function getAllJsas() {
   const db = await getDbConnection();
   console.log('[DB:getAllJsas] Buscando todas as JSAs.');
@@ -806,6 +842,15 @@ export async function getAllJsas() {
   console.log(`[DB:getAllJsas] ${jsas.length} JSAs encontradas.`);
   return jsas;
 }
+
+export async function getJsaById(id: number) {
+    const db = await getDbConnection();
+    console.log(`[DB:getJsaById] Buscando JSA com ID: ${id}`);
+    const jsa = await db.get('SELECT * FROM jsa WHERE id = ?', id);
+    console.log(`[DB:getJsaById] JSA encontrada para ID ${id}:`, jsa);
+    return jsa;
+}
+
 
 export async function getJsaSteps(jsaId: number) {
     const db = await getDbConnection();
@@ -1096,4 +1141,3 @@ export async function getAllKpis() {
   console.log(`[DB:getAllKpis] ${kpis.length} KPIs encontrados.`);
   return kpis;
 }
-

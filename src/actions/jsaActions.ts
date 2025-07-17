@@ -2,19 +2,18 @@
 'use server';
 
 import { z } from 'zod';
-import { insertJsa as dbInsertJsa } from '@/lib/db';
+import { insertJsa as dbInsertJsa, updateJsa as dbUpdateJsa } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import path from 'path';
 import fs from 'fs/promises';
 
 // Schema for data extracted from FormData for Zod validation on server.
-// locationId e responsiblePersonId não são mais usados diretamente pela action,
-// mas os nomes são extraídos do FormData e passados para dbInsertJsa.
 const jsaBaseSchemaServer = z.object({
+  id: z.number().int().positive().optional(), // ID is needed for updates
   task: z.string().min(5, "A tarefa deve ter pelo menos 5 caracteres."),
-  locationName: z.string().optional().nullable(), // Alterado para nome
+  locationName: z.string().optional().nullable(),
   department: z.string().optional().nullable(),
-  responsiblePersonName: z.string().optional().nullable(), // Alterado para nome
+  responsiblePersonName: z.string().optional().nullable(),
   teamMembers: z.string().optional().nullable(),
   requiredPpe: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
@@ -29,7 +28,6 @@ const jsaStepSchema = z.object({
     controls: z.string().min(3),
 });
 
-// JsaInput para dbInsertJsa agora espera locationName e responsiblePersonName
 export type JsaInput = {
   task: string;
   locationName?: string | null;
@@ -74,15 +72,12 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
       console.log("[Action:addJsaWithAttachment] Nenhum arquivo de anexo encontrado ou o arquivo está vazio.");
     }
 
-    // A data 'reviewDate' já vem formatada como YYYY-MM-DD do JsaDialog, se fornecida
     const reviewDateFromForm = formData.get('reviewDate') as string | null;
 
     const jsaDataForValidation = {
         task: formData.get('task') as string,
-        // locationId não é mais usado, pegamos locationName
         locationName: (formData.get('locationName') as string) || null,
         department: (formData.get('department') as string) || null,
-        // responsiblePersonId não é mais usado, pegamos responsiblePersonName
         responsiblePersonName: (formData.get('responsiblePersonName') as string) || null,
         teamMembers: (formData.get('teamMembers') as string) || null,
         requiredPpe: (formData.get('requiredPpe') as string) || null,
@@ -93,17 +88,16 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
 
     console.log("[Action:addJsaWithAttachment] Dados para validação Zod (JSA):", jsaDataForValidation);
 
-    const validatedResult = jsaBaseSchemaServer.safeParse(jsaDataForValidation);
+    const validatedResult = jsaBaseSchemaServer.omit({ id: true }).safeParse(jsaDataForValidation);
     if (!validatedResult.success) {
       console.error("[Action:addJsaWithAttachment] Falha na validação Zod (JSA):", validatedResult.error.format());
       const errorMessages = validatedResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return { success: false, error: `Dados inválidos para JSA: ${errorMessages}${fileSaveError ? ` (Erro anexo: ${fileSaveError})` : ''}` };
     }
 
-    // Preparar os dados para dbInsertJsa, que agora espera JsaInput com os nomes
     const validatedJsaData: JsaInput = {
         ...validatedResult.data,
-        steps: [] // Steps não são tratados nesta action por enquanto
+        steps: []
     };
     console.log("[Action:addJsaWithAttachment] Dados validados para inserção no DB (JSA):", validatedJsaData);
 
@@ -125,10 +119,64 @@ export async function addJsaWithAttachment(formData: FormData): Promise<{ succes
     } catch (error) {
         console.error('[Action:addJsaWithAttachment] Erro ao adicionar JSA no banco:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao salvar JSA.';
-        // Retornar erro de anexo junto, se houver
         const finalErrorMessage = `${errorMessage}${fileSaveError ? ` (Erro anexo: ${fileSaveError})` : ''}`;
         return { success: false, error: `Erro ao adicionar JSA: ${finalErrorMessage}` };
     }
 }
 
-    
+export async function updateJsaAction(formData: FormData): Promise<{ success: boolean; error?: string; id?: number }> {
+    console.log("[Action:updateJsaAction] FormData recebido para atualização:");
+    formData.forEach((value, key) => console.log(`  ${key}: ${value}`));
+
+    // Lógica para lidar com arquivo (futuramente)
+    // Por enquanto, esta action não altera o anexo.
+
+    const reviewDateFromForm = formData.get('reviewDate') as string | null;
+
+    const jsaDataForValidation = {
+        id: parseInt(formData.get('id') as string, 10),
+        task: formData.get('task') as string,
+        locationName: (formData.get('locationName') as string) || null,
+        department: (formData.get('department') as string) || null,
+        responsiblePersonName: (formData.get('responsiblePersonName') as string) || null,
+        teamMembers: (formData.get('teamMembers') as string) || null,
+        requiredPpe: (formData.get('requiredPpe') as string) || null,
+        status: (formData.get('status') as string) || 'Rascunho',
+        reviewDate: reviewDateFromForm && reviewDateFromForm.trim() !== "" ? reviewDateFromForm : null,
+        // attachmentPath não é atualizado por esta action
+    };
+
+    console.log("[Action:updateJsaAction] Dados para validação Zod (Update):", jsaDataForValidation);
+
+    const validatedResult = jsaBaseSchemaServer.safeParse(jsaDataForValidation);
+    if (!validatedResult.success) {
+      console.error("[Action:updateJsaAction] Falha na validação Zod (Update):", validatedResult.error.format());
+      const errorMessages = validatedResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      return { success: false, error: `Dados inválidos para JSA: ${errorMessages}` };
+    }
+
+    const { id, ...dataToUpdate } = validatedResult.data;
+    if (!id) {
+        return { success: false, error: "ID da JSA é obrigatório para atualização." };
+    }
+
+    console.log(`[Action:updateJsaAction] Dados validados para atualização no DB (JSA ID: ${id}):`, dataToUpdate);
+
+    try {
+        const success = await dbUpdateJsa(id, dataToUpdate);
+        if (!success) {
+            console.error(`[Action:updateJsaAction] Falha ao atualizar JSA ${id} no banco, dbUpdateJsa retornou false.`);
+            throw new Error('Falha ao atualizar JSA no banco de dados.');
+        }
+
+        console.log(`[Action:updateJsaAction] JSA ${id} atualizada com sucesso.`);
+        revalidatePath('/seguranca-trabalho/inventario-jsa');
+        
+        return { success: true, id: id };
+
+    } catch (error) {
+        console.error(`[Action:updateJsaAction] Erro ao atualizar JSA ${id} no banco:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao salvar JSA.';
+        return { success: false, error: `Erro ao atualizar JSA: ${errorMessage}` };
+    }
+}

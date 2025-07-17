@@ -7,6 +7,7 @@ import {
     getAllEmployees as dbGetAllEmployees,
     getAllTrainings as dbGetAllTrainings,
     getAllJsas as dbGetAllJsas,
+    getJsaById as dbGetJsaById,
     getAllIncidents as dbGetAllIncidents,
     getAllAudits as dbGetAllAudits
 } from '@/lib/db';
@@ -33,6 +34,20 @@ type Jsa = {
     approval_date?: string | null;
     approver_id?: number | null;
 };
+
+// Type that matches the full data for the dialog
+type JsaData = {
+    id: number;
+    task: string;
+    locationName?: string | null;
+    department?: string | null;
+    responsiblePersonName?: string | null;
+    teamMembers?: string | null;
+    requiredPpe?: string | null;
+    status?: string | null;
+    reviewDate?: string | null;
+    attachmentPath?: string | null;
+}
 
 interface IncidentEntry {
   id: number;
@@ -70,9 +85,10 @@ interface AuditEntry {
 
 type FetchResult<T> = {
     success: boolean;
-    data?: T[];
+    data?: T | T[];
     error?: string;
 };
+
 
 export async function fetchLocations(): Promise<FetchResult<Location>> {
     try {
@@ -136,6 +152,37 @@ export async function fetchJsas(): Promise<FetchResult<Jsa>> {
         return { success: false, error: `Erro ao buscar JSAs: ${message}` };
     }
 }
+
+export async function fetchJsaByIdAction(id: number): Promise<FetchResult<JsaData>> {
+    console.log(`[dataFetchingActions] fetchJsaByIdAction: Buscando JSA com ID: ${id}`);
+    try {
+        const jsa = await dbGetJsaById(id);
+        if (jsa) {
+            // Mapeia os campos do DB para os campos esperados pelo Dialog/Form
+            const jsaData: JsaData = {
+                id: jsa.id,
+                task: jsa.task,
+                locationName: jsa.location_name,
+                department: jsa.department,
+                responsiblePersonName: jsa.responsible_person_name,
+                teamMembers: jsa.team_members,
+                requiredPpe: jsa.required_ppe,
+                status: jsa.status,
+                reviewDate: jsa.review_date,
+                attachmentPath: jsa.attachment_path,
+            };
+            console.log(`[dataFetchingActions] JSA ID ${id} encontrada e formatada:`, jsaData);
+            return { success: true, data: jsaData };
+        } else {
+            return { success: false, error: 'JSA não encontrada.' };
+        }
+    } catch (error) {
+        console.error(`[dataFetchingActions] Erro ao buscar JSA por ID (${id}):`, error);
+        const message = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
+        return { success: false, error: `Erro ao buscar JSA: ${message}` };
+    }
+}
+
 
 export async function fetchAllIncidentsAction(): Promise<FetchResult<IncidentEntry>> {
     console.log("fetchAllIncidentsAction: Iniciando busca de incidentes.");

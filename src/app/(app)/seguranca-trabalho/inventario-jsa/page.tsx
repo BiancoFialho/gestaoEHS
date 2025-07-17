@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { fetchJsas } from '@/actions/dataFetchingActions';
+import { fetchJsas, fetchJsaByIdAction } from '@/actions/dataFetchingActions';
 import { useToast } from "@/hooks/use-toast";
 
 interface JsaEntry {
@@ -23,8 +23,23 @@ interface JsaEntry {
     attachment_path: string | null;
 }
 
+// Tipo completo para edição, que o JsaDialog espera
+interface JsaDataForDialog {
+    id: number;
+    task: string;
+    locationName?: string | null;
+    department?: string | null;
+    responsiblePersonName?: string | null;
+    teamMembers?: string | null;
+    requiredPpe?: string | null;
+    status?: string | null;
+    reviewDate?: string | null; // YYYY-MM-DD
+    attachmentPath?: string | null;
+}
+
 export default function InventarioJsaPage() {
   const [isJsaDialogOpen, setJsaDialogOpen] = React.useState(false);
+  const [editingJsa, setEditingJsa] = React.useState<JsaDataForDialog | null>(null);
   const [jsaEntries, setJsaEntries] = React.useState<JsaEntry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -65,6 +80,7 @@ export default function InventarioJsaPage() {
   const handleDialogClose = (open: boolean) => {
     setJsaDialogOpen(open);
     if (!open) {
+      setEditingJsa(null); // Limpa os dados de edição ao fechar
       loadJsaData(); // Recarregar dados quando o diálogo é fechado
     }
   };
@@ -82,9 +98,31 @@ export default function InventarioJsaPage() {
     console.log(`View Steps for JSA ${id}`);
     toast({ title: "Funcionalidade Pendente", description: "Visualizar passos da JSA ainda não implementado."});
   }
-  const handleEdit = (id: number) => {
-      console.log(`Edit JSA ${id}`);
-      toast({ title: "Funcionalidade Pendente", description: "Editar JSA ainda não implementado."});
+
+  const handleEdit = async (id: number) => {
+    console.log(`[inventario-jsa] Edit JSA ${id} requested.`);
+    setIsLoading(true);
+    try {
+        const result = await fetchJsaByIdAction(id);
+        if (result.success && result.data) {
+            console.log("[inventario-jsa] JSA data fetched for editing:", result.data);
+            setEditingJsa(result.data as JsaDataForDialog); // Cast para o tipo completo
+            setJsaDialogOpen(true);
+        } else {
+            console.error(`[inventario-jsa] Failed to fetch JSA ${id}:`, result.error);
+            toast({ title: "Erro ao Buscar JSA", description: result.error, variant: "destructive" });
+        }
+    } catch (error) {
+        console.error(`[inventario-jsa] Exception fetching JSA ${id}:`, error);
+        toast({ title: "Erro Crítico", description: "Não foi possível carregar os dados da JSA para edição.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingJsa(null);
+    setJsaDialogOpen(true);
   };
 
 
@@ -105,7 +143,7 @@ export default function InventarioJsaPage() {
               <p className="text-sm text-muted-foreground">Segurança do Trabalho</p>
             </div>
          </div>
-         <Button onClick={() => setJsaDialogOpen(true)}>
+         <Button onClick={handleAddNew}>
              <PlusCircle className="mr-2 h-4 w-4" /> Adicionar JSA
          </Button>
       </div>
@@ -154,7 +192,7 @@ export default function InventarioJsaPage() {
                     <TableCell className="text-center">
                         {jsa.attachment_path ? (
                              <a
-                                href={jsa.attachment_path} // O path já deve ser /uploads/filename.ext
+                                href={jsa.attachment_path}
                                 download
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -183,7 +221,7 @@ export default function InventarioJsaPage() {
         </CardContent>
       </Card>
 
-       <JsaDialog open={isJsaDialogOpen} onOpenChange={handleDialogClose} />
+       <JsaDialog open={isJsaDialogOpen} onOpenChange={handleDialogClose} initialData={editingJsa} />
 
        <div className="mt-6 p-4 border rounded-lg bg-card text-card-foreground text-center">
             <p className="text-muted-foreground">A visualização e edição detalhada dos passos da JSA será implementada aqui.</p>
@@ -191,4 +229,3 @@ export default function InventarioJsaPage() {
     </div>
   );
 }
-
