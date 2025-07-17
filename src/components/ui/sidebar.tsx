@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slot } from "@radix-ui/react-slot"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
@@ -212,6 +212,11 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
+            {/* Added SheetHeader and SheetTitle for accessibility */}
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navegação Principal</SheetTitle>
+              <SheetDescription>Navegue pelas diferentes seções do painel.</SheetDescription>
+            </SheetHeader>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
         </Sheet>
