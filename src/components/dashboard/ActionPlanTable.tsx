@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '../ui/scroll-area';
 
 // --- Tipos ---
 interface ActionItem {
@@ -85,14 +86,15 @@ const getStatusBadgeVariant = (status: string | null | undefined) => {
 
 export default function ActionPlanTable({ items }: ActionPlanTableProps) {
   return (
-    <Card className="shadow-md border border-border mt-6">
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ListChecks className="h-5 w-5 text-primary" /> Plano de Ação Completo
+          <ListChecks className="h-5 w-5 text-primary" /> Plano de Ação
         </CardTitle>
-        <CardDescription>Lista de todas as ações, ordenadas por data de vencimento.</CardDescription>
+        <CardDescription>Ações pendentes e atrasadas, ordenadas por prioridade e prazo.</CardDescription>
       </CardHeader>
-      <CardContent className="pt-0 pb-2">
+      <CardContent className="pt-0 pb-2 flex-grow">
+        <ScrollArea className="h-[300px]">
          {items.length > 0 ? (
              <Table>
                 <TableHeader>
@@ -127,9 +129,9 @@ export default function ActionPlanTable({ items }: ActionPlanTableProps) {
          ) : (
              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma ação encontrada.</p>
          )}
+         </ScrollArea>
       </CardContent>
-       {/* O link para a página completa pode ser útil aqui */}
-       <CardFooter className="pt-2 pb-4 px-6">
+       <CardFooter className="pt-2 pb-4 px-6 mt-auto">
            <Link href="/seguranca-trabalho/plano-acao" className="flex items-center justify-end w-full text-sm text-primary hover:underline">
                Ver Plano de Ação Completo <ChevronRight className="h-4 w-4 ml-1" />
            </Link>

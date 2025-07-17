@@ -1,38 +1,53 @@
 
-// Marcar como Server Component (ou usar Server Actions)
-// "use client" removido pois vamos buscar dados no servidor
+// Marcar como Server Component
 
 import React from 'react';
-import { BarChart3 } from 'lucide-react'; // Ícone para o título da página
-import { getAllActionItemsSortedByDueDate } from '@/lib/db';
+import { LayoutDashboard } from 'lucide-react'; // Ícone para o título da página
+import { getAllActionItemsSortedByDueDate, getDashboardStats } from '@/lib/db';
 import DashboardCharts from '@/components/dashboard/charts'; // Componente cliente para gráficos
-import ActionPlanTable from '@/components/dashboard/ActionPlanTable'; // Importar o novo componente cliente para a tabela
+import ActionPlanTable from '@/components/dashboard/ActionPlanTable';
+import DashboardStatsCards from '@/components/dashboard/DashboardStatsCards'; // Novo componente de stats
+import DashboardAlerts from '@/components/dashboard/DashboardAlerts'; // Novo componente de alertas
 
 // --- Tipos ---
 interface ActionItem {
   id: number;
   description: string;
   origin: string | null;
-  responsible_name: string | null; // Nome do responsável vindo do JOIN
+  responsible_name: string | null;
   due_date: string;
   priority: string;
   status: string;
 }
 
 // --- Dados do Banco de Dados ---
-async function fetchAllActionItems(): Promise<ActionItem[]> {
+async function fetchData() {
   try {
-    const items = await getAllActionItemsSortedByDueDate(); // Busca todos os itens
-    console.log("All action items fetched:", items);
-    return items as ActionItem[];
+    // Usar Promise.all para buscar dados em paralelo
+    const [actionItems, stats] = await Promise.all([
+      getAllActionItemsSortedByDueDate(),
+      getDashboardStats(30) // Busca stats e itens vencendo nos próximos 30 dias
+    ]);
+    console.log("Dashboard stats fetched:", stats);
+    return { actionItems, stats };
   } catch (error) {
-    console.error("Erro ao buscar itens do plano de ação:", error);
-    return []; // Retorna array vazio em caso de erro
+    console.error("Erro ao buscar dados do dashboard:", error);
+    // Retornar um estado de erro ou valores padrão
+    return {
+      actionItems: [],
+      stats: {
+        employeeCount: 0,
+        jsaCount: 0,
+        trainingCount: 0,
+        expiringDocuments: [],
+        expiringTrainings: []
+      }
+    };
   }
 }
 
-export default async function EhsDashboardPage() { // Marcar como async para usar await
-  const allActionItems = await fetchAllActionItems(); // Buscar todos os itens
+export default async function EhsDashboardPage() {
+  const { actionItems, stats } = await fetchData();
 
   // Dados de exemplo para gráficos (mantidos)
   const incidentesQuaseAcidentesData = [
@@ -64,23 +79,36 @@ export default async function EhsDashboardPage() { // Marcar como async para usa
 
   return (
     <>
-      {/* Page Title */}
       <div className="flex items-center gap-2 mb-6">
-           <BarChart3 className="h-6 w-6 text-foreground" />
+           <LayoutDashboard className="h-6 w-6 text-foreground" />
            <div>
-              <h1 className="text-2xl font-semibold ">Página Inicial EHS</h1>
+              <h1 className="text-2xl font-semibold ">Dashboard EHS</h1>
               <p className="text-sm text-muted-foreground">Visão Geral de Segurança, Saúde e Meio Ambiente</p>
            </div>
       </div>
+
+      {/* Seção de Estatísticas */}
+      <DashboardStatsCards stats={stats} />
+
+      <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Seção de Alertas */}
+        <DashboardAlerts
+            expiringDocuments={stats.expiringDocuments}
+            expiringTrainings={stats.expiringTrainings}
+        />
+
+        {/* Action Plan Card - Renderiza o novo componente cliente para a tabela */}
+        <div className="xl:col-start-2 xl:row-start-1">
+             <ActionPlanTable items={actionItems} />
+        </div>
+      </div>
+
 
       {/* Renderizar o componente cliente para gráficos */}
       <DashboardCharts
         incidentesData={incidentesQuaseAcidentesData}
         atividadesData={atividadesSegurancaData}
       />
-
-      {/* Action Plan Card - Renderiza o novo componente cliente para a tabela */}
-      <ActionPlanTable items={allActionItems} />
 
     </>
   );

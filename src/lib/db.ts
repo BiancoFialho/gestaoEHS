@@ -1193,3 +1193,65 @@ export async function getAllKpis() {
   console.log(`[DB:getAllKpis] ${kpis.length} KPIs encontrados.`);
   return kpis;
 }
+
+// --- Dashboard ---
+export async function getDashboardStats(daysUntilExpiry: number = 30) {
+  const db = await getDbConnection();
+  console.log(`[DB:getDashboardStats] Buscando estatísticas e alertas para os próximos ${daysUntilExpiry} dias.`);
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const expiryLimitDate = new Date(Date.now() + daysUntilExpiry * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const employeeCountPromise = db.get('SELECT COUNT(*) as count FROM employees');
+    const jsaCountPromise = db.get('SELECT COUNT(*) as count FROM jsa');
+    const trainingCountPromise = db.get('SELECT COUNT(*) as count FROM trainings');
+
+    const expiringDocumentsPromise = db.all(`
+      SELECT id, title, review_date FROM documents
+      WHERE status = 'Ativo' AND review_date IS NOT NULL
+      AND review_date >= ? AND review_date <= ?
+      ORDER BY review_date ASC
+    `, today, expiryLimitDate);
+
+    const expiringTrainingsPromise = db.all(`
+      SELECT tr.id, e.name as employee_name, t.course_name, tr.expiry_date
+      FROM training_records tr
+      JOIN employees e ON tr.employee_id = e.id
+      JOIN trainings t ON tr.training_id = t.id
+      WHERE tr.expiry_date IS NOT NULL AND tr.expiry_date >= ? AND tr.expiry_date <= ?
+      ORDER BY tr.expiry_date ASC
+    `, today, expiryLimitDate);
+
+    const [
+      employeeCountResult,
+      jsaCountResult,
+      trainingCountResult,
+      expiringDocuments,
+      expiringTrainings,
+    ] = await Promise.all([
+      employeeCountPromise,
+      jsaCountPromise,
+      trainingCountPromise,
+      expiringDocumentsPromise,
+      expiringTrainingsPromise,
+    ]);
+
+    return {
+      employeeCount: employeeCountResult?.count ?? 0,
+      jsaCount: jsaCountResult?.count ?? 0,
+      trainingCount: trainingCountResult?.count ?? 0,
+      expiringDocuments,
+      expiringTrainings,
+    };
+  } catch (error) {
+    console.error("[DB:getDashboardStats] Erro ao buscar estatísticas do dashboard:", error);
+    // Retornar um objeto com valores padrão em caso de erro
+    return {
+      employeeCount: 0,
+      jsaCount: 0,
+      trainingCount: 0,
+      expiringDocuments: [],
+      expiringTrainings: [],
+    };
+  }
+}
