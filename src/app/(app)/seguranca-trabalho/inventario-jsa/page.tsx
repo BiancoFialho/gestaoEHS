@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import JsaDialog from '@/components/jsa/JsaDialog';
-import { fetchJsas, fetchJsaByIdAction, deleteJsaAction } from '@/actions/dataFetchingActions';
+import { fetchJsas, fetchJsaByIdAction } from '@/actions/dataFetchingActions';
+import { deleteJsaAction } from '@/actions/jsaActions';
 import { useToast } from "@/hooks/use-toast";
 
 interface JsaEntry {
@@ -290,4 +291,5 @@ export default function InventarioJsaPage() {
         </div>
     </div>
   );
-}
+
+    
