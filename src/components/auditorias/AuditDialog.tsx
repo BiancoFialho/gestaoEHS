@@ -35,7 +35,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"; // Embora não usado no form atual, pode ser útil
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { addAudit } from '@/actions/auditActions';
+import { addAudit, updateAuditAction } from '@/actions/auditActions';
 import type { AuditInput as AuditActionInputType } from '@/actions/auditActions';
 import { fetchUsers } from '@/actions/dataFetchingActions';
 
@@ -43,21 +43,21 @@ interface AuditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialData?: AuditInitialData | null;
-  onAuditAdded?: () => void; // Callback para notificar que uma auditoria foi adicionada
+  onAuditSaved?: () => void;
 }
 
 interface AuditInitialData {
-    id?: number;
+    id: number;
     type: string;
     scope: string;
-    auditDate: string; // YYYY-MM-DD
+    audit_date: string; // YYYY-MM-DD
     auditor: string;
-    leadAuditorId?: number | null;
+    lead_auditor_id?: number | null;
     status?: string | null;
 }
 
 const DATE_FORMAT_DISPLAY = "dd/MM/yyyy";
-const DATE_FORMAT_DB = "yyyy-MM-dd"; // Não usado diretamente no form, mas para referência
+const DATE_FORMAT_DB = "yyyy-MM-dd";
 
 const formSchema = z.object({
   type: z.string().min(1, "Tipo é obrigatório."),
@@ -67,7 +67,7 @@ const formSchema = z.object({
     return isValid(parse(val, DATE_FORMAT_DISPLAY, new Date()));
   }, { message: `Data inválida. Use ${DATE_FORMAT_DISPLAY}` }),
   auditor: z.string().min(2, { message: "Auditor(es) deve ter pelo menos 2 caracteres." }),
-  leadAuditorId: z.string().optional(), // Será string do select value
+  leadAuditorId: z.string().optional(),
   status: z.string().optional().default('Planejada'),
 });
 
@@ -78,12 +78,12 @@ const auditTypes = ["Interna", "Externa (Certificação)", "Externa (Cliente)", 
 const auditStatusOptions = ["Planejada", "Em Andamento", "Concluída", "Cancelada", "Atrasada"];
 const NONE_SELECT_VALUE = "__NONE__";
 
-const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialData, onAuditAdded }) => {
+const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialData, onAuditSaved }) => {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isEditMode = !!initialData?.id;
+  const isEditMode = !!initialData;
 
   const form = useForm<AuditFormValues>({
     resolver: zodResolver(formSchema),
@@ -102,7 +102,7 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
         try {
            const result = await fetchUsers();
            if (isMounted) {
-               if (result.success && result.data) setUsers(result.data as User[]); // Cast
+               if (result.success && result.data) setUsers(result.data as User[]);
                else { toast({ title: "Erro", description: result.error || "Não foi possível carregar usuários.", variant: "destructive" }); setUsers([]); }
            }
         } catch (error) {
@@ -117,9 +117,9 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
         form.reset({
             type: initialData.type || "",
             scope: initialData.scope || "",
-            auditDateString: initialData.auditDate ? format(parseISO(initialData.auditDate), DATE_FORMAT_DISPLAY) : "",
+            auditDateString: initialData.audit_date ? format(parseISO(initialData.audit_date), DATE_FORMAT_DISPLAY) : "",
             auditor: initialData.auditor || "",
-            leadAuditorId: initialData.leadAuditorId?.toString() || "",
+            leadAuditorId: initialData.lead_auditor_id?.toString() || "",
             status: initialData.status || "Planejada",
         });
       } else {
@@ -138,25 +138,25 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
     setIsSubmitting(true);
     console.log("[AuditDialog] onSubmit values:", values);
 
-    // A data já está como string no formato dd/MM/yyyy (auditDateString)
-    // A action cuidará de converter para YYYY-MM-DD
     const dataToSend: AuditActionInputType = {
+        id: isEditMode ? initialData?.id : undefined,
         type: values.type,
         scope: values.scope,
-        auditDateString: values.auditDateString, // Enviando a string como está
+        auditDateString: values.auditDateString,
         auditor: values.auditor,
-        leadAuditorId: values.leadAuditorId, // string vazia se "Nenhum" ou não selecionado
+        leadAuditorId: values.leadAuditorId,
         status: values.status,
     };
     console.log("[AuditDialog] Submitting to Action:", dataToSend);
 
     try {
-      const result = await addAudit(dataToSend); // Assumindo que addAudit fará a conversão de data
-      console.log("[AuditDialog] Result from addAudit action:", result);
+      const action = isEditMode ? updateAuditAction : addAudit;
+      const result = await action(dataToSend as any); // Cast to any to handle both add and update
+      console.log("[AuditDialog] Result from action:", result);
       if (result.success) {
         toast({ title: "Sucesso!", description: `Auditoria ${isEditMode ? 'atualizada' : 'agendada'} com sucesso.` });
-        onAuditAdded?.(); // Chamar o callback para atualizar a lista
-        onOpenChange(false); // Fechar o diálogo
+        onAuditSaved?.();
+        onOpenChange(false);
       } else {
          toast({ title: "Erro ao Salvar", description: result.error || `Falha ao ${isEditMode ? 'atualizar' : 'agendar'} auditoria.`, variant: "destructive" });
       }
@@ -179,7 +179,7 @@ const AuditDialog: React.FC<AuditDialogProps> = ({ open, onOpenChange, initialDa
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
             <FormField control={form.control} name="type" render={({ field }) => (
                 <FormItem><FormLabel>Tipo *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || ""} disabled={isLoadingUsers /* Pode manter desabilitado se o tipo depender de algo carregado */}>
+                <Select onValueChange={field.onChange} value={field.value || ""} disabled={isLoadingUsers}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo de auditoria" /></SelectTrigger></FormControl>
                     <SelectContent>{auditTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
                 </Select><FormMessage /></FormItem>

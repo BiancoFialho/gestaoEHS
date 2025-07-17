@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ClipboardCheck, PlusCircle, FileSearch, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ClipboardCheck, PlusCircle, FileSearch, CheckCircle, Clock, XCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import AuditDialog from '@/components/auditorias/AuditDialog'; // Importar o novo dialog
 import { useToast } from '@/hooks/use-toast';
 import { fetchAllAuditsAction } from '@/actions/dataFetchingActions';
+import { getAuditByIdAction } from '@/actions/auditActions';
 
 interface AuditEntry {
   id: number;
@@ -22,11 +23,11 @@ interface AuditEntry {
   lead_auditor_name?: string | null; // Nome do auditor líder vindo do JOIN
   status: string | null;
   non_conformities_count?: number; // Adicionado para a coluna "Não Conf."
-  // Adicione outros campos que podem vir do DB, como 'findings', 'report_path', etc.
 }
 
 export default function AuditoriasPage() {
   const [isAuditDialogOpen, setAuditDialogOpen] = useState(false);
+  const [editingAudit, setEditingAudit] = useState<AuditEntry | null>(null);
   const [audits, setAudits] = useState<AuditEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -69,12 +70,57 @@ export default function AuditoriasPage() {
 
   const handleDialogClose = (open: boolean) => {
     setAuditDialogOpen(open);
-    // Não precisa recarregar aqui se o callback onAuditAdded for usado
+    if (!open) {
+      setEditingAudit(null);
+    }
   };
 
-  const handleAuditAdded = () => {
-    console.log("[AuditoriasPage] handleAuditAdded chamado, recarregando auditorias.");
-    fetchAudits(); // Recarrega a lista após uma auditoria ser adicionada
+  const handleAuditSaved = () => {
+    console.log("[AuditoriasPage] handleAuditSaved chamado, recarregando auditorias.");
+    fetchAudits(); // Recarrega a lista após uma auditoria ser adicionada ou editada
+  };
+
+  const handleAddNewAudit = () => {
+    setEditingAudit(null);
+    setAuditDialogOpen(true);
+  };
+
+  const handleEditAudit = async (auditId: number) => {
+    console.log(`[AuditoriasPage] Editando auditoria ID: ${auditId}`);
+    setIsLoading(true);
+    try {
+      const result = await getAuditByIdAction(auditId);
+      if (result.success && result.data) {
+        setEditingAudit(result.data);
+        setAuditDialogOpen(true);
+      } else {
+        toast({
+          title: "Erro ao Carregar Auditoria",
+          description: result.error || "Não foi possível buscar os dados para edição.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro Crítico",
+        description: "Ocorreu um erro ao tentar editar a auditoria.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAudit = (auditId: number) => {
+    // Lógica para abrir o diálogo de deleção (não implementado neste commit)
+    console.log(`Deletar auditoria ID: ${auditId}`);
+    toast({ title: "Pendente", description: "Exclusão de auditoria ainda não implementada." });
+  };
+
+  const handleViewReport = (auditId: number) => {
+    // Lógica para visualizar relatório (não implementado neste commit)
+    console.log(`Visualizar relatório da auditoria ID: ${auditId}`);
+    toast({ title: "Pendente", description: "Visualização de relatório ainda não implementada." });
   };
 
     const getStatusIcon = (status: string | null) => {
@@ -109,19 +155,6 @@ export default function AuditoriasPage() {
     (audit.lead_auditor_name && audit.lead_auditor_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleEditAudit = (auditId: number) => {
-    // Lógica para abrir o diálogo em modo de edição (não implementado neste commit)
-    console.log(`Editar auditoria ID: ${auditId}`);
-    toast({ title: "Pendente", description: "Edição de auditoria ainda não implementada." });
-  };
-
-  const handleViewReport = (auditId: number) => {
-    // Lógica para visualizar relatório (não implementado neste commit)
-    console.log(`Visualizar relatório da auditoria ID: ${auditId}`);
-    toast({ title: "Pendente", description: "Visualização de relatório ainda não implementada." });
-  };
-
-
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-6">
@@ -132,7 +165,7 @@ export default function AuditoriasPage() {
               <p className="text-sm text-muted-foreground">Segurança do Trabalho</p>
             </div>
         </div>
-         <Button onClick={() => setAuditDialogOpen(true)}>
+         <Button onClick={handleAddNewAudit}>
              <PlusCircle className="mr-2 h-4 w-4" /> Agendar Auditoria
          </Button>
       </div>
@@ -188,9 +221,14 @@ export default function AuditoriasPage() {
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="sm" onClick={() => handleViewReport(audit.id)}>
-                         <FileSearch className="mr-1 h-4 w-4" /> Ver Relatório
+                         <FileSearch className="mr-1 h-4 w-4" /> Ver
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditAudit(audit.id)}>Editar</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleEditAudit(audit.id)} disabled={isLoading}>
+                        <Edit className="mr-1 h-4 w-4" /> Editar
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id)} disabled={isLoading} className="text-destructive hover:text-destructive">
+                         <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -209,7 +247,8 @@ export default function AuditoriasPage() {
       <AuditDialog
         open={isAuditDialogOpen}
         onOpenChange={handleDialogClose}
-        onAuditAdded={handleAuditAdded} // Passar o callback
+        onAuditSaved={handleAuditSaved}
+        initialData={editingAudit}
       />
     </div>
   );

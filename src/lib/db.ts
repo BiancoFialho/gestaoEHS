@@ -20,6 +20,15 @@ interface JsaInput {
   steps?: JsaStepInput[];
 }
 
+interface AuditData {
+    type: string;
+    scope: string;
+    audit_date: string;
+    auditor: string;
+    lead_auditor_id: number | null;
+    status: string;
+}
+
 
 // Variável global para armazenar a conexão do banco de dados
 let db: Database | null = null;
@@ -1106,6 +1115,28 @@ export async function insertAudit(
     }
 }
 
+export async function updateAudit(id: number, auditData: AuditData): Promise<boolean> {
+    const db = await getDbConnection();
+    const sql = `UPDATE audits SET
+                    type = ?, scope = ?, audit_date = ?, auditor = ?,
+                    lead_auditor_id = ?, status = ?
+                 WHERE id = ?`;
+    const params = [
+        auditData.type, auditData.scope, auditData.audit_date, auditData.auditor,
+        auditData.lead_auditor_id, auditData.status, id
+    ];
+    console.log(`[DB:updateAudit] Atualizando auditoria ID ${id} com dados:`, auditData);
+    try {
+        const result = await db.run(sql, ...params);
+        console.log('[DB:updateAudit] Auditoria atualizada com sucesso. Alterações:', result.changes);
+        return (result.changes ?? 0) > 0;
+    } catch (error) {
+        console.error(`[DB:updateAudit] Erro ao atualizar auditoria ID ${id}:`, error);
+        throw error;
+    }
+}
+
+
 export async function getAllAudits() {
     const db = await getDbConnection();
     console.log('[DB:getAllAudits] Buscando todas as auditorias.');
@@ -1117,6 +1148,14 @@ export async function getAllAudits() {
     `);
     console.log(`[DB:getAllAudits] ${audits.length} auditorias encontradas.`);
     return audits;
+}
+
+export async function getAuditById(id: number) {
+    const db = await getDbConnection();
+    console.log(`[DB:getAuditById] Buscando auditoria com ID: ${id}`);
+    const audit = await db.get('SELECT * FROM audits WHERE id = ?', id);
+    console.log(`[DB:getAuditById] Auditoria encontrada para ID ${id}:`, audit);
+    return audit;
 }
 
 
