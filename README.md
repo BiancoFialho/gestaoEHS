@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Gestão EHS - Painel de Controle
 
 Este é um projeto Next.js para um Painel de Controle de Gestão de Meio Ambiente, Saúde e Segurança (EHS).
@@ -76,3 +77,7 @@ A maneira mais simples de resolver isso durante o desenvolvimento é:
 ## Começando
 
 Para explorar a aplicação, comece navegando pelas diferentes seções do menu lateral após iniciar o servidor de desenvolvimento. A página inicial (`src/app/(app)/page.tsx`) serve como o dashboard principal.
+=======
+# gestaoEHS
+App de Gestão de EHS
+>>>>>>> 0367736720b710ddd4cb2e23eda04e4422783a1b
